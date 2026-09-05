@@ -502,7 +502,7 @@ function Home() {
             ) : mode === "review" ? (
               "All ducks give independent input, then Guide summarizes and asks one next question."
             ) : mode === "discussion" ? (
-              "All ducks review and discuss, then Guide summarizes and asks one next question."
+              "Mediator directs the ducks' discussion and brings you the result."
             ) : mode === "guide" ? (
               "Guide replies alone. Choose Independent review for everyone's input."
             ) : (

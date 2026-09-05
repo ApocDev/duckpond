@@ -12,6 +12,7 @@ import {
 } from "../lib/room";
 import { reply } from "./providers.server";
 import { saveRoom } from "./store.server";
+import { createDiscussion, participantInstructions } from "./discussion.server";
 
 export const liveRooms = new Map<string, { room: Room; approvals: Approval[] }>();
 export const activeTurns = new Map<string, AbortController>();
@@ -56,6 +57,13 @@ export async function runConversation(
   persist(room);
   emitRoom();
   const initial = structuredClone(room.messages);
+  const discussion =
+    mode === "discussion"
+      ? createDiscussion(room, messageId, signal, () => {
+          persist(room);
+          emitRoom();
+        })
+      : undefined;
 
   async function speak(duck: Duck, history: Message[], phase: Message["phase"]) {
     if (signal.aborted) return;
@@ -76,10 +84,11 @@ export async function runConversation(
     emit({ type: "message", message: { ...message } });
     try {
       const { system, prompt } = makePrompt(duck, history, phase, room.notes, room.ducks);
+      const roomTools = discussion?.participantTools(duck, message);
       await run(
         duck,
-        system,
-        prompt,
+        discussion ? `${system}\n\n${participantInstructions}` : system,
+        discussion && phase === "discussion" ? `${prompt}\n\n${discussion.context()}` : prompt,
         signal,
         (delta) => {
           message.text += delta;
@@ -97,6 +106,7 @@ export async function runConversation(
           }
           emit(event);
         },
+        roomTools,
       );
       message.status = signal.aborted ? "stopped" : "complete";
       if (phase === "observer" && message.text.trim() === "PASS")
@@ -110,19 +120,22 @@ export async function runConversation(
       if (!signal.aborted)
         message.text = `${message.text ? message.text + "\n\n" : ""}${error instanceof Error ? error.message : "The provider could not complete this reply."}`;
     }
+    const requests =
+      discussion?.state.requests.filter((request) => request.messageId === message.id) ?? [];
+    if (requests.length)
+      message.text += `\n\n${requests.map((request) => (request.kind === "question" ? `To @${request.to}: ${request.text}` : `Requested follow-up: ${request.text}`)).join("\n\n")}`;
     persist(room);
     emitRoom();
+    return message;
   }
 
   if (mode === "guide") {
     await speak(guide, initial, "guide");
   } else if (mode !== "conversation") {
     await Promise.all(room.ducks.map((duck) => speak(duck, initial, "review")));
-    if (mode === "discussion" && !signal.aborted) {
-      const reviews = structuredClone(room.messages);
-      await Promise.all(room.ducks.map((duck) => speak(duck, reviews, "discussion")));
-    }
-    if (!signal.aborted)
+    if (discussion) {
+      await discussion.moderate(run, speak, emit);
+    } else if (!signal.aborted)
       await speak(
         {
           ...guide,

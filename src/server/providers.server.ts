@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { createClaudeCode } from "ai-sdk-provider-claude-code";
+import { createClaudeCode, createSdkMcpServer, tool } from "ai-sdk-provider-claude-code";
 import { streamText } from "ai";
 import { z } from "zod";
 import type { Duck, RoomEvent } from "../lib/room";
@@ -11,6 +11,7 @@ import { dataDirectory } from "./store.server";
 import { questionFields, mcpFields } from "../lib/approval";
 import { askApproval } from "./approvals.server";
 import { codexReply } from "./codex.server";
+import { callRoomTool, type RoomTools } from "./room-tools.server";
 
 const exec = promisify(execFile);
 const claude = createClaudeCode();
@@ -55,9 +56,11 @@ export async function reply(
   signal: AbortSignal,
   onText: (text: string) => void,
   emit: (event: RoomEvent) => void,
+  roomTools?: RoomTools,
 ): Promise<void> {
   const cwd = await getAgentDirectory();
-  if (duck.provider === "codex") return codexReply(duck, cwd, system, prompt, signal, emit, onText);
+  if (duck.provider === "codex")
+    return codexReply(duck, cwd, system, prompt, signal, emit, onText, roomTools);
   const result = streamText({
     model: claude(duck.model || "default", {
       cwd,
@@ -66,6 +69,28 @@ export async function reply(
         ? z.enum(["low", "medium", "high", "xhigh", "max"]).parse(duck.reasoning)
         : undefined,
       settingSources: ["user", "project", "local"],
+      mcpServers: roomTools
+        ? {
+            room: createSdkMcpServer({
+              name: "room",
+              tools: roomTools.definitions.map((definition) =>
+                tool(
+                  definition.name,
+                  definition.description,
+                  definition.inputSchema.shape,
+                  async (input) => {
+                    const result = callRoomTool(roomTools, definition.name, input);
+                    return {
+                      content: [{ type: "text", text: result.text }],
+                      isError: !result.success,
+                    };
+                  },
+                ),
+              ),
+            }),
+          }
+        : undefined,
+      allowedTools: roomTools?.definitions.map((definition) => `mcp__room__${definition.name}`),
       permissionMode: "default",
       maxTurns: 20,
       onElicitation: async (request) => {
@@ -95,6 +120,8 @@ export async function reply(
       },
       env: { ...process.env, ANTHROPIC_API_KEY: undefined, ANTHROPIC_AUTH_TOKEN: undefined },
       canUseTool: async (name, input) => {
+        if (roomTools?.definitions.some((definition) => name === `mcp__room__${definition.name}`))
+          return { behavior: "allow", updatedInput: input };
         const response = await askApproval(
           {
             duck: duck.name,

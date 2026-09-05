@@ -85,6 +85,26 @@ export const messageSchema = z.object({
   createdAt: z.string(),
 });
 export type Message = z.infer<typeof messageSchema>;
+export const discussionSchema = z.object({
+  id: z.string(),
+  status: z.enum(["running", "complete", "stopped", "error"]),
+  turns: z.number().int().nonnegative(),
+  requests: z.array(
+    z.object({
+      id: z.string(),
+      from: z.string(),
+      to: z.string(),
+      messageId: z.string(),
+      replyTo: z.string().optional(),
+      kind: z.enum(["question", "turn"]),
+      text: z.string(),
+      status: z.enum(["open", "addressed", "deferred"]),
+      responseId: z.string().optional(),
+      reason: z.string().optional(),
+    }),
+  ),
+});
+export type Discussion = z.infer<typeof discussionSchema>;
 export const roomSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
@@ -92,6 +112,7 @@ export const roomSchema = z.object({
   messages: z.array(messageSchema),
   notes: z.string().max(20000),
   observe: z.boolean(),
+  discussions: z.array(discussionSchema).optional(),
   updatedAt: z.string(),
 });
 export type Room = z.infer<typeof roomSchema>;
@@ -163,9 +184,9 @@ export function makePrompt(
       (message) =>
         message.status === "complete" ||
         message.status === "stopped" ||
-        (phase === "guide" && message.status === "error"),
+        ((phase === "guide" || phase === "discussion") && message.status === "error"),
     )
-    .map(({ speaker, text, status }) => ({ speaker, text, status }));
+    .map(({ id, duckId, speaker, text, status }) => ({ id, duckId, speaker, text, status }));
   return {
     system: instruction,
     prompt: `Shared notes: ${JSON.stringify(notes)}\n\nConversation transcript, with speaker labels:\n${JSON.stringify(transcript)}\n\nRespond as ${duck.name}.`,

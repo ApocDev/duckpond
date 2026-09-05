@@ -46,10 +46,22 @@ tailscale serve --https=3998 off
 
 - **Conversation:** the selected duck replies. An explicit `@explorer`, `@skeptic`, or `@simplifier` overrides that selection. Multiple mentions invite multiple ducks.
 - **Independent review:** all ducks receive the same conversation snapshot. They do not see each other's current reviews while writing their own. Guide summarizes their input afterward and asks at most one next question.
-- **Discuss together:** independent reviews followed by one round of responses to those reviews, then a Guide summary. There is no unlimited automatic discussion loop.
+- **Discuss together:** independent reviews followed by a Mediator-led discussion. Ducks ask each other questions and request follow-ups through room tools. Mediator assigns one speaker at a time, then presents the recommendation, remaining disagreements, and at most one question for you.
 - **Guided conversation:** Guide replies alone, even if observers are enabled or you mention another duck. It helps work through unresolved choices one question at a time. Switch to Independent review to get everyone's input again.
 - **Observers:** opt in from room settings. Unaddressed ducks check completed replies and speak only if they have something to add. These checks consume subscription usage even when they stay quiet.
 - **Stop:** cancels the room's provider calls and pending approval requests. Completed and partial messages remain saved.
+
+Discuss together uses a dedicated Mediator running GPT-5.6-Sol with Medium reasoning. Each duck receives the full published transcript when it speaks. Initial assessments stay independent; subsequent responses also include the shared question queue. Waiting ducks are not continuously running. The app allows up to eight follow-up turns after the initial assessments and retains the 15-minute turn limit.
+
+The room tools are scoped to the current room and speaker:
+
+- `ask_duck` records a question for a named peer. `request_turn` records a concern the speaker wants to discuss.
+- `give_floor` lets Mediator choose one duck and the open requests it should address. It queues a decision; the app starts that duck only after Mediator finishes its invocation.
+- `finish_discussion` publishes the result. Mediator must explicitly defer every unanswered request with a reason. Deferred requests appear in the result. A completed response marks its assigned requests as addressed, which does not imply agreement or resolution.
+
+Requests, assignments, and published responses remain saved with the conversation. Failed or stopped answers leave their assigned requests open. The full exchange stays in the expandable reply group, with Mediator's result expanded. Guide remains the partner for Guided conversation and summaries of Independent review.
+
+Room tools use [Codex App Server dynamic tools](https://developers.openai.com/codex/app-server) and [Claude's in-process MCP tools](https://code.claude.com/docs/en/agent-sdk/custom-tools). They do not need user approval because they only coordinate the conversation. Native tools and their existing approval controls remain available.
 
 Room settings add and remove ducks, and edit their names, perspectives, outfits, provider, model, and reasoning level. Keep at least one duck in a room. Removal preserves earlier messages. Changes apply when you save the room.
 
@@ -67,7 +79,7 @@ On phones, touch tablets, and narrow windows, replies appear when each duck fini
 
 The transcript follows replies while you are at the bottom. Scrolling up or opening a duck's reply pauses following and preserves your reading position when other replies grow above it. **New replies** returns to the bottom and resumes following.
 
-**Summarize and guide** catches up on the current conversation and switches to Guided conversation. It preserves any unsent draft. Guide uses GPT-5.6-Sol with Medium reasoning through Codex, reads the transcript and shared notes, and separates decisions from suggestions and disagreements. Its summaries use an additional provider call after each review or discussion round. Guide keeps native tool access and the same approval controls as the other ducks. Stopping a round skips its remaining replies and automatic summary.
+**Summarize and guide** catches up on the current conversation and switches to Guided conversation. It preserves any unsent draft. Guide uses GPT-5.6-Sol with Medium reasoning through Codex, reads the transcript and shared notes, and separates decisions from suggestions and disagreements. Its summaries use an additional provider call after each Independent review round. Discuss together uses Mediator calls to direct the exchange and produce its result. Guide keeps native tool access and the same approval controls as the other ducks. Stopping a round skips its remaining replies and automatic summary.
 
 **Suggest a duck**, in room settings, asks GPT-5.6-Sol with Medium reasoning for one missing perspective using the conversation, current draft roster, and shared notes. It explains why the suggested persona would help, or says when another duck is unnecessary. The suggestion opens as an editable draft card. Save the room to add it, or remove the card to dismiss it. This uses the Codex subscription in a read-only session; the helper reads the supplied discussion and does not change the conversation. A request can be cancelled and has a two-minute limit.
 
@@ -93,6 +105,8 @@ vp test
 vp run build
 ```
 
-Tests cover independent review context, bounded discussion, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals across browser disconnects, and duck suggestions.
+Tests cover independent review context, sequential mediation, question ownership and deferral, discussion limits, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals across browser disconnects, and duck suggestions.
+
+Provider integration tests are opt-in and use the local subscriptions. Set `DUCKPOND_DATA_DIR` and `DUCKPOND_AGENT_CWD` to a temporary directory. Set `DUCKPOND_PROVIDER_INTEGRATION=1` to verify both room-tool bridges, or `DUCKPOND_DISCUSSION_INTEGRATION=1` for a complete discussion, then run `vp test src/server/room-tools.integration.test.ts`.
 
 The UI uses the base duck and four outfits in `public/brand/`. Their source artwork and generation prompts live in `design/duck-avatars/v1/`. Each duck chooses an outfit independently of its provider or persona.

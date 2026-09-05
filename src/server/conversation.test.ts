@@ -80,9 +80,11 @@ describe("conversation rounds", () => {
     expect(runner.mock.calls[1][2]).toContain("I like finding the fault");
     expect(value.ducks).toEqual(roster);
   });
-  it("keeps first opinions independent and makes all reviews available to the bounded second round", async () => {
+  it("mediates sequential questions with shared replies and explicit deferral", async () => {
     const value = room();
     const seen: { id: string; prompt: string }[] = [];
+    let mediatorTurns = 0;
+    let activeSpeakers = 0;
     await runConversation(
       value,
       "Would this be fun?",
@@ -91,24 +93,96 @@ describe("conversation rounds", () => {
       new AbortController().signal,
       emit,
       {
-        run: async (duck, _system, prompt, _signal, write) => {
-          seen.push({ id: duck.id, prompt });
-          write(`opinion-${duck.id}`);
-        },
         persist,
+        run: async (duck, _system, prompt, _signal, write, _emit, tools) => {
+          seen.push({ id: duck.id, prompt });
+          const state = value.discussions![0];
+          if (duck.id === "mediator") {
+            expect(activeSpeakers).toBe(0);
+            mediatorTurns++;
+            const questions = state.requests.filter(
+              (item) => item.kind === "question" && item.status === "open",
+            );
+            if (questions.length)
+              tools!.call("give_floor", {
+                duckId: questions[0].to,
+                prompt: "Answer your peer's objection.",
+                requestIds: [questions[0].id],
+              });
+            else
+              tools!.call("finish_discussion", {
+                summary: "Try one hand-authored diagnosis puzzle.",
+                disagreements: ["Skeptic still doubts replayability."],
+                question: "Do you want replayability or a short story?",
+                deferred: state.requests
+                  .filter((item) => item.status === "open")
+                  .map((item) => ({
+                    requestId: item.id,
+                    reason: "Depends on the person's answer.",
+                  })),
+              });
+            expect(() =>
+              tools!.call("give_floor", {
+                duckId: "explorer",
+                prompt: "Speak again",
+                requestIds: [],
+              }),
+            ).toThrow("One scheduling decision");
+            return;
+          }
+          activeSpeakers++;
+          const followup = mediatorTurns > 0;
+          if (followup) expect(activeSpeakers).toBe(1);
+          if (duck.id === "explorer" && !followup)
+            tools!.call("ask_duck", { duckId: "skeptic", question: "What makes repairs boring?" });
+          if (duck.id === "skeptic" && followup) {
+            expect(prompt).toContain("opinion-simplifier");
+            tools!.call("ask_duck", {
+              duckId: "simplifier",
+              question: "Can one authored puzzle avoid repetition?",
+            });
+            tools!.call("request_turn", { reason: "I still want to discuss replayability." });
+          }
+          if (duck.id === "simplifier" && followup) expect(prompt).toContain("revised-skeptic");
+          write(`${followup ? "revised" : "opinion"}-${duck.id}`);
+          await Promise.resolve();
+          activeSpeakers--;
+        },
       },
     );
-    expect(seen).toHaveLength(7);
+    expect(seen.map((item) => item.id)).toEqual([
+      "explorer",
+      "skeptic",
+      "simplifier",
+      "mediator",
+      "skeptic",
+      "mediator",
+      "simplifier",
+      "mediator",
+    ]);
     for (const entry of seen.slice(0, 3)) {
       expect(entry.prompt).toContain("Would this be fun?");
       expect(entry.prompt).not.toContain("opinion-");
+      expect(entry.prompt).not.toContain("What makes repairs boring?");
     }
-    for (const entry of seen.slice(3, 6))
-      for (const duck of defaults) expect(entry.prompt).toContain(`opinion-${duck.id}`);
-    expect(seen[6].id).toBe("guide");
-    for (const duck of defaults) expect(seen[6].prompt).toContain(`opinion-${duck.id}`);
-    expect(value.messages).toHaveLength(8);
-    expect(value.messages.at(-1)?.phase).toBe("guide");
+    expect(value.discussions![0]).toMatchObject({ status: "complete", turns: 2 });
+    expect(value.discussions![0].requests.map((item) => item.status)).toEqual([
+      "addressed",
+      "addressed",
+      "deferred",
+    ]);
+    for (const request of value.discussions![0].requests.filter(
+      (item) => item.status === "addressed",
+    ))
+      expect(value.messages.find((message) => message.id === request.responseId)?.duckId).toBe(
+        request.to,
+      );
+    expect(value.messages.at(-1)).toMatchObject({
+      speaker: "Mediator",
+      phase: "guide",
+      status: "complete",
+    });
+    expect(value.messages.at(-1)?.text).toContain("Still open:");
   });
   it("summarizes completed reviews and tells the guide which replies failed", async () => {
     const value = room();

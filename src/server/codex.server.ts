@@ -2,6 +2,7 @@ import { connectCodex, type CodexPacket } from "./codex-client.server";
 import { z } from "zod";
 import { questionFields, mcpFields } from "../lib/approval";
 import { askApproval } from "./approvals.server";
+import { callRoomTool, type RoomTools } from "./room-tools.server";
 import type { Duck, RoomEvent } from "../lib/room";
 
 /** App Server preserves native tool access and lets the UI answer permission requests. */
@@ -13,6 +14,7 @@ export async function codexReply(
   signal: AbortSignal,
   emit: (event: RoomEvent) => void,
   onText: (text: string) => void,
+  roomTools?: RoomTools,
 ) {
   const completion = Promise.withResolvers<void>();
   void completion.promise.catch(() => {});
@@ -24,6 +26,17 @@ export async function codexReply(
     const params = packet.params ?? {};
     if (packet.id !== undefined && packet.method) {
       const method = packet.method;
+      if (method === "item/tool/call") {
+        const result = callRoomTool(roomTools, String(params.tool), params.arguments);
+        send({
+          id: packet.id,
+          result: {
+            contentItems: [{ type: "inputText", text: result.text }],
+            success: result.success,
+          },
+        });
+        return;
+      }
       const needsInput =
         method === "item/tool/requestUserInput" || method === "mcpServer/elicitation/request";
       if (!needsInput && !method.endsWith("requestApproval")) {
@@ -123,6 +136,12 @@ export async function codexReply(
         cwd,
         model: duck.model || undefined,
         developerInstructions: system,
+        dynamicTools: roomTools?.definitions.map((definition) => ({
+          type: "function",
+          name: definition.name,
+          description: definition.description,
+          inputSchema: z.toJSONSchema(definition.inputSchema),
+        })),
         approvalPolicy: "on-request",
         sandbox: "workspace-write",
       }),
