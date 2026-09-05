@@ -18,6 +18,7 @@ import Markdown from "react-markdown";
 import { Settings } from "../components/settings";
 import { DuckAvatar } from "../components/duck-avatar";
 import { MentionInput } from "../components/mention-input";
+import { Transcript } from "../components/transcript";
 import {
   answerApproval,
   connections,
@@ -65,7 +66,6 @@ function Home() {
     initial.active.flatMap((item) => item.approvals),
   );
   const [activity, setActivity] = useState<Partial<Record<Duck["id"], string>>>({});
-  const bottom = useRef<HTMLDivElement>(null);
   const runningRoom = useRef<string | null>(null);
   const room = rooms.find((item) => item.id === selected);
   const ducks = room?.ducks ?? defaults;
@@ -128,9 +128,6 @@ function Home() {
       .then(setStatus)
       .catch(() => setError("Couldn't check provider connections."));
   }, []);
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "end" });
-  }, [room?.messages]);
 
   async function create() {
     setSaving(true);
@@ -282,7 +279,7 @@ function Home() {
             <ChevronDown size={13} />
           </button>
         </header>
-        <div className="transcript">
+        <Transcript key={selected}>
           {!room?.messages.length ? (
             <div className="welcome">
               <div className="welcome-mark">
@@ -324,10 +321,9 @@ function Home() {
               {room.messages.map((message) => (
                 <ChatMessage key={message.id} message={message} />
               ))}
-              <div ref={bottom} />
             </div>
           )}
-        </div>
+        </Transcript>
         <div className="composer-wrap">
           {error && (
             <div className="error-banner" role="alert">
@@ -510,7 +506,7 @@ function Home() {
 function ChatMessage({ message }: { message: Message }) {
   const human = !message.duckId;
   return (
-    <article className={`chat-message ${human ? "human-message" : ""}`}>
+    <article data-scroll-anchor className={`chat-message ${human ? "human-message" : ""}`}>
       {human ? (
         <span className="avatar human">J</span>
       ) : (

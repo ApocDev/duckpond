@@ -249,6 +249,7 @@ select {
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-color: #444444 transparent;
+  overflow-anchor: none;
 }
 .welcome {
   max-width: 490px;
