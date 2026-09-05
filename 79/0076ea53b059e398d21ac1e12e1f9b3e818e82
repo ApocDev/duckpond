@@ -1,0 +1,95 @@
+.cta.json
+  s_9d1c5a9b4e5822::t_773aaf62b649f6 1-17
+.env.example
+  s_9d1c5a9b4e5822::t_4efa2d9ef18347 1-6
+.gitignore
+  s_9d1c5a9b4e5822::t_59f2c684b37296 1-16
+.vscode/settings.json
+  s_9d1c5a9b4e5822::t_3696c7f2cfe3ac 1-11
+AGENTS.md
+  s_9d1c5a9b4e5822::t_dc188ad077257f 1-13
+README.md
+  s_9d1c5a9b4e5822::t_56b8669dcb6a30 1-83
+design/duck-avatars/v1/README.md
+  s_9d1c5a9b4e5822::t_e2ab2ca9f1a84e 1-28
+design/duck-avatars/v1/index.html
+  s_9d1c5a9b4e5822::t_f46ee83a9268f9 1-290
+design/duck-avatars/v1/manifest.json
+  s_9d1c5a9b4e5822::t_c5b32fb42964e2 1-77
+package.json
+  s_9d1c5a9b4e5822::t_48e12f31148cc7 1-52
+pnpm-lock.yaml
+  s_9d1c5a9b4e5822::t_4356b7853281df 1-5935
+pnpm-workspace.yaml
+  s_9d1c5a9b4e5822::t_ddceb24eb35151 1-16
+src/components/duck-avatar.tsx
+  s_9d1c5a9b4e5822::t_b9eba3df54d208 1-13
+src/components/mention-input.tsx
+  s_9d1c5a9b4e5822::t_5c892678c1af09 1-147
+src/components/settings.tsx
+  s_9d1c5a9b4e5822::t_6234dcbd9c1911 1-446
+src/lib/approval.ts
+  s_9d1c5a9b4e5822::t_d67443929ea92b 1-55
+src/lib/models.test.ts
+  s_9d1c5a9b4e5822::t_4049492a5e57bc 1-36
+src/lib/room.ts
+  s_9d1c5a9b4e5822::t_cbf2860f31a5be 1-156
+src/lib/suggestions.ts
+  s_9d1c5a9b4e5822::t_554bcc64d332b6 1-26
+src/routeTree.gen.ts
+  s_9d1c5a9b4e5822::t_e588e5c05eccde 1-86
+src/router.tsx
+  s_9d1c5a9b4e5822::t_ea1163acb9ed40 1-19
+src/routes/__root.tsx
+  s_9d1c5a9b4e5822::t_df4ee2f6129cf5 1-41
+src/routes/api.chat.ts
+  s_9d1c5a9b4e5822::t_f30c3b1b8d57c6 1-59
+src/server/access.server.ts
+  s_9d1c5a9b4e5822::t_78570d0c3c018a 1-18
+src/server/approvals.server.ts
+  s_9d1c5a9b4e5822::t_c9e04776d68ea6 1-29
+src/server/approvals.test.ts
+  s_9d1c5a9b4e5822::t_747920413814b9 1-28
+src/server/codex-client.server.ts
+  s_9d1c5a9b4e5822::t_82f0f2eb8ca107 1-91
+src/server/codex.server.ts
+  s_9d1c5a9b4e5822::t_a78b71cbb95204 1-139
+src/server/conversation.test.ts
+  s_9d1c5a9b4e5822::t_80eb896c9311d4 1-111
+src/server/providers.server.ts
+  s_9d1c5a9b4e5822::t_4e8e54f5d40ba7 1-131
+src/server/providers.test.ts
+  s_9d1c5a9b4e5822::t_c2266d7bf46fcc 1-69
+src/server/rooms.functions.ts
+  s_9d1c5a9b4e5822::t_04fbe449ea90b3 1-118
+src/server/store.server.ts
+  s_9d1c5a9b4e5822::t_29a24f15d4daae 1-43
+src/server/suggestions.server.ts
+  s_9d1c5a9b4e5822::t_6c450909cdfb7f 1-82
+src/server/suggestions.test.ts
+  s_9d1c5a9b4e5822::t_f400e87171ff1c 1-113
+src/styles.css
+  s_9d1c5a9b4e5822::t_0ee78df8083b31 1-1244
+tsconfig.json
+  s_9d1c5a9b4e5822::t_275f619574755a 1-28
+tsr.config.json
+  s_9d1c5a9b4e5822::t_499547f7d0065d 1-3
+vite.config.ts
+  s_9d1c5a9b4e5822::t_437e75b4d09f71 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "790076ea53b059e398d21ac1e12e1f9b3e818e82",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
