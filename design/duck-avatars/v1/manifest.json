@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "status": "design-preview",
+  "tool": "image_gen.imagegen",
+  "base": {
+    "output": "base.png",
+    "prompt": "prompts/base.txt",
+    "references": []
+  },
+  "template": "prompts/outfit-template.txt",
+  "variants": [
+    {
+      "id": "explorer",
+      "output": "explorer.png",
+      "steps": [
+        {
+          "prompt": "prompts/explorer.txt",
+          "references": ["base.png"],
+          "output": "sources/explorer-with-background.png"
+        },
+        {
+          "prompt": "prompts/remove-background.txt",
+          "references": ["sources/explorer-with-background.png"],
+          "output": "explorer.png"
+        }
+      ]
+    },
+    {
+      "id": "detective",
+      "output": "detective.png",
+      "steps": [
+        {
+          "prompt": "prompts/detective.txt",
+          "references": ["base.png"],
+          "output": "sources/detective-with-background.png"
+        },
+        {
+          "prompt": "prompts/remove-background.txt",
+          "references": ["sources/detective-with-background.png"],
+          "output": "detective.png"
+        }
+      ]
+    },
+    {
+      "id": "builder",
+      "output": "builder.png",
+      "steps": [
+        {
+          "prompt": "prompts/builder.txt",
+          "references": ["base.png"],
+          "output": "sources/builder-with-background.png"
+        },
+        {
+          "prompt": "prompts/remove-background.txt",
+          "references": ["sources/builder-with-background.png"],
+          "output": "builder.png"
+        }
+      ]
+    },
+    {
+      "id": "wizard",
+      "output": "wizard.png",
+      "steps": [
+        {
+          "prompt": "prompts/wizard.txt",
+          "references": ["base.png"],
+          "output": "sources/wizard-with-background.png"
+        },
+        {
+          "prompt": "prompts/remove-background.txt",
+          "references": ["sources/wizard-with-background.png"],
+          "output": "wizard.png"
+        }
+      ]
+    }
+  ]
+}

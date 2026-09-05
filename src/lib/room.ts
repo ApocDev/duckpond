@@ -1,0 +1,156 @@
+import { z } from "zod";
+import type { ApprovalField } from "./approval";
+import type { UIMessage } from "ai";
+
+export const providerSchema = z.enum(["claude", "codex"]);
+export const avatarSchema = z.enum(["base", "explorer", "detective", "builder", "wizard"]);
+export const duckSchema = z.object({
+  id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+  name: z.string().trim().min(1).max(32),
+  provider: providerSchema,
+  model: z.string().trim().max(120),
+  reasoning: z.string().trim().max(32).optional(),
+  avatar: avatarSchema.optional(),
+  instructions: z.string().trim().min(1).max(4000),
+});
+export type Duck = z.infer<typeof duckSchema>;
+export const ducksSchema = z
+  .array(duckSchema)
+  .min(1, "Keep at least one duck in the room.")
+  .refine(
+    (ducks) => new Set(ducks.map((duck) => duck.id)).size === ducks.length,
+    "Duck handles must be unique.",
+  );
+
+export function duckAvatar(duck: Pick<Duck, "id" | "avatar">) {
+  return (
+    duck.avatar ??
+    (duck.id === "explorer"
+      ? "explorer"
+      : duck.id === "skeptic"
+        ? "detective"
+        : duck.id === "simplifier"
+          ? "builder"
+          : "base")
+  );
+}
+export const defaults: Duck[] = [
+  {
+    id: "explorer",
+    name: "Explorer",
+    provider: "claude",
+    model: "sonnet",
+    instructions:
+      "Explore possibilities. Ask helpful questions about what the person wants. Offer concrete alternatives without turning every conversation into a plan.",
+  },
+  {
+    id: "skeptic",
+    name: "Skeptic",
+    provider: "codex",
+    model: "",
+    instructions:
+      "Find consequential weak assumptions, missing evidence, and failure modes. Be direct but constructive. You can agree or have nothing to add. Never manufacture objections.",
+  },
+  {
+    id: "simplifier",
+    name: "Simplifier",
+    provider: "claude",
+    model: "sonnet",
+    instructions:
+      "Find the simplest approach that preserves what the person values. Reduce unnecessary effort and scope. Don't remove the appealing part of an idea just to make it smaller.",
+  },
+];
+export const messageSchema = z.object({
+  id: z.string(),
+  speaker: z.string(),
+  duckId: duckSchema.shape.id.optional(),
+  provider: providerSchema.optional(),
+  model: z.string().optional(),
+  reasoning: z.string().optional(),
+  avatar: avatarSchema.optional(),
+  text: z.string(),
+  tools: z.array(z.string()).optional(),
+  status: z.enum(["thinking", "complete", "stopped", "error"]),
+  phase: z.enum(["conversation", "review", "discussion", "observer"]),
+  createdAt: z.string(),
+});
+export type Message = z.infer<typeof messageSchema>;
+export const roomSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  ducks: ducksSchema,
+  messages: z.array(messageSchema),
+  notes: z.string().max(20000),
+  observe: z.boolean(),
+  updatedAt: z.string(),
+});
+export type Room = z.infer<typeof roomSchema>;
+export const modeSchema = z.enum(["conversation", "review", "discussion"]);
+export type Mode = z.infer<typeof modeSchema>;
+export const turnSchema = z.object({
+  roomId: z.string().uuid(),
+  text: z.string().trim().min(1).max(20000),
+  mode: modeSchema,
+  target: duckSchema.shape.id,
+});
+export type RoomEvent =
+  | { type: "room"; room: Room }
+  | { type: "message"; message: Message }
+  | { type: "error"; message: string }
+  | { type: "approval"; approval: Approval }
+  | { type: "resolved"; id: string }
+  | { type: "activity"; duckId: Duck["id"]; label: string };
+export type Approval = {
+  id: string;
+  duck: string;
+  title: string;
+  detail: string;
+  input: boolean;
+  fields?: ApprovalField[];
+  url?: string;
+};
+export type RoomStream = UIMessage<never, { room: RoomEvent }>;
+
+/** Explicit mentions take precedence over the selected conversation partner. */
+export function selectDucks(ducks: Duck[], text: string, target: Duck["id"]): Duck[] {
+  const mentions = new Set([...text.matchAll(/@([\w-]+)/g)].map((match) => match[1].toLowerCase()));
+  const selected = ducks.filter(
+    (duck) => mentions.has(duck.id) || mentions.has(duck.name.toLowerCase().replace(/\s+/g, "-")),
+  );
+  return selected.length
+    ? selected
+    : [ducks.find((duck) => duck.id === target) ?? ducks[0]].filter((duck): duck is Duck => !!duck);
+}
+
+export function makePrompt(
+  duck: Duck,
+  messages: Message[],
+  phase: Message["phase"],
+  notes: string,
+  ducks: Duck[] = [],
+) {
+  const instruction = [
+    `You are ${duck.name}, one participant in Duckpond, a shared conversation with a person and other AI ducks.`,
+    duck.instructions,
+    "Talk to the person naturally. Be concise, usually one to three short paragraphs. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Cite sources when researching. Never claim a tool result you haven't obtained.",
+    `Current participants: ${ducks.map((item) => `${item.name} (@${item.id})`).join(", ")}. You may suggest asking another participant for a perspective. Mentions in your reply do not automatically trigger another turn.`,
+    phase === "review"
+      ? "Give your independent assessment. Other ducks' assessments for this round are intentionally hidden."
+      : "",
+    phase === "discussion"
+      ? "Respond to a specific point from the other ducks' independent reviews. Add a useful disagreement, clarification, or question. Don't restate all the reviews."
+      : "",
+    phase === "observer"
+      ? "You are observing. Respond ONLY if you have a consequential point or question that hasn't been covered. Otherwise reply exactly PASS. Don't join just to agree."
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const transcript = messages
+    .filter((message) => message.status === "complete" || message.status === "stopped")
+    .map(({ speaker, text }) => ({ speaker, text }));
+  return {
+    system: instruction,
+    prompt: `Shared notes: ${JSON.stringify(notes)}\n\nConversation transcript, with speaker labels:\n${JSON.stringify(transcript)}\n\nRespond as ${duck.name}.`,
+  };
+}
