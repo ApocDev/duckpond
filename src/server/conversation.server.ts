@@ -1,5 +1,6 @@
 import {
   makePrompt,
+  visibleMessages,
   selectDucks,
   duckAvatar,
   guide,
@@ -12,7 +13,11 @@ import {
 } from "../lib/room";
 import { reply } from "./providers.server";
 import { saveRoom } from "./store.server";
-import { createDiscussion, participantInstructions } from "./discussion.server";
+import {
+  createDiscussion,
+  participantInstructions,
+  inactiveParticipantTools,
+} from "./discussion.server";
 
 export const liveRooms = new Map<string, { room: Room; approvals: Approval[] }>();
 export const activeTurns = new Map<string, AbortController>();
@@ -84,19 +89,29 @@ export async function runConversation(
     room.messages.push(message);
     emit({ type: "message", message: { ...message } });
     try {
-      const { system, prompt } = makePrompt(
-        duck,
-        history,
-        phase,
-        room.notes,
-        room.ducks,
-        phase !== "guide" && !discussion?.assignedTo(duck.id),
-      );
-      const roomTools = discussion?.participantTools(duck, message);
+      const buildPrompt = (messages: Message[]) => {
+        const { prompt } = makePrompt(
+          duck,
+          messages,
+          phase,
+          room.notes,
+          room.ducks,
+          phase !== "guide" && !discussion?.assignedTo(duck.id),
+        );
+        return `${prompt}\n\nCurrent mode: ${mode}. Your published reply ID: ${message.id}.${
+          discussion && phase === "discussion" ? `\n\n${discussion.context()}` : ""
+        }${
+          mode === "review" && phase === "guide"
+            ? "\nSummarize the round that just finished. Give one concise synthesis and at most one next question. If replies failed or stopped, say the review is incomplete."
+            : ""
+        }`;
+      };
+      const { system } = makePrompt(duck, [], phase, "");
+      const roomTools = discussion?.participantTools(duck, message) ?? inactiveParticipantTools;
       await run(
         duck,
-        discussion ? `${system}\n\n${participantInstructions}` : system,
-        discussion && phase === "discussion" ? `${prompt}\n\n${discussion.context()}` : prompt,
+        `${system}\n\n${participantInstructions}`,
+        buildPrompt(history),
         signal,
         (delta) => {
           message.text += delta;
@@ -118,6 +133,12 @@ export async function runConversation(
           emit(event);
         },
         roomTools,
+        {
+          roomId: room.id,
+          messages: visibleMessages(history, phase),
+          responseId: message.id,
+          makePrompt: buildPrompt,
+        },
       );
       message.status = signal.aborted ? "stopped" : "complete";
       if (!message.text.trim() && !signal.aborted) {
@@ -151,15 +172,7 @@ export async function runConversation(
     await discussion.moderate(run, speak, emit);
   } else if (mode === "review") {
     await Promise.all(room.ducks.map((duck) => speak(duck, initial, "review")));
-    if (!signal.aborted)
-      await speak(
-        {
-          ...guide,
-          instructions: `${guide.instructions}\nSummarize the round that just finished. Give the person one concise synthesis of the ducks' input and at most one next question. If replies failed or stopped, say the review is incomplete.`,
-        },
-        structuredClone(room.messages),
-        "guide",
-      );
+    if (!signal.aborted) await speak(guide, structuredClone(room.messages), "guide");
   } else {
     const selected = selectDucks(room.ducks, text, target);
     await Promise.all(selected.map((duck) => speak(duck, initial, "conversation")));

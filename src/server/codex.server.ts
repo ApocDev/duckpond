@@ -1,3 +1,4 @@
+import { codexUsageTracker, type NativeSession } from "./sessions.server";
 import { connectCodex, type CodexPacket } from "./codex-client.server";
 import { z } from "zod";
 import { questionFields, mcpFields } from "../lib/approval";
@@ -15,7 +16,9 @@ export async function codexReply(
   emit: (event: RoomEvent) => void,
   onText: (text: string) => void,
   roomTools?: RoomTools,
+  session?: NativeSession,
 ) {
+  const usage = codexUsageTracker((tokens) => session?.usage(tokens));
   const completion = Promise.withResolvers<void>();
   void completion.promise.catch(() => {});
   const client = connectCodex(cwd, signal, handle);
@@ -24,6 +27,8 @@ export async function codexReply(
   let lastTextItem: string | undefined;
   async function handle(packet: CodexPacket) {
     const params = packet.params ?? {};
+    if (packet.method === "thread/tokenUsage/updated") usage.update(params.tokenUsage);
+    if (packet.method === "turn/started") session?.accepted();
     if (packet.id !== undefined && packet.method) {
       const method = packet.method;
       if (method === "item/tool/call") {
@@ -125,6 +130,7 @@ export async function codexReply(
         .parse(params.turn);
       if (turn.status === "failed")
         completion.reject(new Error(turn.error?.message ?? "Codex turn failed"));
+      else if (turn.status === "interrupted") completion.reject(new Error("Codex turn stopped"));
       else completion.resolve();
     }
   }
@@ -132,25 +138,31 @@ export async function codexReply(
     signal.throwIfAborted();
     await client.initialize();
     const result = z.object({ thread: z.object({ id: z.string() }) }).parse(
-      await request("thread/start", {
+      await request(session?.id ? "thread/resume" : "thread/start", {
+        ...(session?.id ? { threadId: session.id, excludeTurns: true } : {}),
         cwd,
         model: duck.model || undefined,
         developerInstructions: system,
-        dynamicTools: roomTools?.definitions.map((definition) => ({
-          type: "function",
-          name: definition.name,
-          description: definition.description,
-          inputSchema: z.toJSONSchema(definition.inputSchema),
-        })),
+        dynamicTools: session?.id
+          ? undefined
+          : roomTools?.definitions.map((definition) => ({
+              type: "function",
+              name: definition.name,
+              description: definition.description,
+              inputSchema: z.toJSONSchema(definition.inputSchema),
+            })),
         approvalPolicy: "on-request",
         sandbox: "workspace-write",
       }),
     );
+    session?.opened(result.thread.id);
+    usage.start();
     await request("turn/start", {
       threadId: result.thread.id,
       effort: duck.reasoning || undefined,
       input: [{ type: "text", text: prompt }],
     });
+    session?.accepted();
     await Promise.race([completion.promise, client.disconnected]);
   } finally {
     client.close();

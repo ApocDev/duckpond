@@ -380,7 +380,7 @@ it.each(["conversation", "review", "discussion"] as const)(
             });
           } else if (duck.id === "guide") write("Use the relevant engine assessment.");
           else {
-            expect(system).toContain("persona is a perspective, not an obligation");
+            expect(prompt).toContain("persona is a perspective, not an obligation");
             if (duck.id === "explorer") {
               // A normal response starting with the sentinel prefix must still stream.
               write("P");

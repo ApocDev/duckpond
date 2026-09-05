@@ -51,7 +51,7 @@ tailscale serve --https=3998 off
 - **Observers:** opt in from room settings. Unaddressed ducks check completed replies and speak only if they have something to add. These checks consume subscription usage even when they stay quiet.
 - **Stop:** cancels the room's provider calls and pending approval requests. Completed and partial messages remain saved.
 
-Discuss together uses a dedicated Mediator running GPT-5.6-Sol with Medium reasoning. Each duck receives the full published transcript when it speaks. Mediator reads short approvals together with the proposal they answer and proceeds within that approved scope. Initial assessments stay independent; subsequent responses also include the shared question queue. Waiting ducks are not continuously running. The app allows up to eight follow-up or work turns, with one optional independent review and retains the 15-minute turn limit.
+Discuss together uses a dedicated Mediator running GPT-5.6-Sol with Medium reasoning. Each duck retains the published transcript in its provider session and receives unseen room messages when it speaks. Mediator reads short approvals together with the proposal they answer and proceeds within that approved scope. Initial assessments stay independent; subsequent responses also include the shared question queue. Waiting ducks are not continuously running. The app allows up to eight follow-up or work turns, with one optional independent review and retains the 15-minute turn limit.
 
 Ducks check whether their perspective is relevant before contributing. If they have nothing substantive to add, they return `PASS` and no reply is shown. A small useful point can be one sentence. Passing does not mean agreement or count as answering an assigned question. Mediator sees which ducks passed and invites them again only if a new issue needs their expertise. The initial relevance checks still use the ducks' subscriptions.
 
@@ -91,7 +91,7 @@ The transcript follows replies while you are at the bottom. Scrolling up or open
 
 Model lists come from the connected providers: Claude Agent SDK model discovery and Codex App Server `model/list`. Reasoning options depend on the selected model. Lists cache for five minutes and can be refreshed from settings. A blank model uses the provider default. Unsupported model/effort combinations are rejected when changed.
 
-Conversations, settings, notes, and completed or stopped responses are stored in `.data/duckpond.sqlite`. The `.data/` directory and `.env` files stay local and are excluded from Git. Leaving or closing the browser tab does not cancel a turn. The server continues until the replies finish, you press Stop, or the 15-minute turn limit expires. Returning to the tab, reconnecting, or reloading refreshes the room and its pending approval requests. While reconnecting to a running turn, the app polls its progress every two seconds. It does not resend the message. If a submission never reached the server, the app restores it to an empty draft for you to retry. Runtime state is not durable across a server restart.
+Conversations, settings, notes, and completed or stopped responses are stored in `.data/duckpond.sqlite`. The `.data/` directory and `.env` files stay local and are excluded from Git. Leaving or closing the browser tab does not cancel a turn. The server continues until the replies finish, you press Stop, or the 15-minute turn limit expires. Returning to the tab, reconnecting, or reloading refreshes the room and its pending approval requests. While reconnecting to a running turn, the app polls its progress every two seconds. It does not resend the message. If a submission never reached the server, the app restores it to an empty draft for you to retry. A server restart stops active work. Saved provider sessions remain available for the next turn; the app does not automatically rerun an interrupted task.
 
 ## Provider access
 
@@ -101,7 +101,25 @@ Ducks retain native tools, skills, and MCP configuration. Claude loads user, pro
 
 `DUCKPOND_AGENT_CWD` selects the working directory for both providers and their project-specific tools/settings. The default is `.data/agent`. Set it to a project directory when you want that project's configuration. `DUCKPOND_CLAUDE_BIN` can specify an absolute Claude executable path for a bundled build.
 
-Each reply starts a fresh provider session with the shared transcript and notes. This keeps independent reviews separate, but repeats context and costs more than resuming provider sessions. Turns have a 15-minute limit; Claude has a 20-turn tool limit per reply. There is no automatic paid-API fallback.
+Each room keeps one native provider session per duck, including Guide and Mediator. Claude resumes its saved session ID; Codex resumes its saved thread across App Server connections. SQLite stores the IDs and delivered-message hashes. Native conversation files stay in the providers' local storage, so back those up alongside Duckpond's database.
+
+The first call for a duck sends the room history once. Later calls append unseen or changed published messages. The provider already retains its own replies. Independent reviews receive only the frozen room snapshot, so they cannot see peers' current reviews. Persona instructions and room-tool definitions stay stable across conversation modes; current mode, roster, notes, assignments, and passing rules arrive with the next turn. Room coordination tools only execute during a mediated discussion.
+
+Changing a duck's provider, model, name/persona, tool definitions, or working directory starts a separate session with the room history. Changing reasoning effort or switching modes keeps the session. A missing or failed native session does not silently fall back to resending the full history. Rooms without saved session IDs need one initial setup call per duck. No provider calls run as part of setup or migration.
+
+Session reuse supports prefix caching, but does not guarantee a cache hit. Cache expiry, native compaction, provider settings, and tool configuration can affect reuse. Cached input still counts as input tokens, and subscription allowance accounting is controlled by the provider. Turns have a 15-minute limit; Claude has a 20-turn tool limit per reply. There is no automatic paid-API fallback.
+
+## Usage
+
+`GET /api/usage` returns recorded input, output, cache-read, cache-write, and reasoning tokens. It includes call counts, resumed calls, failures, stopped calls, and unfinished calls, grouped by room, duck, selected provider/model, and reasoning setting. Guide, Mediator, observer checks, passes, and Suggest a duck all count. The endpoint uses the same hostname checks as the rest of the app.
+
+- `/api/usage?roomId=ROOM_ID` filters one room.
+- `/api/usage?provider=claude` filters one provider.
+- `/api/usage?calls=1` includes individual calls, new-message counts, and prompt sizes.
+
+Records persist in the `provider_usage` table in `.data/duckpond.sqlite`. Tracking starts when calls run through this version; earlier usage is not backfilled. Reading the report makes no provider calls.
+
+Input totals include cached input; cache counts are subsets, not extra tokens. Reasoning counts are part of output. Missing counts remain null on individual calls, and totals report how many calls supplied each measurement. Claude's final totals include reported subagent and compaction usage. Codex counts each reported inference in the reply, including native tool steps, without counting repeated notifications twice. Failed or stopped calls may provide only partial usage; calls interrupted by a server restart can remain unfinished. These are provider-reported token counts, not subscription percentages or dollar charges.
 
 ## Development
 
@@ -111,8 +129,10 @@ vp test
 vp run build
 ```
 
-Tests cover independent review context, sequential mediation, question ownership and deferral, discussion limits, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals across browser disconnects, and duck suggestions.
+Tests cover independent review context, sequential mediation, question ownership and deferral, discussion limits, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals across browser disconnects, duck suggestions, persisted provider sessions, incremental context, and token accounting.
 
 Provider integration tests are opt-in and use the local subscriptions. Set `DUCKPOND_DATA_DIR` and `DUCKPOND_AGENT_CWD` to a temporary directory. Set `DUCKPOND_PROVIDER_INTEGRATION=1` to verify both room-tool bridges, `DUCKPOND_DISCUSSION_INTEGRATION=1` for a complete discussion, or `DUCKPOND_ACTION_INTEGRATION=1` for a real file inspection with assignment and result review, then run `vp test src/server/room-tools.integration.test.ts`.
+
+`DUCKPOND_SESSION_INTEGRATION=1 vp test src/server/sessions.integration.test.ts` checks two short Codex turns across separate connections, including remembered context and room-tool access. It also requires isolated data and agent directories and consumes subscription usage.
 
 The UI uses the base duck and four outfits in `public/brand/`. Their source artwork and generation prompts live in `design/duck-avatars/v1/`. Each duck chooses an outfit independently of its provider or persona.

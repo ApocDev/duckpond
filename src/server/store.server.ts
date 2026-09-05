@@ -41,3 +41,29 @@ export function createRoom() {
     updatedAt: new Date().toISOString(),
   });
 }
+
+// Provider transcripts live in the native CLIs; SQLite stores their IDs and delivery cursors.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS provider_sessions (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS provider_usage (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+`);
+export function readProviderSession(id: string): unknown {
+  const row = db.prepare("SELECT payload FROM provider_sessions WHERE id = ?").get(id);
+  return row ? JSON.parse(rowSchema.parse(row).payload) : undefined;
+}
+export function saveProviderSession(id: string, payload: unknown) {
+  db.prepare(
+    "INSERT INTO provider_sessions VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
+  ).run(id, JSON.stringify(payload));
+}
+export function saveProviderUsage(id: string, payload: unknown) {
+  db.prepare(
+    "INSERT INTO provider_usage VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
+  ).run(id, JSON.stringify(payload));
+}
+export function listProviderUsage(): unknown[] {
+  return db
+    .prepare("SELECT payload FROM provider_usage ORDER BY rowid")
+    .all()
+    .map((row) => JSON.parse(rowSchema.parse(row).payload));
+}

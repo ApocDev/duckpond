@@ -8,6 +8,11 @@ vi.mock("./codex-client.server", () => ({ connectCodex: mocks.connect }));
 vi.mock("./providers.server", () => ({
   getAgentDirectory: async () => "/agent",
 }));
+vi.mock("./store.server", () => ({
+  readProviderSession: vi.fn(),
+  saveProviderSession: vi.fn(),
+  saveProviderUsage: vi.fn(),
+}));
 import { suggestParticipant } from "./suggestions.server";
 
 const context: Pick<Room, "messages" | "notes" | "ducks"> = {

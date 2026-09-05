@@ -66,7 +66,7 @@ export const suggestDuck = createServerFn({ method: "POST" })
     const timeout = AbortSignal.timeout(120000);
     try {
       return await suggestParticipant(
-        { messages, ducks: data.ducks, notes: data.notes },
+        { id: data.roomId, messages, ducks: data.ducks, notes: data.notes },
         AbortSignal.any([request.signal, timeout]),
       );
     } catch (error) {

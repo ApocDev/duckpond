@@ -1,3 +1,4 @@
+import { prepareReply, codexUsageTracker } from "./sessions.server";
 import { z } from "zod";
 import { suggestionSchema, suggestionContext } from "../lib/suggestions";
 import type { Room } from "../lib/room";
@@ -6,7 +7,7 @@ import { connectCodex } from "./codex-client.server";
 
 /** Suggest a missing perspective without changing the conversation or roster. */
 export async function suggestParticipant(
-  room: Pick<Room, "messages" | "notes" | "ducks">,
+  room: Pick<Room, "messages" | "notes" | "ducks"> & { id?: string },
   signal: AbortSignal,
 ) {
   const prompt = suggestionContext(room);
@@ -20,10 +21,29 @@ export async function suggestParticipant(
     "Return the requested structured result. Do not use tools, ask for approval, or claim that the duck has joined. The person reviews the suggestion first.",
   ].join("\n\n");
 
+  const cwd = await getAgentDirectory();
+  const session = prepareReply(
+    {
+      id: "suggest-duck",
+      name: "Suggest a duck",
+      provider: "codex",
+      model: "gpt-5.6-sol",
+      reasoning: "medium",
+      instructions: system,
+    },
+    system,
+    prompt,
+    cwd,
+    undefined,
+    { roomId: room.id, reuse: false, messages: room.messages, makePrompt: () => prompt },
+  );
+  const usage = codexUsageTracker(session.native.usage);
+  let status: "complete" | "error" = "error";
   let output = "";
   const completion = Promise.withResolvers<void>();
   void completion.promise.catch(() => {});
-  const client = connectCodex(await getAgentDirectory(), signal, (packet) => {
+  const client = connectCodex(cwd, signal, (packet) => {
+    if (packet.method === "thread/tokenUsage/updated") usage.update(packet.params?.tokenUsage);
     if (packet.id !== undefined && packet.method) {
       client.send({
         id: packet.id,
@@ -68,6 +88,7 @@ export async function suggestParticipant(
         ephemeral: true,
       }),
     );
+    usage.start();
     await client.request("turn/start", {
       threadId: result.thread.id,
       effort: "medium",
@@ -75,8 +96,11 @@ export async function suggestParticipant(
       outputSchema: z.toJSONSchema(suggestionSchema),
     });
     await Promise.race([completion.promise, client.disconnected]);
-    return suggestionSchema.parse(JSON.parse(output));
+    const suggestion = suggestionSchema.parse(JSON.parse(output));
+    status = "complete";
+    return suggestion;
   } finally {
+    session.finish(signal.aborted ? "stopped" : status);
     client.close();
   }
 }

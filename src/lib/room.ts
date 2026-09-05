@@ -182,10 +182,13 @@ export function makePrompt(
     `You are ${duck.name}, one participant in Duckpond, a shared conversation with a person and other AI ducks.`,
     duck.instructions,
     "Talk to the person naturally. Use the shortest response that helps. One sentence is enough for a small point; write more only when the decision requires it. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Existing authorization persists: when the person has approved a proposed task, do that work without asking them to approve it again. Read brief approvals such as 'Sure' together with the proposal they answer. Distinguish that approved scope from later suggestions. Cite sources when researching. Never claim a tool result you haven't obtained.",
+  ].join("\n\n");
+  const turnInstruction = [
+    `Current phase: ${phase}. These turn instructions supersede earlier turn instructions.`,
     `Current participants: ${ducks.map((item) => `${item.name} (@${item.id})`).join(", ")}. You may suggest asking another participant for a perspective. Mentions in your reply do not automatically trigger another turn.`,
     allowPass
       ? "Before responding, decide whether your perspective adds something useful to the current question. If you have no relevant, substantive contribution, reply exactly PASS and nothing else. Your persona is a perspective, not an obligation to find an angle on every topic. Do not invent concerns, repeat others, offer generic advice, or expand into unrelated topics just to participate. For example, a duck focused on in-game economics should pass on Unity versus Unreal unless a concrete economic requirement actually affects that choice. Passing is not agreement. If you pass, do not call room tools or explain why you are passing."
-      : "",
+      : "Do not PASS this turn. Complete the assigned task, report a concrete blocker, or provide the requested synthesis.",
     phase === "review"
       ? "Give your independent assessment. Other ducks' assessments for this round are intentionally hidden."
       : "",
@@ -198,23 +201,27 @@ export function makePrompt(
   ]
     .filter(Boolean)
     .join("\n\n");
-  const transcript = messages
-    .filter(
-      (message) =>
-        message.status === "complete" ||
-        message.status === "stopped" ||
-        ((phase === "guide" || phase === "discussion") && message.status === "error"),
-    )
-    .map(({ id, duckId, speaker, text, status, tools }) => ({
+  const transcript = visibleMessages(messages, phase).map(
+    ({ id, duckId, speaker, text, status, tools }) => ({
       id,
       duckId,
       speaker,
       text,
       status,
       tools,
-    }));
+    }),
+  );
   return {
     system: instruction,
-    prompt: `Shared notes: ${JSON.stringify(notes)}\n\nConversation transcript, with speaker labels:\n${JSON.stringify(transcript)}\n\nRespond as ${duck.name}.`,
+    prompt: `${turnInstruction}\n\nShared notes: ${JSON.stringify(notes)}\n\nNew or updated room messages, with speaker labels. Retain earlier messages in your session; these are additions, not a replacement:\n${JSON.stringify(transcript)}\n\nRespond as ${duck.name}.`,
   };
+}
+
+export function visibleMessages(messages: Message[], phase: Message["phase"]) {
+  return messages.filter(
+    (message) =>
+      message.status === "complete" ||
+      message.status === "stopped" ||
+      ((phase === "guide" || phase === "discussion") && message.status === "error"),
+  );
 }

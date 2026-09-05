@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   guide,
   makePrompt,
+  visibleMessages,
   type Action,
   type Discussion,
   type Duck,
@@ -59,7 +60,35 @@ type Decision =
   | { type: "floor"; value: z.infer<typeof floorSchema> }
   | { type: "finish"; value: z.infer<typeof finishSchema> };
 
-export const participantInstructions = `You are in a mediated discussion. During the initial review, assess relevance before forming an opinion. Unless you have an assigned action, PASS is a valid response in both initial reviews and follow-ups; do not manufacture a contribution just because you were given the floor. In later turns, address the assigned question and the other ducks directly; explain whether their arguments change your view. Use ask_duck to queue a specific question for a peer and request_turn to flag a concern you want to discuss. Include important arguments in your published reply so everyone can see them. Tool requests join a shared queue; they do not immediately launch or wait for another duck. Plain @mentions alone do not schedule replies. You cannot give_floor or finish_discussion. Do not use native subagent tools to contact or impersonate room participants. Mediator handles their speaking order. If assigned an action, execute the authorized task in this turn using your native tools when needed. Report the actual deliverable and evidence with report_action, or report a specific blocker with what is needed to proceed. Include that result in your published reply. Do not substitute a promise, offer, or repeated permission question for execution. You may pass on opinions, but an assigned action requires a result or an honest blocker.`;
+export const participantInstructions = `When the current turn is a mediated discussion, follow these rules. Room coordination tools are unavailable in other modes. During the initial review, assess relevance before forming an opinion. Unless you have an assigned action, PASS is a valid response in both initial reviews and follow-ups; do not manufacture a contribution just because you were given the floor. In later turns, address the assigned question and the other ducks directly; explain whether their arguments change your view. Use ask_duck to queue a specific question for a peer and request_turn to flag a concern you want to discuss. Include important arguments in your published reply so everyone can see them. Tool requests join a shared queue; they do not immediately launch or wait for another duck. Plain @mentions alone do not schedule replies. You cannot give_floor or finish_discussion. Do not use native subagent tools to contact or impersonate room participants. Mediator handles their speaking order. If assigned an action, execute the authorized task in this turn using your native tools when needed. Report the actual deliverable and evidence with report_action, or report a specific blocker with what is needed to proceed. Include that result in your published reply. Do not substitute a promise, offer, or repeated permission question for execution. You may pass on opinions, but an assigned action requires a result or an honest blocker.`;
+
+export const participantDefinitions: RoomTools["definitions"] = [
+  {
+    name: "report_action",
+    description:
+      "Report the assigned deliverable with concrete evidence, or a specific blocker. Completion requires Mediator review after your reply finishes.",
+    inputSchema: reportSchema,
+  },
+  {
+    name: "ask_duck",
+    description:
+      "Queue a question for another room duck. The Mediator schedules its answer. replyTo optionally identifies a transcript message.",
+    inputSchema: askSchema,
+  },
+  {
+    name: "request_turn",
+    description:
+      "Ask the Mediator for a later turn to raise an objection or follow-up. Does not interrupt the current speaker.",
+    inputSchema: requestSchema,
+  },
+];
+
+export const inactiveParticipantTools: RoomTools = {
+  definitions: participantDefinitions,
+  call() {
+    throw new Error("Room coordination tools are available only during a mediated discussion.");
+  },
+};
 
 /** Requests are persisted alongside the transcript; tool calls never start another provider. */
 export function createDiscussion(room: Room, id: string, signal: AbortSignal, save: () => void) {
@@ -87,26 +116,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
   }
   function participantTools(duck: Duck, message: Message): RoomTools {
     return {
-      definitions: [
-        {
-          name: "report_action",
-          description:
-            "Report the assigned deliverable with concrete evidence, or a specific blocker. Completion requires Mediator review after your reply finishes.",
-          inputSchema: reportSchema,
-        },
-        {
-          name: "ask_duck",
-          description:
-            "Queue a question for another room duck. The Mediator schedules its answer. replyTo optionally identifies a transcript message.",
-          inputSchema: askSchema,
-        },
-        {
-          name: "request_turn",
-          description:
-            "Ask the Mediator for a later turn to raise an objection or follow-up. Does not interrupt the current speaker.",
-          inputSchema: requestSchema,
-        },
-      ],
+      definitions: participantDefinitions,
       call(name, input) {
         checkActive();
         if (message.status !== "thinking") throw new Error("Your speaking turn has ended.");
@@ -354,7 +364,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
             }
           },
         };
-        const { system, prompt } = makePrompt(
+        const { system } = makePrompt(
           mediator,
           room.messages,
           "discussion",
@@ -366,14 +376,30 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
           let correction = "";
           for (let attempt = 0; attempt < 2 && !decision.value; attempt++) {
             signal.throwIfAborted();
+            const buildPrompt = (messages: Message[]) => {
+              const { prompt } = makePrompt(
+                mediator,
+                messages,
+                "discussion",
+                room.notes,
+                room.ducks,
+                false,
+              );
+              return `${prompt}\n\n${context()}\n\nCall one of the scheduling tools now. Use start_review for independent opinions, assign_action for approved work, review_action to check a reported result, give_floor for a peer response, or finish_discussion for the final answer. Plain text does not schedule a speaker or finish the room.${correction}`;
+            };
             await run(
               mediator,
               system,
-              `${prompt}\n\n${context()}\n\nCall one of the scheduling tools now. Use start_review for independent opinions, assign_action for approved work, review_action to check a reported result, give_floor for a peer response, or finish_discussion for the final answer. Plain text does not schedule a speaker or finish the room.${correction}`,
+              buildPrompt(room.messages),
               signal,
               () => {},
               emit,
               observedTools,
+              {
+                roomId: room.id,
+                messages: visibleMessages(room.messages, "discussion"),
+                makePrompt: buildPrompt,
+              },
             );
             correction = `\nYour previous invocation ended without a valid room-tool decision. ${rejection || "No scheduling tool was called."} Correct this by calling one of the provided scheduling tools. Read the tool result directly; do not assume it has an MCP content array.`;
           }
