@@ -1,0 +1,39 @@
+README.md
+  s_9d1c5a9b4e5822::t_435d2a8b40ae4c 49,54-65,82,108-110
+src/lib/room.ts
+  s_9d1c5a9b4e5822::t_48ff1c049095a5 88-107,115,187,189
+src/routes/index.tsx
+  s_9d1c5a9b4e5822::t_4bd3553a0609bc 505
+src/server/codex.server.ts
+  s_9d1c5a9b4e5822::t_9382df386c014d 5,17,29-39,139-144
+src/server/conversation.server.ts
+  s_9d1c5a9b4e5822::t_6d4ec7f91404f6 15,60-66,87,90-91,109,123-126,129,136-138
+src/server/conversation.test.ts
+  s_9d1c5a9b4e5822::t_cdbd2f44bfc631 83,86-87,96-97,99-149,153-162,166,168-185
+src/server/discussion.server.ts
+  s_9d1c5a9b4e5822::t_0d9e165376549d 1-276
+src/server/discussion.test.ts
+  s_9d1c5a9b4e5822::t_2b9635ad696fcf 1-174
+src/server/providers.server.ts
+  s_9d1c5a9b4e5822::t_c63741214d2b18 5,14,59,62-63,72-93,123-124
+src/server/room-tools.integration.test.ts
+  s_9d1c5a9b4e5822::t_9f61a83ec82549 1-132
+src/server/room-tools.server.ts
+  s_9d1c5a9b4e5822::t_10e6dc06f28c67 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "55b5147665b99f6351b636429c78b130eb09d214",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
