@@ -22,7 +22,15 @@ export const mediator: Duck = {
 const text = z.string().trim().min(1).max(4000);
 const askSchema = z.object({ duckId: z.string(), question: text, replyTo: z.string().optional() });
 const requestSchema = z.object({ reason: text, replyTo: z.string().optional() });
-const floorSchema = z.object({ duckId: z.string(), prompt: text, requestIds: z.array(z.string()) });
+const floorSchema = z.object({
+  duckId: z.string(),
+  prompt: text,
+  requestIds: z
+    .array(z.string())
+    .describe(
+      "IDs from the open shared requests queue addressed to this duck. Use [] for an unsolicited follow-up. Never use transcript message IDs or the discussion ID.",
+    ),
+});
 const finishSchema = z.object({
   summary: text,
   disagreements: z.array(text),
@@ -207,6 +215,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
       while (!signal.aborted && state.status === "running") {
         const decision: { value?: Decision } = {};
         let accepting = true;
+        let rejection = "";
         const tools: RoomTools = {
           definitions: [
             {
@@ -295,7 +304,13 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
               for (const id of value.requestIds) {
                 const request = openRequests().find((item) => item.id === id);
                 if (!request || request.to !== value.duckId)
-                  throw new Error("Assign only open requests addressed to the selected duck.");
+                  throw new Error(
+                    `Assign only open requests addressed to the selected duck. Valid requestIds for @${value.duckId}: ${JSON.stringify(
+                      openRequests()
+                        .filter((item) => item.to === value.duckId)
+                        .map((item) => item.id),
+                    )}. Use [] if none apply. These are queue IDs, not message IDs or the discussion ID.`,
+                  );
               }
               decision.value = { type: "floor", value };
             } else if (name === "finish_discussion") {
@@ -328,6 +343,17 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
             };
           },
         };
+        const observedTools: RoomTools = {
+          ...tools,
+          call(name, input) {
+            try {
+              return tools.call(name, input);
+            } catch (error) {
+              rejection = `${name} rejected: ${error instanceof Error ? error.message : "Invalid scheduling decision"}`;
+              throw error;
+            }
+          },
+        };
         const { system, prompt } = makePrompt(
           mediator,
           room.messages,
@@ -347,10 +373,9 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
               signal,
               () => {},
               emit,
-              tools,
+              observedTools,
             );
-            correction =
-              "\nYour previous invocation ended without a valid room-tool decision. Correct this by calling one of the provided scheduling tools.";
+            correction = `\nYour previous invocation ended without a valid room-tool decision. ${rejection || "No scheduling tool was called."} Correct this by calling one of the provided scheduling tools. Read the tool result directly; do not assume it has an MCP content array.`;
           }
         } finally {
           accepting = false;
@@ -359,7 +384,9 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
         // Tool callbacks select the action; no participant is launched inside the callback.
         const action = decision.value;
         if (!action)
-          throw new Error("Mediator ended without choosing a speaker or finishing the discussion.");
+          throw new Error(
+            `Mediator ended without choosing a speaker or finishing the discussion.${rejection ? ` ${rejection}` : ""}`,
+          );
         if (action.type === "review") {
           reviewed = true;
           publish(action.value.prompt, "discussion");

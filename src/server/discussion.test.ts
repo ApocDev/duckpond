@@ -172,3 +172,45 @@ it("corrects one missing scheduling call, then stops if the Mediator still provi
   expect(discussion.state.status).toBe("error");
   expect(room.messages.at(-1)?.text).toContain("ended without choosing a speaker");
 });
+
+it("recovers when a swallowed tool rejection used the discussion ID as a request ID", async () => {
+  const { discussion, room } = setup();
+  let attempts = 0;
+  const speak = vi.fn(async () => undefined);
+  await discussion.moderate(
+    async (_duck, _system, prompt, _signal, _write, _emit, tools) => {
+      attempts++;
+      if (attempts === 1) {
+        // Codex's orchestration script discarded the non-MCP-shaped error result.
+        expect(
+          callRoomTool(tools, "give_floor", {
+            duckId: "skeptic",
+            prompt: "Compare the priorities.",
+            requestIds: [discussion.state.id],
+          }).success,
+        ).toBe(false);
+      } else if (attempts === 2) {
+        expect(prompt).toContain("give_floor rejected");
+        expect(prompt).toContain("Valid requestIds for @skeptic: []");
+        expect(prompt).toContain("not message IDs or the discussion ID");
+        tools!.call("give_floor", {
+          duckId: "skeptic",
+          prompt: "Compare the priorities.",
+          requestIds: [],
+        });
+      } else {
+        tools!.call("finish_discussion", {
+          summary: "Map the garage session first.",
+          disagreements: [],
+          question: "",
+          deferred: [],
+        });
+      }
+    },
+    speak,
+    () => {},
+  );
+  expect(speak).toHaveBeenCalledTimes(1);
+  expect(discussion.state.status).toBe("complete");
+  expect(room.messages.at(-1)?.text).toBe("Map the garage session first.");
+});
