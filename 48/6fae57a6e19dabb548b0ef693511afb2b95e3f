@@ -1,0 +1,53 @@
+README.md
+  s_9d1c5a9b4e5822::t_2bc3b324054f65 54,94,104-122,132,136-137
+src/lib/room.ts
+  s_9d1c5a9b4e5822::t_3a4b3ed89996e2 185-187,191,204-205,212-213,216,219-227
+src/routeTree.gen.ts
+  s_9d1c5a9b4e5822::t_4266c0ac0fddf3 14,26-30,35,40,46,50,52-53,59,78-84,91
+src/routes/api.usage.ts
+  s_9d1c5a9b4e5822::t_aa75464b67c361 1-6
+src/server/codex.server.ts
+  s_9d1c5a9b4e5822::t_d696223b05a5fe 1,19,21,30-31,133,141-142,146-153,158-159,165
+src/server/conversation.server.ts
+  s_9d1c5a9b4e5822::t_854599db0ab159 3,16-20,92-110,113-114,136-141,175
+src/server/conversation.test.ts
+  s_9d1c5a9b4e5822::t_ee529015f009c5 383
+src/server/discussion.server.ts
+  s_9d1c5a9b4e5822::t_59be4ebf609ae7 5,63-91,119,367,379-389,393,398-402
+src/server/providers.server.ts
+  s_9d1c5a9b4e5822::t_b79008c15302f6 14,61,64-102,104-117,119-132,134-150,152-220
+src/server/providers.test.ts
+  s_9d1c5a9b4e5822::t_a444305f4d01bd 1-2,7-10,15-49,58-60,75-81,116-185
+src/server/rooms.functions.ts
+  s_9d1c5a9b4e5822::t_97c8e8d4c39162 69
+src/server/sessions.integration.test.ts
+  s_9d1c5a9b4e5822::t_4731c2dcfa27a6 1-100
+src/server/sessions.server.ts
+  s_9d1c5a9b4e5822::t_adaff012e29af9 1-231
+src/server/sessions.test.ts
+  s_9d1c5a9b4e5822::t_63af62272885d8 1-226
+src/server/store.server.ts
+  s_9d1c5a9b4e5822::t_33ca0429abb71d 44-69
+src/server/suggestions.server.ts
+  s_9d1c5a9b4e5822::t_861b4fd98c8da4 1,10,24-41,45-46,91,99-101,103
+src/server/suggestions.test.ts
+  s_9d1c5a9b4e5822::t_f49a393bc2b26d 11-15
+src/server/usage.server.ts
+  s_9d1c5a9b4e5822::t_bcdd78d729af2f 1-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "486fae57a6e19dabb548b0ef693511afb2b95e3f",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
