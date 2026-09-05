@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { AtSign } from "lucide-react";
 import { duckAvatar, type Duck } from "../lib/room";
 import { insertMention, mentionAt } from "../lib/mentions";
@@ -16,6 +16,25 @@ export function MentionInput({
   onSend: () => void;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const element = input.current;
+    if (!element) return;
+    function resize() {
+      if (!element) return;
+      element.style.height = "auto";
+      element.style.height = `${element.scrollHeight}px`;
+    }
+    resize();
+    let width = element.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth !== width) {
+        width = element.clientWidth;
+        resize();
+      }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [value]);
   const [caret, setCaret] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const [active, setActive] = useState(0);
@@ -112,10 +131,18 @@ export function MentionInput({
         }}
         onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
         placeholder="Think out loud, or @ a duck..."
-        rows={3}
+        rows={1}
+        enterKeyHint="enter"
         maxLength={20000}
         onKeyDown={(event) => {
           if (event.nativeEvent.isComposing) return;
+          if (
+            event.key === "Enter" &&
+            window.matchMedia("(max-width: 650px), (pointer: coarse)").matches
+          ) {
+            setDismissed(true);
+            return;
+          }
           if (open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
             event.preventDefault();
             if (options.length)

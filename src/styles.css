@@ -389,7 +389,7 @@ select {
   color: #e4e4e4;
   font-size: 13px;
   line-height: 1.7;
-  min-height: 60px;
+  min-height: 0;
   max-height: 220px;
 }
 .composer textarea::placeholder {
@@ -922,7 +922,6 @@ select {
   }
   .composer textarea {
     font-size: 16px;
-    min-height: 53px;
   }
   .composer-controls select {
     font-size: 10px;
@@ -1241,4 +1240,15 @@ select {
 }
 .suggestion-reason small {
   color: #aaa;
+}
+.touch-hint {
+  display: none;
+}
+@media (max-width: 650px), (pointer: coarse) {
+  .keyboard-hint {
+    display: none;
+  }
+  .touch-hint {
+    display: inline;
+  }
 }

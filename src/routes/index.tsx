@@ -404,13 +404,18 @@ function Home() {
             </div>
           </form>
           <div className="composer-hint">
-            {busy
-              ? "The ducks are thinking. You can stop them at any time."
-              : mode === "review"
-                ? "Each duck considers your thought independently before seeing the others' replies."
-                : mode === "discussion"
-                  ? "Independent thoughts, then one round of replies to each other."
-                  : "Enter to send · Shift + Enter for a new line"}
+            {busy ? (
+              "The ducks are thinking. You can stop them at any time."
+            ) : mode === "review" ? (
+              "Each duck considers your thought independently before seeing the others' replies."
+            ) : mode === "discussion" ? (
+              "Independent thoughts, then one round of replies to each other."
+            ) : (
+              <>
+                <span className="keyboard-hint">Enter to send · Shift + Enter for a new line</span>
+                <span className="touch-hint">Return for a new line · Tap the arrow to send</span>
+              </>
+            )}
           </div>
         </div>
       </main>

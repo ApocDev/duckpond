@@ -54,6 +54,8 @@ Room settings add and remove ducks, and edit their names, perspectives, outfits,
 
 Type `@` or tap **Invite a duck** to choose participants. The picker inserts a stable handle, so renaming a duck does not break its mentions. Keyboard users can filter, move with arrow keys, select with Enter or Tab, and dismiss with Escape.
 
+The message box starts at one line and grows as you type, up to a scrollable height. On mobile, Return inserts a new line and the arrow button sends the message. On desktop, Enter sends and Shift+Enter adds a new line.
+
 **Suggest a duck**, in room settings, asks GPT-5.6-Sol with Medium reasoning for one missing perspective using the conversation, current draft roster, and shared notes. It explains why the suggested persona would help, or says when another duck is unnecessary. The suggestion opens as an editable draft card. Save the room to add it, or remove the card to dismiss it. This uses the Codex subscription in a read-only session; the helper reads the supplied discussion and does not change the conversation. A request can be cancelled and has a two-minute limit.
 
 Model lists come from the connected providers: Claude Agent SDK model discovery and Codex App Server `model/list`. Reasoning options depend on the selected model. Lists cache for five minutes and can be refreshed from settings. A blank model uses the provider default. Unsupported model/effort combinations are rejected when changed.
