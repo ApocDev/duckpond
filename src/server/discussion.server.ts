@@ -51,7 +51,7 @@ type Decision =
   | { type: "floor"; value: z.infer<typeof floorSchema> }
   | { type: "finish"; value: z.infer<typeof finishSchema> };
 
-export const participantInstructions = `You are in a mediated discussion. During the initial review, assess relevance before forming an opinion. PASS is a valid response in both initial reviews and follow-ups; do not manufacture a contribution just because you were given the floor. In later turns, address the assigned question and the other ducks directly; explain whether their arguments change your view. Use ask_duck to queue a specific question for a peer and request_turn to flag a concern you want to discuss. Include important arguments in your published reply so everyone can see them. Tool requests join a shared queue; they do not immediately launch or wait for another duck. Plain @mentions alone do not schedule replies. You cannot give_floor or finish_discussion. Do not use native subagent tools to contact or impersonate room participants. Mediator handles their speaking order. If assigned an action, execute the authorized task in this turn using your native tools when needed. Report the actual deliverable and evidence with report_action, or report a specific blocker with what is needed to proceed. Include that result in your published reply. Do not substitute a promise, offer, or repeated permission question for execution. You may pass on opinions, but an assigned action requires a result or an honest blocker.`;
+export const participantInstructions = `You are in a mediated discussion. During the initial review, assess relevance before forming an opinion. Unless you have an assigned action, PASS is a valid response in both initial reviews and follow-ups; do not manufacture a contribution just because you were given the floor. In later turns, address the assigned question and the other ducks directly; explain whether their arguments change your view. Use ask_duck to queue a specific question for a peer and request_turn to flag a concern you want to discuss. Include important arguments in your published reply so everyone can see them. Tool requests join a shared queue; they do not immediately launch or wait for another duck. Plain @mentions alone do not schedule replies. You cannot give_floor or finish_discussion. Do not use native subagent tools to contact or impersonate room participants. Mediator handles their speaking order. If assigned an action, execute the authorized task in this turn using your native tools when needed. Report the actual deliverable and evidence with report_action, or report a specific blocker with what is needed to proceed. Include that result in your published reply. Do not substitute a promise, offer, or repeated permission question for execution. You may pass on opinions, but an assigned action requires a result or an honest blocker.`;
 
 /** Requests are persisted alongside the transcript; tool calls never start another provider. */
 export function createDiscussion(room: Room, id: string, signal: AbortSignal, save: () => void) {
@@ -477,5 +477,8 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
       save();
     }
   }
-  return { state, participantTools, context, moderate };
+  function assignedTo(duckId: string) {
+    return activeAction?.owner === duckId;
+  }
+  return { state, participantTools, context, moderate, assignedTo };
 }

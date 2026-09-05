@@ -500,7 +500,7 @@ it("executes approved work, requires evidence and review, and persists completio
     emit,
     {
       persist,
-      run: async (duck, _system, _prompt, _signal, write, _emit, tools) => {
+      run: async (duck, system, _prompt, _signal, write, _emit, tools) => {
         if (duck.id === "mediator") {
           turn++;
           if (turn === 1) {
@@ -537,6 +537,7 @@ it("executes approved work, requires evidence and review, and persists completio
             });
         } else {
           expect(duck.id).toBe("explorer");
+          expect(system).not.toContain("reply exactly PASS");
           const report = {
             actionId: value.actions![0].id,
             status: "reported",

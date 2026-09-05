@@ -84,7 +84,14 @@ export async function runConversation(
     room.messages.push(message);
     emit({ type: "message", message: { ...message } });
     try {
-      const { system, prompt } = makePrompt(duck, history, phase, room.notes, room.ducks);
+      const { system, prompt } = makePrompt(
+        duck,
+        history,
+        phase,
+        room.notes,
+        room.ducks,
+        phase !== "guide" && !discussion?.assignedTo(duck.id),
+      );
       const roomTools = discussion?.participantTools(duck, message);
       await run(
         duck,
