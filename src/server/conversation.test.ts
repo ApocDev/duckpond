@@ -52,8 +52,7 @@ describe("conversation rounds", () => {
       "explorer",
       new AbortController().signal,
       emit,
-      runner,
-      persist,
+      { run: runner, persist },
     );
     expect(runner).toHaveBeenCalledTimes(1);
     expect(runner.mock.calls[0][0]).toEqual(guide);
@@ -73,8 +72,7 @@ describe("conversation rounds", () => {
       "skeptic",
       new AbortController().signal,
       emit,
-      runner,
-      persist,
+      { run: runner, persist },
     );
     expect(runner).toHaveBeenCalledTimes(2);
     expect(runner.mock.calls[1][0]).toEqual(guide);
@@ -92,11 +90,13 @@ describe("conversation rounds", () => {
       "explorer",
       new AbortController().signal,
       emit,
-      async (duck, _system, prompt, _signal, write) => {
-        seen.push({ id: duck.id, prompt });
-        write(`opinion-${duck.id}`);
+      {
+        run: async (duck, _system, prompt, _signal, write) => {
+          seen.push({ id: duck.id, prompt });
+          write(`opinion-${duck.id}`);
+        },
+        persist,
       },
-      persist,
     );
     expect(seen).toHaveLength(7);
     for (const entry of seen.slice(0, 3)) {
@@ -129,8 +129,7 @@ describe("conversation rounds", () => {
       "explorer",
       new AbortController().signal,
       emit,
-      runner,
-      persist,
+      { run: runner, persist },
     );
     expect(runner.mock.calls.map(([duck]) => duck.id)).toEqual([
       "explorer",
@@ -151,21 +150,15 @@ describe("conversation rounds", () => {
     const value = room();
     const controller = new AbortController();
     const called: string[] = [];
-    await runConversation(
-      value,
-      "Check this",
-      "discussion",
-      "explorer",
-      controller.signal,
-      emit,
-      async (duck, _system, _prompt, _signal, write) => {
+    await runConversation(value, "Check this", "discussion", "explorer", controller.signal, emit, {
+      run: async (duck, _system, _prompt, _signal, write) => {
         called.push(duck.id);
         write("A partial thought");
         controller.abort();
         throw new Error("aborted");
       },
       persist,
-    );
+    });
     expect(called).toEqual(["explorer"]);
     expect(value.messages.at(-1)).toMatchObject({ text: "A partial thought", status: "stopped" });
   });
@@ -179,10 +172,12 @@ describe("conversation rounds", () => {
       "explorer",
       new AbortController().signal,
       emit,
-      async (duck, _system, _prompt, _signal, write) => {
-        write(duck.id === "explorer" ? "A question" : "PASS");
+      {
+        run: async (duck, _system, _prompt, _signal, write) => {
+          write(duck.id === "explorer" ? "A question" : "PASS");
+        },
+        persist,
       },
-      persist,
     );
     expect(value.messages.map((message) => message.text)).toEqual(["A thought", "A question"]);
   });
@@ -195,11 +190,13 @@ describe("conversation rounds", () => {
       "explorer",
       new AbortController().signal,
       emit,
-      async (duck, _system, _prompt, _signal, write) => {
-        if (duck.id === "explorer") throw new Error("Usage limit");
-        write("Still useful");
+      {
+        run: async (duck, _system, _prompt, _signal, write) => {
+          if (duck.id === "explorer") throw new Error("Usage limit");
+          write("Still useful");
+        },
+        persist,
       },
-      persist,
     );
     expect(value.messages[1]).toMatchObject({ status: "error", text: "Usage limit" });
     expect(value.messages[2]).toMatchObject({ status: "complete", text: "Still useful" });

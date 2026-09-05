@@ -71,7 +71,7 @@ The transcript follows replies while you are at the bottom. Scrolling up or open
 
 Model lists come from the connected providers: Claude Agent SDK model discovery and Codex App Server `model/list`. Reasoning options depend on the selected model. Lists cache for five minutes and can be refreshed from settings. A blank model uses the provider default. Unsupported model/effort combinations are rejected when changed.
 
-Conversations, settings, notes, and completed or stopped responses are stored in `.data/duckpond.sqlite`. The `.data/` directory and `.env` files stay local and are excluded from Git. On reload during a running turn, the app polls the active room and shows pending approval requests. Runtime state is not durable across a server restart.
+Conversations, settings, notes, and completed or stopped responses are stored in `.data/duckpond.sqlite`. The `.data/` directory and `.env` files stay local and are excluded from Git. Leaving or closing the browser tab does not cancel a turn. The server continues until the replies finish, you press Stop, or the 15-minute turn limit expires. Returning to the tab, reconnecting, or reloading refreshes the room and its pending approval requests. While reconnecting to a running turn, the app polls its progress every two seconds. It does not resend the message. If a submission never reached the server, the app restores it to an empty draft for you to retry. Runtime state is not durable across a server restart.
 
 ## Provider access
 
@@ -91,6 +91,6 @@ vp test
 vp run build
 ```
 
-Tests cover independent review context, bounded discussion, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals, and duck suggestions.
+Tests cover independent review context, bounded discussion, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals across browser disconnects, and duck suggestions.
 
 The UI uses the base duck and four outfits in `public/brand/`. Their source artwork and generation prompts live in `design/duck-avatars/v1/`. Each duck chooses an outfit independently of its provider or persona.

@@ -63,11 +63,18 @@ function Home() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Awaited<ReturnType<typeof connections>>>([]);
   const [remoteActive, setRemoteActive] = useState(initial.active);
+  const [needsSync, setNeedsSync] = useState(false);
   const [approvals, setApprovals] = useState<Approval[]>(
     initial.active.flatMap((item) => item.approvals),
   );
   const [activity, setActivity] = useState<Partial<Record<Duck["id"], string>>>({});
   const runningRoom = useRef<string | null>(null);
+  const submission = useRef<{
+    roomId: string;
+    messageId: string;
+    text: string;
+    restoreDraft: boolean;
+  } | null>(null);
   const room = rooms.find((item) => item.id === selected);
   const ducks = room?.ducks ?? defaults;
   const currentTarget = ducks.some((duck) => duck.id === target) ? target : ducks[0].id;
@@ -102,27 +109,80 @@ function Home() {
           ),
         );
     },
-    onError: (cause) => setError(cause.message),
+    onError: (cause) => {
+      setError(cause.message);
+      setNeedsSync(true);
+    },
   });
   const localBusy = chat.status === "submitted" || chat.status === "streaming";
-  const busy = localBusy || remoteActive.some((item) => item.roomId === selected);
+  const busy = localBusy || needsSync || remoteActive.some((item) => item.roomId === selected);
   useEffect(() => {
-    if (!remoteActive.length || localBusy) return;
-    const timer = setInterval(() => {
-      loadRooms()
-        .then((value) => {
-          setRooms(value.rooms);
-          setRemoteActive(value.active);
-          setApprovals(
-            value.active
-              .filter((item) => item.roomId === selected)
-              .flatMap((item) => item.approvals),
+    let disposed = false;
+    let refreshing = false;
+    async function refresh() {
+      if (localBusy || refreshing || document.visibilityState === "hidden") return;
+      refreshing = true;
+      try {
+        const value = await loadRooms();
+        if (disposed) return;
+        setRooms(value.rooms);
+        setRemoteActive(value.active);
+        setApprovals(
+          value.active.filter((item) => item.roomId === selected).flatMap((item) => item.approvals),
+        );
+        const pending = submission.current;
+        if (pending) {
+          const accepted = value.rooms
+            .find((item) => item.id === pending.roomId)
+            ?.messages.some((message) => message.id === pending.messageId);
+          if (accepted) setError("");
+          else {
+            if (pending.restoreDraft) setInput((draft) => draft || pending.text);
+            setError(
+              pending.restoreDraft
+                ? "Your message wasn't received. It's back in the draft; try sending again."
+                : "The summary request wasn't received. Try again.",
+            );
+          }
+          submission.current = null;
+        } else {
+          setError((message) =>
+            message === "Could not reconnect. Retrying when the connection returns." ? "" : message,
           );
-        })
-        .catch(() => setError("Could not reconnect to the conversation."));
+        }
+        setNeedsSync(false);
+        if (!value.active.some((item) => item.roomId === selected)) setStopping(false);
+      } catch {
+        if (!disposed) {
+          setNeedsSync(true);
+          setError("Could not reconnect. Retrying when the connection returns.");
+        }
+      } finally {
+        refreshing = false;
+      }
+    }
+    function resume() {
+      if (document.visibilityState === "hidden") return;
+      setNeedsSync(true);
+      // Drop a stale HTTP stream only. The server keeps the turn and pending approvals alive.
+      if (localBusy) void chat.stop();
+      else void refresh();
+    }
+    if (needsSync || remoteActive.length) void refresh();
+    const timer = setInterval(() => {
+      if (needsSync || remoteActive.length) void refresh();
     }, 2000);
-    return () => clearInterval(timer);
-  }, [remoteActive.length, localBusy, selected]);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    window.addEventListener("pageshow", resume);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("pageshow", resume);
+    };
+  }, [remoteActive.length, localBusy, selected, needsSync, chat.stop]);
   const [stopping, setStopping] = useState(false);
   useEffect(() => {
     connections()
@@ -161,19 +221,29 @@ function Home() {
         setSelected(active.id);
       }
       runningRoom.current = active.id;
+      const messageId = crypto.randomUUID();
+      submission.current = { roomId: active.id, messageId, text, restoreDraft: !summarize };
       if (summarize) setMode("guide");
       else setInput("");
       await chat.sendMessage(
         { text },
-        { body: { roomId: active.id, text, mode: requestedMode, target: currentTarget } },
+        {
+          body: {
+            roomId: active.id,
+            submissionId: messageId,
+            text,
+            mode: requestedMode,
+            target: currentTarget,
+          },
+        },
       );
     } catch (cause) {
       if (!summarize) setInput(text);
       setError(cause instanceof Error ? cause.message : "Couldn't send your message.");
     } finally {
       setSaving(false);
-      setStopping(false);
-      setApprovals([]);
+      runningRoom.current = null;
+      setNeedsSync(true);
     }
   }
   async function stop() {
@@ -417,7 +487,9 @@ function Home() {
             </div>
           </form>
           <div className="composer-hint">
-            {busy ? (
+            {needsSync ? (
+              "Reconnecting to your conversation…"
+            ) : busy ? (
               "The ducks are thinking. You can stop them at any time."
             ) : mode === "review" ? (
               "All ducks give independent input, then Guide summarizes and asks one next question."

@@ -25,11 +25,18 @@ export async function runConversation(
   target: Duck["id"],
   signal: AbortSignal,
   emit: (event: RoomEvent) => void,
-  run: Runner = reply,
-  persist: (room: Room) => unknown = saveRoom,
+  {
+    run = reply,
+    persist = saveRoom,
+    messageId = crypto.randomUUID(),
+  }: {
+    run?: Runner;
+    persist?: (room: Room) => unknown;
+    messageId?: string;
+  } = {},
 ) {
   room.messages.push({
-    id: crypto.randomUUID(),
+    id: messageId,
     speaker: "You",
     text,
     status: "complete",
