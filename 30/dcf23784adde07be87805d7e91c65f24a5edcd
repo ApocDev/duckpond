@@ -1,0 +1,23 @@
+src/server/conversation.server.ts
+  s_9d1c5a9b4e5822::t_aebda7562be0ca 87-94
+src/server/conversation.test.ts
+  s_9d1c5a9b4e5822::t_aa2e7fbdde20ef 503,540
+src/server/discussion.server.ts
+  s_9d1c5a9b4e5822::t_65303e8cec2b6c 54,480-483
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "30dcf23784adde07be87805d7e91c65f24a5edcd",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
