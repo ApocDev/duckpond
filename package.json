@@ -33,6 +33,7 @@
   "devDependencies": {
     "@tanstack/devtools-vite": "latest",
     "@tanstack/router-cli": "^1.132.0",
+    "@types/dom-speech-recognition": "^0.0.12",
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

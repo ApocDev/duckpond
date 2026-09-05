@@ -1345,3 +1345,25 @@ select {
     gap: 6px;
   }
 }
+
+.input-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.dictation-trigger[aria-pressed="true"] {
+  color: #fff0a8;
+}
+.dictation-status,
+.dictation-error {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 4px 0 8px;
+}
+.dictation-status {
+  color: var(--accent);
+}
+.dictation-error {
+  color: #fda4af;
+}

@@ -1,21 +1,25 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { AtSign } from "lucide-react";
+import { AtSign, Mic, Square } from "lucide-react";
 import { duckAvatar, type Duck } from "../lib/room";
 import { insertMention, mentionAt } from "../lib/mentions";
 import { DuckAvatar } from "./duck-avatar";
+import { useDictation } from "./use-dictation";
 
 export function MentionInput({
   value,
   onChange,
   ducks,
   onSend,
+  onDictatingChange,
 }: {
   value: string;
   onChange: (value: string) => void;
   ducks: Duck[];
   onSend: () => void;
+  onDictatingChange: (active: boolean) => void;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
+  const dictation = useDictation(value, onChange, onDictatingChange);
   useLayoutEffect(() => {
     const element = input.current;
     if (!element) return;
@@ -123,6 +127,7 @@ export function MentionInput({
           open && options[selected] ? `mention-${options[selected].id}` : undefined
         }
         value={value}
+        readOnly={dictation.active}
         onChange={(event) => {
           onChange(event.target.value);
           setCaret(event.target.selectionStart);
@@ -135,6 +140,10 @@ export function MentionInput({
         enterKeyHint="enter"
         maxLength={20000}
         onKeyDown={(event) => {
+          if (dictation.active) {
+            if (event.key === "Enter") event.preventDefault();
+            return;
+          }
           if (event.nativeEvent.isComposing) return;
           if (
             event.key === "Enter" &&
@@ -166,9 +175,48 @@ export function MentionInput({
           }
         }}
       />
-      <button className="mention-trigger" type="button" onClick={invite}>
-        <AtSign size={15} /> Invite a duck
-      </button>
+      <div className="input-tools">
+        <button
+          className="mention-trigger"
+          type="button"
+          onClick={invite}
+          disabled={dictation.active}
+        >
+          <AtSign size={15} /> Invite a duck
+        </button>
+        <button
+          className="mention-trigger dictation-trigger"
+          type="button"
+          aria-pressed={dictation.active}
+          disabled={dictation.phase === "stopping"}
+          onClick={() => {
+            setDismissed(true);
+            input.current?.blur();
+            dictation.toggle();
+          }}
+        >
+          {dictation.active ? <Square size={14} /> : <Mic size={15} />}
+          {dictation.phase === "stopping"
+            ? "Finishing…"
+            : dictation.active
+              ? "Stop dictation"
+              : "Dictate"}
+        </button>
+      </div>
+      {dictation.active && (
+        <div className="dictation-status" role="status">
+          {dictation.phase === "starting"
+            ? "Waiting for the microphone…"
+            : dictation.phase === "stopping"
+              ? "Finishing your words…"
+              : "Listening… Tap Stop dictation to edit or send."}
+        </div>
+      )}
+      {dictation.error && (
+        <div className="dictation-error" role="alert">
+          {dictation.error}
+        </div>
+      )}
     </div>
   );
 }

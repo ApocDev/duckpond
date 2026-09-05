@@ -9,7 +9,7 @@
       "@/*": ["./src/*"]
     },
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    "types": ["vite/client", "dom-speech-recognition"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

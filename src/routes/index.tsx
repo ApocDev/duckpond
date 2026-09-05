@@ -53,6 +53,7 @@ function Home() {
   const [rooms, setRooms] = useState<Room[]>(initial.rooms);
   const [selected, setSelected] = useState(initial.rooms[0]?.id ?? null);
   const [input, setInput] = useState("");
+  const [dictating, setDictating] = useState(false);
   const [mode, setMode] = useState<Mode>("conversation");
   const [target, setTarget] = useState<Duck["id"]>("explorer");
   const [editing, setEditing] = useState(false);
@@ -149,7 +150,7 @@ function Home() {
       ? "Summarize this conversation and help me work through the next unresolved question."
       : input.trim();
     const requestedMode = summarize ? "guide" : mode;
-    if (!text || busy || saving) return;
+    if (!text || busy || saving || dictating) return;
     setError("");
     setSaving(true);
     setActivity({});
@@ -210,7 +211,7 @@ function Home() {
           </span>
           duckpond<span className="poc">POC</span>
         </a>
-        <button className="new-chat" onClick={create} disabled={busy || saving}>
+        <button className="new-chat" onClick={create} disabled={busy || saving || dictating}>
           <Plus size={16} /> New conversation
         </button>
         <div className="section-label">YOUR CONVERSATIONS</div>
@@ -219,7 +220,7 @@ function Home() {
             rooms.map((item) => (
               <button
                 key={item.id}
-                disabled={busy || saving}
+                disabled={busy || saving || dictating}
                 className={`room-link ${item.id === selected ? "selected" : ""}`}
                 onClick={() => {
                   setSelected(item.id);
@@ -342,7 +343,7 @@ function Home() {
             <div className="conversation-actions">
               <button
                 className="summary-button"
-                disabled={busy || saving}
+                disabled={busy || saving || dictating}
                 onClick={() => void send(true)}
               >
                 <NotebookPen size={14} /> Summarize and guide
@@ -357,17 +358,19 @@ function Home() {
             }}
           >
             <MentionInput
+              key={selected}
               value={input}
               onChange={setInput}
               ducks={ducks}
               onSend={() => void send()}
+              onDictatingChange={setDictating}
             />
             <div className="composer-controls">
               <div className="composer-options">
                 <select
                   aria-label="Conversation mode"
                   value={mode}
-                  disabled={busy || saving}
+                  disabled={busy || saving || dictating}
                   onChange={(event) => setMode(modeSchema.parse(event.target.value))}
                 >
                   <option value="conversation">Conversation</option>
@@ -379,7 +382,7 @@ function Home() {
                   <select
                     aria-label="Reply from"
                     value={currentTarget}
-                    disabled={busy || saving}
+                    disabled={busy || saving || dictating}
                     onChange={(event) => setTarget(duckSchema.shape.id.parse(event.target.value))}
                   >
                     {ducks.map((duck) => (
@@ -404,7 +407,7 @@ function Home() {
               ) : (
                 <button
                   className="send-button"
-                  disabled={!input.trim() || saving}
+                  disabled={!input.trim() || saving || dictating}
                   type="submit"
                   aria-label="Send message"
                 >
@@ -437,7 +440,7 @@ function Home() {
           <button
             className="icon-button"
             onClick={() => setEditing(true)}
-            disabled={busy || saving}
+            disabled={busy || saving || dictating}
             aria-label="Edit personas and room settings"
           >
             <Settings2 size={16} />
@@ -485,7 +488,7 @@ function Home() {
           <button
             className="text-button"
             onClick={() => setEditing(true)}
-            disabled={busy || saving}
+            disabled={busy || saving || dictating}
           >
             Edit
           </button>

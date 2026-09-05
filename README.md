@@ -57,6 +57,10 @@ Type `@` or tap **Invite a duck** to choose participants. The picker inserts a s
 
 The message box starts at one line and grows as you type, up to a scrollable height. On mobile, Return inserts a new line and the arrow button sends the message. On desktop, Enter sends and Shift+Enter adds a new line.
 
+Tap **Dictate** beside **Invite a duck** to use the browser's speech recognition. Allow microphone access when prompted. Speech appends to the current draft, with interim words updated as recognition improves. Tap **Stop dictation** to edit or send; dictation never sends automatically. If the browser stops listening or reports an error, recognized text stays in the draft. Tap Dictate again to continue. Editing and sending pause while dictation is active so later speech results cannot overwrite edits or spill into another message.
+
+Dictation needs a supported browser and a secure page, such as the Tailscale HTTPS address or localhost. Duckpond does not record or upload audio itself. The browser handles recognition and may use an online speech service. See [browser speech recognition support](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition).
+
 Parallel replies appear in an expandable round, with each duck's status visible. Tap a row to read its full response. Guide summaries stay expanded. Existing conversations use this layout without changing their saved messages.
 
 The transcript follows replies while you are at the bottom. Scrolling up or opening a duck's reply pauses following and preserves your reading position when other replies grow above it. **New replies** returns to the bottom and resumes following.
