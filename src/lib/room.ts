@@ -106,6 +106,19 @@ export const discussionSchema = z.object({
   ),
 });
 export type Discussion = z.infer<typeof discussionSchema>;
+export const actionSchema = z.object({
+  id: z.string(),
+  owner: z.string(),
+  task: z.string(),
+  deliverable: z.string(),
+  authorizationId: z.string(),
+  status: z.enum(["pending", "running", "reported", "complete", "blocked"]),
+  responseId: z.string().optional(),
+  result: z.string().optional(),
+  evidence: z.array(z.string()).optional(),
+  review: z.string().optional(),
+});
+export type Action = z.infer<typeof actionSchema>;
 export const roomSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
@@ -114,6 +127,7 @@ export const roomSchema = z.object({
   notes: z.string().max(20000),
   observe: z.boolean(),
   discussions: z.array(discussionSchema).optional(),
+  actions: z.array(actionSchema).optional(),
   updatedAt: z.string(),
 });
 export type Room = z.infer<typeof roomSchema>;
@@ -167,7 +181,7 @@ export function makePrompt(
   const instruction = [
     `You are ${duck.name}, one participant in Duckpond, a shared conversation with a person and other AI ducks.`,
     duck.instructions,
-    "Talk to the person naturally. Use the shortest response that helps. One sentence is enough for a small point; write more only when the decision requires it. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Cite sources when researching. Never claim a tool result you haven't obtained.",
+    "Talk to the person naturally. Use the shortest response that helps. One sentence is enough for a small point; write more only when the decision requires it. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Existing authorization persists: when the person has approved a proposed task, do that work without asking them to approve it again. Read brief approvals such as 'Sure' together with the proposal they answer. Distinguish that approved scope from later suggestions. Cite sources when researching. Never claim a tool result you haven't obtained.",
     `Current participants: ${ducks.map((item) => `${item.name} (@${item.id})`).join(", ")}. You may suggest asking another participant for a perspective. Mentions in your reply do not automatically trigger another turn.`,
     allowPass
       ? "Before responding, decide whether your perspective adds something useful to the current question. If you have no relevant, substantive contribution, reply exactly PASS and nothing else. Your persona is a perspective, not an obligation to find an angle on every topic. Do not invent concerns, repeat others, offer generic advice, or expand into unrelated topics just to participate. For example, a duck focused on in-game economics should pass on Unity versus Unreal unless a concrete economic requirement actually affects that choice. Passing is not agreement. If you pass, do not call room tools or explain why you are passing."
@@ -191,7 +205,14 @@ export function makePrompt(
         message.status === "stopped" ||
         ((phase === "guide" || phase === "discussion") && message.status === "error"),
     )
-    .map(({ id, duckId, speaker, text, status }) => ({ id, duckId, speaker, text, status }));
+    .map(({ id, duckId, speaker, text, status, tools }) => ({
+      id,
+      duckId,
+      speaker,
+      text,
+      status,
+      tools,
+    }));
   return {
     system: instruction,
     prompt: `Shared notes: ${JSON.stringify(notes)}\n\nConversation transcript, with speaker labels:\n${JSON.stringify(transcript)}\n\nRespond as ${duck.name}.`,

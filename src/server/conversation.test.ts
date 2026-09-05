@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { defaults, guide, selectDucks, type Room, type RoomEvent } from "../lib/room";
+import { defaults, guide, roomSchema, selectDucks, type Room, type RoomEvent } from "../lib/room";
 vi.mock("./providers.server", () => ({ reply: vi.fn() }));
 vi.mock("./store.server", () => ({ saveRoom: vi.fn() }));
 import { runConversation } from "./conversation.server";
@@ -100,6 +100,13 @@ describe("conversation rounds", () => {
           if (duck.id === "mediator") {
             expect(activeSpeakers).toBe(0);
             mediatorTurns++;
+            if (mediatorTurns === 1) {
+              tools!.call("start_review", {
+                duckIds: value.ducks.map((duck) => duck.id),
+                prompt: "Assess independently.",
+              });
+              return;
+            }
             const questions = state.requests.filter(
               (item) => item.kind === "question" && item.status === "open",
             );
@@ -131,7 +138,7 @@ describe("conversation rounds", () => {
             return;
           }
           activeSpeakers++;
-          const followup = mediatorTurns > 0;
+          const followup = mediatorTurns > 1;
           if (followup) expect(activeSpeakers).toBe(1);
           if (duck.id === "explorer" && !followup)
             tools!.call("ask_duck", { duckId: "skeptic", question: "What makes repairs boring?" });
@@ -151,6 +158,7 @@ describe("conversation rounds", () => {
       },
     );
     expect(seen.map((item) => item.id)).toEqual([
+      "mediator",
       "explorer",
       "skeptic",
       "simplifier",
@@ -160,7 +168,7 @@ describe("conversation rounds", () => {
       "simplifier",
       "mediator",
     ]);
-    for (const entry of seen.slice(0, 3)) {
+    for (const entry of seen.slice(1, 4)) {
       expect(entry.prompt).toContain("Would this be fun?");
       expect(entry.prompt).not.toContain("opinion-");
       expect(entry.prompt).not.toContain("What makes repairs boring?");
@@ -220,11 +228,11 @@ describe("conversation rounds", () => {
       selectDucks(defaults, "Unaddressed thought", "simplifier").map((duck) => duck.id),
     ).toEqual(["simplifier"]);
   });
-  it("preserves partial replies on cancellation and does not start the discussion round", async () => {
+  it("preserves partial replies on cancellation and does not start the summary", async () => {
     const value = room();
     const controller = new AbortController();
     const called: string[] = [];
-    await runConversation(value, "Check this", "discussion", "explorer", controller.signal, emit, {
+    await runConversation(value, "Check this", "review", "explorer", controller.signal, emit, {
       run: async (duck, _system, _prompt, _signal, write) => {
         called.push(duck.id);
         write("A partial thought");
@@ -356,6 +364,13 @@ it.each(["conversation", "review", "discussion"] as const)(
         run: async (duck, system, prompt, _signal, write, emit, tools) => {
           if (duck.id === "mediator") {
             expect(system).not.toContain("reply exactly PASS");
+            if (!value.messages.some((message) => message.phase === "review")) {
+              tools!.call("start_review", {
+                duckIds: value.ducks.map((duck) => duck.id),
+                prompt: "Assess independently.",
+              });
+              return;
+            }
             expect(prompt).toContain('"passedDucks":["skeptic","simplifier"]');
             tools!.call("finish_discussion", {
               summary: "Use the relevant engine assessment.",
@@ -411,8 +426,15 @@ it("keeps an assigned question open when its recipient passes", async () => {
       run: async (duck, _system, prompt, _signal, write, _emit, tools) => {
         const state = value.discussions![0];
         if (duck.id === "mediator") {
+          if (mediatorTurns++ === 0) {
+            tools!.call("start_review", {
+              duckIds: value.ducks.map((duck) => duck.id),
+              prompt: "Assess independently.",
+            });
+            return;
+          }
           const request = state.requests[0];
-          if (mediatorTurns++ === 0)
+          if (mediatorTurns === 2)
             tools!.call("give_floor", {
               duckId: "skeptic",
               prompt: "Answer the engine question",
@@ -429,11 +451,11 @@ it("keeps an assigned question open when its recipient passes", async () => {
               deferred: [{ requestId: request.id, reason: "Outside this duck's expertise." }],
             });
           }
-        } else if (duck.id === "explorer" && mediatorTurns === 0) {
+        } else if (duck.id === "explorer" && mediatorTurns === 1) {
           tools!.call("ask_duck", { duckId: "skeptic", question: "Any editor workflow concerns?" });
           write("Compare a small level-authoring task.");
         } else
-          write(duck.id === "skeptic" && mediatorTurns > 0 ? "PASS" : "A brief relevant point.");
+          write(duck.id === "skeptic" && mediatorTurns > 1 ? "PASS" : "A brief relevant point.");
       },
     },
   );
@@ -441,3 +463,183 @@ it("keeps an assigned question open when its recipient passes", async () => {
   expect(value.discussions![0].requests[0].status).toBe("deferred");
   expect(value.messages.at(-1)?.text).toContain("Still open:");
 });
+
+it("answers a clarification through Mediator without polling ducks", async () => {
+  const value = room();
+  const run = vi.fn<typeof reply>(async (duck, _system, _prompt, _signal, _write, _emit, tools) => {
+    expect(duck.id).toBe("mediator");
+    tools!.call("finish_discussion", {
+      summary: "No decision is needed from you.",
+      disagreements: [],
+      question: "",
+      deferred: [],
+    });
+  });
+  await runConversation(
+    value,
+    "What are you asking me?",
+    "discussion",
+    "explorer",
+    new AbortController().signal,
+    emit,
+    { run, persist },
+  );
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(value.messages.at(-1)?.text).toBe("No decision is needed from you.");
+});
+
+it("executes approved work, requires evidence and review, and persists completion", async () => {
+  const value = room();
+  let turn = 0;
+  await runConversation(
+    value,
+    "Write a two-line cable test checklist in chat.",
+    "discussion",
+    "explorer",
+    new AbortController().signal,
+    emit,
+    {
+      persist,
+      run: async (duck, _system, _prompt, _signal, write, _emit, tools) => {
+        if (duck.id === "mediator") {
+          turn++;
+          if (turn === 1) {
+            const assignment = {
+              duckId: "explorer",
+              task: "Write the checklist",
+              deliverable: "Two concrete test steps in chat",
+              authorizationId: value.messages[0].id,
+            };
+            expect(() =>
+              tools!.call("assign_action", { ...assignment, authorizationId: "duck-proposal" }),
+            ).toThrow("human message");
+            tools!.call("assign_action", assignment);
+          } else if (turn === 2) {
+            expect(() =>
+              tools!.call("finish_discussion", {
+                summary: "Done",
+                disagreements: [],
+                question: "",
+                deferred: [],
+              }),
+            ).toThrow("Approved work remains");
+            tools!.call("review_action", {
+              actionId: value.actions![0].id,
+              accepted: true,
+              reason: "Both required checks are present in the reply.",
+            });
+          } else
+            tools!.call("finish_discussion", {
+              summary: "The checklist is ready.",
+              disagreements: [],
+              question: "",
+              deferred: [],
+            });
+        } else {
+          expect(duck.id).toBe("explorer");
+          const report = {
+            actionId: value.actions![0].id,
+            status: "reported",
+            result: "1. Route and secure a cable. 2. Save, reload, and compare anchors.",
+          };
+          expect(() => tools!.call("report_action", { ...report, evidence: [] })).toThrow(
+            "Provide evidence",
+          );
+          tools!.call("report_action", { ...report, evidence: [report.result] });
+          write(report.result);
+        }
+      },
+    },
+  );
+  expect(value.actions![0]).toMatchObject({
+    status: "complete",
+    owner: "explorer",
+    authorizationId: value.messages[0].id,
+  });
+  expect(
+    value.messages.find((message) => message.id === value.actions![0].responseId)?.status,
+  ).toBe("complete");
+  const restored = roomSchema.parse(JSON.parse(JSON.stringify(value)));
+  expect(restored.actions).toEqual(value.actions);
+});
+
+it.each(["PASS", "I can do that. Want me to?"])(
+  "does not complete an action from %s and can resume it in a later turn",
+  async (answer) => {
+    let value = room();
+    let mediatorTurns = 0;
+    const controller = new AbortController();
+    await runConversation(
+      value,
+      "Audit the document",
+      "discussion",
+      "explorer",
+      controller.signal,
+      emit,
+      {
+        persist,
+        run: async (duck, _system, _prompt, _signal, write, _emit, tools) => {
+          if (duck.id !== "mediator") {
+            write(answer);
+            return;
+          }
+          if (mediatorTurns++ === 0)
+            tools!.call("assign_action", {
+              duckId: "explorer",
+              task: "Audit the document",
+              deliverable: "Corrected file",
+              authorizationId: value.messages[0].id,
+            });
+          else {
+            expect(value.actions![0].status).not.toBe("complete");
+            controller.abort();
+          }
+        },
+      },
+    );
+    value = roomSchema.parse(JSON.parse(JSON.stringify(value)));
+    const action = value.actions![0];
+    let resumed = false;
+    await runConversation(
+      value,
+      "Continue",
+      "discussion",
+      "explorer",
+      new AbortController().signal,
+      emit,
+      {
+        persist,
+        run: async (duck, _system, prompt, _signal, write, _emit, tools) => {
+          if (duck.id !== "mediator") {
+            tools!.call("report_action", {
+              actionId: action.id,
+              status: "blocked",
+              result: "The requested document was not found at the supplied path.",
+              evidence: [],
+            });
+            write("The document is missing.");
+          } else if (!resumed) {
+            expect(prompt).toContain(action.id);
+            tools!.call("assign_action", {
+              duckId: "explorer",
+              task: action.task,
+              deliverable: action.deliverable,
+              authorizationId: action.authorizationId,
+              actionId: action.id,
+            });
+            resumed = true;
+          } else
+            tools!.call("finish_discussion", {
+              summary: "The audit is blocked by a missing file.",
+              disagreements: [],
+              question: "",
+              deferred: [],
+            });
+        },
+      },
+    );
+    expect(value.actions).toHaveLength(1);
+    expect(action.status).toBe("blocked");
+    expect(value.messages.at(-1)?.text).toContain("Unfinished work:");
+  },
+);

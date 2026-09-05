@@ -46,22 +46,26 @@ tailscale serve --https=3998 off
 
 - **Conversation:** the selected duck replies. An explicit `@explorer`, `@skeptic`, or `@simplifier` overrides that selection. Multiple mentions invite multiple ducks.
 - **Independent review:** all ducks receive the same conversation snapshot. They do not see each other's current reviews while writing their own. Guide summarizes their input afterward and asks at most one next question.
-- **Discuss together:** independent reviews followed by a Mediator-led discussion. Ducks ask each other questions and request follow-ups through room tools. Mediator assigns one speaker at a time, then presents the recommendation, remaining disagreements, and at most one question for you.
+- **Discuss together:** Mediator reads your message first. It answers clarifications directly, selects relevant ducks for independent reviews, or assigns already-approved work to an owner. Ducks ask each other questions and request follow-ups through room tools. Mediator assigns one speaker at a time, then presents the recommendation, remaining disagreements, and at most one question for you.
 - **Guided conversation:** Guide replies alone, even if observers are enabled or you mention another duck. It helps work through unresolved choices one question at a time. Switch to Independent review to get everyone's input again.
 - **Observers:** opt in from room settings. Unaddressed ducks check completed replies and speak only if they have something to add. These checks consume subscription usage even when they stay quiet.
 - **Stop:** cancels the room's provider calls and pending approval requests. Completed and partial messages remain saved.
 
-Discuss together uses a dedicated Mediator running GPT-5.6-Sol with Medium reasoning. Each duck receives the full published transcript when it speaks. Initial assessments stay independent; subsequent responses also include the shared question queue. Waiting ducks are not continuously running. The app allows up to eight follow-up turns after the initial assessments and retains the 15-minute turn limit.
+Discuss together uses a dedicated Mediator running GPT-5.6-Sol with Medium reasoning. Each duck receives the full published transcript when it speaks. Mediator reads short approvals together with the proposal they answer and proceeds within that approved scope. Initial assessments stay independent; subsequent responses also include the shared question queue. Waiting ducks are not continuously running. The app allows up to eight follow-up or work turns, with one optional independent review and retains the 15-minute turn limit.
 
 Ducks check whether their perspective is relevant before contributing. If they have nothing substantive to add, they return `PASS` and no reply is shown. A small useful point can be one sentence. Passing does not mean agreement or count as answering an assigned question. Mediator sees which ducks passed and invites them again only if a new issue needs their expertise. The initial relevance checks still use the ducks' subscriptions.
 
 The room tools are scoped to the current room and speaker:
 
 - `ask_duck` records a question for a named peer. `request_turn` records a concern the speaker wants to discuss.
+- `start_review` lets Mediator select the relevant ducks for one independent review. Clarifications and approved tasks can skip it.
+- `assign_action` records a task, owner, deliverable, and authorizing human message, then runs that owner. An existing action ID resumes unfinished work.
+- `report_action` lets the assigned owner submit a result with evidence or a concrete blocker.
+- `review_action` lets Mediator accept a reported deliverable or send it back for correction. The app checks that the owner finished its reply and supplied evidence. Mediator evaluates whether the evidence supports completion.
 - `give_floor` lets Mediator choose one duck and the open requests it should address. It queues a decision; the app starts that duck only after Mediator finishes its invocation.
-- `finish_discussion` publishes the result. Mediator must explicitly defer every unanswered request with a reason. Deferred requests appear in the result. A completed response marks its assigned requests as addressed, which does not imply agreement or resolution.
+- `finish_discussion` publishes the result. Mediator must explicitly defer every unanswered request with a reason. Pending work must run and reported results must be reviewed before finishing. Blocked or budget-exhausted work remains listed as unfinished. Deferred requests appear in the result. A completed response marks its assigned requests as addressed, which does not imply agreement or resolution.
 
-Requests, assignments, and published responses remain saved with the conversation. Failed or stopped answers leave their assigned requests open. The full exchange stays in the expandable reply group, with Mediator's result expanded. Guide remains the partner for Guided conversation and summaries of Independent review.
+Requests, actions, evidence, review decisions, and published responses remain saved with the conversation. Actions persist across turns. A pass, interrupted reply, or offer to work cannot complete an action. After a server restart, a running action becomes pending when the next discussion starts; its owner must inspect partial work before resuming. Failed or stopped answers leave their assigned requests open. The full exchange stays in the expandable reply group, with Mediator's result expanded. Guide remains the partner for Guided conversation and summaries of Independent review.
 
 Room tools use [Codex App Server dynamic tools](https://developers.openai.com/codex/app-server) and [Claude's in-process MCP tools](https://code.claude.com/docs/en/agent-sdk/custom-tools). They do not need user approval because they only coordinate the conversation. Native tools and their existing approval controls remain available.
 
@@ -109,6 +113,6 @@ vp run build
 
 Tests cover independent review context, sequential mediation, question ownership and deferral, discussion limits, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals across browser disconnects, and duck suggestions.
 
-Provider integration tests are opt-in and use the local subscriptions. Set `DUCKPOND_DATA_DIR` and `DUCKPOND_AGENT_CWD` to a temporary directory. Set `DUCKPOND_PROVIDER_INTEGRATION=1` to verify both room-tool bridges, or `DUCKPOND_DISCUSSION_INTEGRATION=1` for a complete discussion, then run `vp test src/server/room-tools.integration.test.ts`.
+Provider integration tests are opt-in and use the local subscriptions. Set `DUCKPOND_DATA_DIR` and `DUCKPOND_AGENT_CWD` to a temporary directory. Set `DUCKPOND_PROVIDER_INTEGRATION=1` to verify both room-tool bridges, `DUCKPOND_DISCUSSION_INTEGRATION=1` for a complete discussion, or `DUCKPOND_ACTION_INTEGRATION=1` for a real file inspection with assignment and result review, then run `vp test src/server/room-tools.integration.test.ts`.
 
 The UI uses the base duck and four outfits in `public/brand/`. Their source artwork and generation prompts live in `design/duck-avatars/v1/`. Each duck chooses an outfit independently of its provider or persona.

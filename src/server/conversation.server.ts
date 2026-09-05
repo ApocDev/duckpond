@@ -140,11 +140,11 @@ export async function runConversation(
 
   if (mode === "guide") {
     await speak(guide, initial, "guide");
-  } else if (mode !== "conversation") {
+  } else if (discussion) {
+    await discussion.moderate(run, speak, emit);
+  } else if (mode === "review") {
     await Promise.all(room.ducks.map((duck) => speak(duck, initial, "review")));
-    if (discussion) {
-      await discussion.moderate(run, speak, emit);
-    } else if (!signal.aborted)
+    if (!signal.aborted)
       await speak(
         {
           ...guide,

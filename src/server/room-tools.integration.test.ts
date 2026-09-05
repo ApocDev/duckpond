@@ -130,3 +130,58 @@ it.skipIf(process.env.DUCKPOND_DISCUSSION_INTEGRATION !== "1")(
   },
   250000,
 );
+
+it.skipIf(process.env.DUCKPOND_ACTION_INTEGRATION !== "1")(
+  "Mediator assigns approved file inspection to Claude and reviews its result",
+  async () => {
+    if (!process.env.DUCKPOND_DATA_DIR || !process.env.DUCKPOND_AGENT_CWD)
+      throw new Error("Set isolated data and agent directories.");
+    const { writeFile } = await import("node:fs/promises");
+    const path = await import("node:path");
+    await writeFile(
+      path.join(process.env.DUCKPOND_AGENT_CWD, "audit.txt"),
+      "Cable test receipt: pond-9327\n",
+    );
+    const { runConversation } = await import("./conversation.server");
+    const room: Room = {
+      id: crypto.randomUUID(),
+      title: "Action integration",
+      messages: [],
+      notes:
+        "Use Explorer to inspect the file. No opinion panel is needed. Do not change files or use the network.",
+      observe: false,
+      updatedAt: "",
+      ducks: [
+        {
+          ...defaults[0],
+          instructions:
+            "Read the requested file using your native tools. Report the exact receipt with report_action and in your reply. Do not ask for permission that the user already granted.",
+        },
+      ],
+    };
+    await runConversation(
+      room,
+      "Have Explorer read audit.txt and return the cable test receipt. I authorize this read-only inspection. Complete it now and review the evidence.",
+      "discussion",
+      "explorer",
+      AbortSignal.timeout(180000),
+      (event) => {
+        if (event.type === "approval")
+          throw new Error("An isolated file read should not need approval.");
+      },
+      { persist: () => {}, streamText: false },
+    );
+    console.log(
+      "Action integration",
+      JSON.stringify({ actions: room.actions, final: room.messages.at(-1)?.text }),
+    );
+    expect(room.discussions![0].status).toBe("complete");
+    expect(room.actions).toHaveLength(1);
+    expect(room.actions![0]).toMatchObject({ status: "complete", owner: "explorer" });
+    expect(room.actions![0].result).toContain("pond-9327");
+    expect(
+      room.messages.find((message) => message.id === room.actions![0].responseId)?.tools,
+    ).toContain("Read");
+  },
+  190000,
+);
