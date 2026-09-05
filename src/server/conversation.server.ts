@@ -2,6 +2,7 @@ import {
   makePrompt,
   selectDucks,
   duckAvatar,
+  guide,
   type Duck,
   type Approval,
   type Message,
@@ -93,12 +94,23 @@ export async function runConversation(
     emit({ type: "room", room: structuredClone(room) });
   }
 
-  if (mode !== "conversation") {
+  if (mode === "guide") {
+    await speak(guide, initial, "guide");
+  } else if (mode !== "conversation") {
     await Promise.all(room.ducks.map((duck) => speak(duck, initial, "review")));
     if (mode === "discussion" && !signal.aborted) {
       const reviews = structuredClone(room.messages);
       await Promise.all(room.ducks.map((duck) => speak(duck, reviews, "discussion")));
     }
+    if (!signal.aborted)
+      await speak(
+        {
+          ...guide,
+          instructions: `${guide.instructions}\nSummarize the round that just finished. Give the person one concise synthesis of the ducks' input and at most one next question. If replies failed or stopped, say the review is incomplete.`,
+        },
+        structuredClone(room.messages),
+        "guide",
+      );
   } else {
     const selected = selectDucks(room.ducks, text, target);
     await Promise.all(selected.map((duck) => speak(duck, initial, "conversation")));

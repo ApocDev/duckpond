@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { defaults, selectDucks, type Room } from "../lib/room";
+import { defaults, guide, selectDucks, type Room } from "../lib/room";
 vi.mock("./providers.server", () => ({ reply: vi.fn() }));
 vi.mock("./store.server", () => ({ saveRoom: vi.fn() }));
 import { runConversation } from "./conversation.server";
+import { reply } from "./providers.server";
 
 function room(): Room {
   return {
@@ -18,6 +19,69 @@ function room(): Room {
 const emit = () => {};
 const persist = () => {};
 describe("conversation rounds", () => {
+  it("lets the guide see the conversation and follow-up answers without triggering mentions or observers", async () => {
+    const value = room();
+    value.observe = true;
+    value.messages.push(
+      {
+        id: "user",
+        speaker: "You",
+        text: "A ten-minute repair game",
+        status: "complete",
+        phase: "conversation",
+        createdAt: "",
+      },
+      {
+        id: "review",
+        speaker: "Skeptic",
+        duckId: "skeptic",
+        text: "Repairs may become chores",
+        status: "stopped",
+        phase: "review",
+        createdAt: "",
+      },
+    );
+    const roster = structuredClone(value.ducks);
+    const runner = vi.fn<typeof reply>(async (_duck, _system, _prompt, _signal, write) =>
+      write("What makes a repair satisfying?"),
+    );
+    await runConversation(
+      value,
+      "Summarize and guide",
+      "guide",
+      "explorer",
+      new AbortController().signal,
+      emit,
+      runner,
+      persist,
+    );
+    expect(runner).toHaveBeenCalledTimes(1);
+    expect(runner.mock.calls[0][0]).toEqual(guide);
+    expect(runner.mock.calls[0][2]).toContain("Repairs may become chores");
+    expect(runner.mock.calls[0][2]).toContain('"status":"stopped"');
+    expect(runner.mock.calls[0][2]).toContain("Keep it small");
+    expect(value.messages.at(-1)).toMatchObject({
+      phase: "guide",
+      model: "gpt-5.6-sol",
+      reasoning: "medium",
+      status: "complete",
+    });
+    await runConversation(
+      value,
+      "@skeptic I like finding the fault",
+      "guide",
+      "skeptic",
+      new AbortController().signal,
+      emit,
+      runner,
+      persist,
+    );
+    expect(runner).toHaveBeenCalledTimes(2);
+    expect(runner.mock.calls[1][0]).toEqual(guide);
+    expect(runner.mock.calls[1][2]).toContain("What makes a repair satisfying?");
+    expect(runner.mock.calls[1][2]).toContain("I like finding the fault");
+    expect(value.ducks).toEqual(roster);
+  });
   it("keeps first opinions independent and makes all reviews available to the bounded second round", async () => {
     const value = room();
     const seen: { id: string; prompt: string }[] = [];
@@ -34,14 +98,46 @@ describe("conversation rounds", () => {
       },
       persist,
     );
-    expect(seen).toHaveLength(6);
+    expect(seen).toHaveLength(7);
     for (const entry of seen.slice(0, 3)) {
       expect(entry.prompt).toContain("Would this be fun?");
       expect(entry.prompt).not.toContain("opinion-");
     }
-    for (const entry of seen.slice(3))
+    for (const entry of seen.slice(3, 6))
       for (const duck of defaults) expect(entry.prompt).toContain(`opinion-${duck.id}`);
-    expect(value.messages).toHaveLength(7);
+    expect(seen[6].id).toBe("guide");
+    for (const duck of defaults) expect(seen[6].prompt).toContain(`opinion-${duck.id}`);
+    expect(value.messages).toHaveLength(8);
+    expect(value.messages.at(-1)?.phase).toBe("guide");
+  });
+  it("summarizes completed reviews and tells the guide which replies failed", async () => {
+    const value = room();
+    const runner = vi.fn<typeof reply>(async (duck, _system, prompt, _signal, write) => {
+      if (duck.id === "skeptic") throw new Error("Usage limit");
+      if (duck.id === "guide") {
+        expect(prompt).toContain("Usage limit");
+        expect(prompt).toContain('"status":"error"');
+        expect(prompt).toContain("opinion-explorer");
+        expect(prompt).toContain("opinion-simplifier");
+      }
+      write(`opinion-${duck.id}`);
+    });
+    await runConversation(
+      value,
+      "Review this",
+      "review",
+      "explorer",
+      new AbortController().signal,
+      emit,
+      runner,
+      persist,
+    );
+    expect(runner.mock.calls.map(([duck]) => duck.id)).toEqual([
+      "explorer",
+      "skeptic",
+      "simplifier",
+      "guide",
+    ]);
   });
   it("routes explicit mentions without also calling the default duck", () => {
     expect(selectDucks(defaults, "@skeptic check this", "explorer").map((duck) => duck.id)).toEqual(

@@ -45,8 +45,9 @@ tailscale serve --https=3998 off
 ## Conversations
 
 - **Conversation:** the selected duck replies. An explicit `@explorer`, `@skeptic`, or `@simplifier` overrides that selection. Multiple mentions invite multiple ducks.
-- **Independent review:** all ducks receive the same conversation snapshot. They do not see each other's current reviews while writing their own.
-- **Discuss together:** independent reviews followed by one round of responses to those reviews. There is no unlimited automatic discussion loop.
+- **Independent review:** all ducks receive the same conversation snapshot. They do not see each other's current reviews while writing their own. Guide summarizes their input afterward and asks at most one next question.
+- **Discuss together:** independent reviews followed by one round of responses to those reviews, then a Guide summary. There is no unlimited automatic discussion loop.
+- **Guided conversation:** Guide replies alone, even if observers are enabled or you mention another duck. It helps work through unresolved choices one question at a time. Switch to Independent review to get everyone's input again.
 - **Observers:** opt in from room settings. Unaddressed ducks check completed replies and speak only if they have something to add. These checks consume subscription usage even when they stay quiet.
 - **Stop:** cancels the room's provider calls and pending approval requests. Completed and partial messages remain saved.
 
@@ -56,7 +57,11 @@ Type `@` or tap **Invite a duck** to choose participants. The picker inserts a s
 
 The message box starts at one line and grows as you type, up to a scrollable height. On mobile, Return inserts a new line and the arrow button sends the message. On desktop, Enter sends and Shift+Enter adds a new line.
 
-The transcript follows replies while you are at the bottom. Scrolling up pauses following and preserves your reading position when other replies grow above it. Scroll back to the bottom to resume following.
+Parallel replies appear in an expandable round, with each duck's status visible. Tap a row to read its full response. Guide summaries stay expanded. Existing conversations use this layout without changing their saved messages.
+
+The transcript follows replies while you are at the bottom. Scrolling up or opening a duck's reply pauses following and preserves your reading position when other replies grow above it. **New replies** returns to the bottom and resumes following.
+
+**Summarize and guide** catches up on the current conversation and switches to Guided conversation. It preserves any unsent draft. Guide uses GPT-5.6-Sol with Medium reasoning through Codex, reads the transcript and shared notes, and separates decisions from suggestions and disagreements. Its summaries use an additional provider call after each review or discussion round. Guide keeps native tool access and the same approval controls as the other ducks. Stopping a round skips its remaining replies and automatic summary.
 
 **Suggest a duck**, in room settings, asks GPT-5.6-Sol with Medium reasoning for one missing perspective using the conversation, current draft roster, and shared notes. It explains why the suggested persona would help, or says when another duck is unnecessary. The suggestion opens as an editable draft card. Save the room to add it, or remove the card to dismiss it. This uses the Codex subscription in a read-only session; the helper reads the supplied discussion and does not change the conversation. A request can be cancelled and has a two-minute limit.
 
@@ -82,6 +87,6 @@ vp test
 vp run build
 ```
 
-Tests cover independent review context, bounded discussion, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals, and duck suggestions.
+Tests cover independent review context, bounded discussion, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals, and duck suggestions.
 
 The UI uses the base duck and four outfits in `public/brand/`. Their source artwork and generation prompts live in `design/duck-avatars/v1/`. Each duck chooses an outfit independently of its provider or persona.

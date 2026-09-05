@@ -14,6 +14,16 @@ export const duckSchema = z.object({
   instructions: z.string().trim().min(1).max(4000),
 });
 export type Duck = z.infer<typeof duckSchema>;
+export const guide: Duck = {
+  id: "guide",
+  name: "Guide",
+  provider: "codex",
+  model: "gpt-5.6-sol",
+  reasoning: "medium",
+  avatar: "wizard",
+  instructions:
+    "Help the person follow a conversation with several ducks. When asked to summarize, give a brief synthesis of the current direction, consequential disagreements, and unresolved choices. Attribute disagreements to the ducks who raised them. Separate decisions the person actually made from suggestions and assumptions. Do not invent consensus or turn suggestions into commitments. Combine duplicate questions and ask only the single most useful unanswered question. Do not repeat questions the person has already answered. On follow-up answers, acknowledge what changed and move to the next useful question without repeating the whole summary. Keep the conversation natural and concise. Treat stopped replies as incomplete evidence. If a perspective needs more work, suggest inviting that duck; do not speak for it or claim it agreed.",
+};
 export const ducksSchema = z
   .array(duckSchema)
   .min(1, "Keep at least one duck in the room.")
@@ -71,7 +81,7 @@ export const messageSchema = z.object({
   text: z.string(),
   tools: z.array(z.string()).optional(),
   status: z.enum(["thinking", "complete", "stopped", "error"]),
-  phase: z.enum(["conversation", "review", "discussion", "observer"]),
+  phase: z.enum(["conversation", "review", "discussion", "observer", "guide"]),
   createdAt: z.string(),
 });
 export type Message = z.infer<typeof messageSchema>;
@@ -85,7 +95,7 @@ export const roomSchema = z.object({
   updatedAt: z.string(),
 });
 export type Room = z.infer<typeof roomSchema>;
-export const modeSchema = z.enum(["conversation", "review", "discussion"]);
+export const modeSchema = z.enum(["conversation", "review", "discussion", "guide"]);
 export type Mode = z.infer<typeof modeSchema>;
 export const turnSchema = z.object({
   roomId: z.string().uuid(),
@@ -147,8 +157,13 @@ export function makePrompt(
     .filter(Boolean)
     .join("\n\n");
   const transcript = messages
-    .filter((message) => message.status === "complete" || message.status === "stopped")
-    .map(({ speaker, text }) => ({ speaker, text }));
+    .filter(
+      (message) =>
+        message.status === "complete" ||
+        message.status === "stopped" ||
+        (phase === "guide" && message.status === "error"),
+    )
+    .map(({ speaker, text, status }) => ({ speaker, text, status }));
   return {
     system: instruction,
     prompt: `Shared notes: ${JSON.stringify(notes)}\n\nConversation transcript, with speaker labels:\n${JSON.stringify(transcript)}\n\nRespond as ${duck.name}.`,

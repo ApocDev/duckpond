@@ -19,6 +19,7 @@ import { Settings } from "../components/settings";
 import { DuckAvatar } from "../components/duck-avatar";
 import { MentionInput } from "../components/mention-input";
 import { Transcript } from "../components/transcript";
+import { ConversationMessages } from "../components/chat-message";
 import {
   answerApproval,
   connections,
@@ -34,7 +35,6 @@ import {
   modeSchema,
   type Approval,
   type Duck,
-  type Message,
   type Mode,
   type Room,
   type RoomStream,
@@ -144,8 +144,11 @@ function Home() {
       setSaving(false);
     }
   }
-  async function send() {
-    const text = input.trim();
+  async function send(summarize = false) {
+    const text = summarize
+      ? "Summarize this conversation and help me work through the next unresolved question."
+      : input.trim();
+    const requestedMode = summarize ? "guide" : mode;
     if (!text || busy || saving) return;
     setError("");
     setSaving(true);
@@ -157,13 +160,14 @@ function Home() {
         setSelected(active.id);
       }
       runningRoom.current = active.id;
-      setInput("");
+      if (summarize) setMode("guide");
+      else setInput("");
       await chat.sendMessage(
         { text },
-        { body: { roomId: active.id, text, mode, target: currentTarget } },
+        { body: { roomId: active.id, text, mode: requestedMode, target: currentTarget } },
       );
     } catch (cause) {
-      setInput(text);
+      if (!summarize) setInput(text);
       setError(cause instanceof Error ? cause.message : "Couldn't send your message.");
     } finally {
       setSaving(false);
@@ -279,7 +283,7 @@ function Home() {
             <ChevronDown size={13} />
           </button>
         </header>
-        <Transcript key={selected}>
+        <Transcript key={selected} messages={room?.messages}>
           {!room?.messages.length ? (
             <div className="welcome">
               <div className="welcome-mark">
@@ -318,9 +322,7 @@ function Home() {
               <div className="date-divider">
                 <span>Room to think. No need to have it figured out.</span>
               </div>
-              {room.messages.map((message) => (
-                <ChatMessage key={message.id} message={message} />
-              ))}
+              <ConversationMessages messages={room.messages} />
             </div>
           )}
         </Transcript>
@@ -336,6 +338,17 @@ function Home() {
           {approvals.map((approval) => (
             <ApprovalCard key={approval.id} approval={approval} />
           ))}
+          {!!room?.messages.length && (
+            <div className="conversation-actions">
+              <button
+                className="summary-button"
+                disabled={busy || saving}
+                onClick={() => void send(true)}
+              >
+                <NotebookPen size={14} /> Summarize and guide
+              </button>
+            </div>
+          )}
           <form
             className="composer"
             onSubmit={(event) => {
@@ -360,6 +373,7 @@ function Home() {
                   <option value="conversation">Conversation</option>
                   <option value="review">Independent review</option>
                   <option value="discussion">Discuss together</option>
+                  <option value="guide">Guided conversation</option>
                 </select>
                 {mode === "conversation" && (
                   <select
@@ -403,9 +417,11 @@ function Home() {
             {busy ? (
               "The ducks are thinking. You can stop them at any time."
             ) : mode === "review" ? (
-              "Each duck considers your thought independently before seeing the others' replies."
+              "All ducks give independent input, then Guide summarizes and asks one next question."
             ) : mode === "discussion" ? (
-              "Independent thoughts, then one round of replies to each other."
+              "All ducks review and discuss, then Guide summarizes and asks one next question."
+            ) : mode === "guide" ? (
+              "Guide replies alone. Choose Independent review for everyone's input."
             ) : (
               <>
                 <span className="keyboard-hint">Enter to send · Shift + Enter for a new line</span>
@@ -503,35 +519,6 @@ function Home() {
   );
 }
 
-function ChatMessage({ message }: { message: Message }) {
-  const human = !message.duckId;
-  return (
-    <article data-scroll-anchor className={`chat-message ${human ? "human-message" : ""}`}>
-      {human ? (
-        <span className="avatar human">J</span>
-      ) : (
-        <DuckAvatar avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })} />
-      )}
-      <div className="message-body">
-        <div className="message-heading">
-          <strong>{message.speaker}</strong>
-          {message.provider && <span>{message.provider === "claude" ? "Claude" : "Codex"}</span>}
-          {message.phase !== "conversation" && <span className="phase-label">{message.phase}</span>}
-          {message.status === "stopped" && <span>Stopped</span>}
-        </div>
-        <div className={`message-text ${message.status === "error" ? "message-error" : ""}`}>
-          {message.text ? (
-            <Markdown>{message.text}</Markdown>
-          ) : (
-            <span className="thinking-text">
-              {message.status === "thinking" ? "Thinking..." : "Reply stopped."}
-            </span>
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
 function ApprovalCard({ approval }: { approval: Approval }) {
   const [answers, setAnswers] = useState<Record<string, string | boolean | number>>({});
   const [error, setError] = useState("");

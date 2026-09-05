@@ -1253,3 +1253,95 @@ select {
     display: inline;
   }
 }
+
+.reply-round {
+  margin: 24px 0;
+  border: 1px solid #3b3b3b;
+  border-radius: 12px;
+  padding: 0 15px;
+  background: #1c1c1c;
+}
+.round-heading {
+  padding: 14px 0;
+  font-size: 11px;
+  color: #aaa;
+}
+.duck-reply {
+  border-top: 1px solid #343434;
+}
+.duck-reply > summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 58px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+}
+.duck-reply > summary::-webkit-details-marker {
+  display: none;
+}
+.reply-author {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+.reply-phase {
+  font-size: 9px;
+  color: #999;
+}
+.reply-status {
+  margin-left: auto;
+  min-width: 60px;
+  text-align: right;
+  white-space: nowrap;
+  font-size: 10px;
+  color: #b5b5b5;
+}
+.reply-status.thinking,
+.guide-message .message-heading strong {
+  color: var(--accent);
+}
+.reply-status.error {
+  color: #fda4af;
+}
+.duck-reply[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.reply-content {
+  padding: 0 0 14px;
+}
+.guide-message {
+  border-top: 2px solid var(--accent);
+  padding-top: 18px;
+}
+.conversation-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.summary-button,
+.transcript-jump button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid #575039;
+  border-radius: 8px;
+  color: var(--accent);
+  background: #27261f;
+  font-size: 11px;
+}
+.transcript-jump {
+  text-align: center;
+  padding-top: 8px;
+}
+@media (max-width: 650px) {
+  .reply-round {
+    padding: 0 10px;
+  }
+  .duck-reply > summary {
+    gap: 6px;
+  }
+}
