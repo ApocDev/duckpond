@@ -1,0 +1,25 @@
+src/routes/api.chat.ts
+  s_9d1c5a9b4e5822::t_f7411dacc86ab5 2,7
+src/routes/index.tsx
+  s_9d1c5a9b4e5822::t_1748fd1bda44f4 66,72-77,112-115,118,120-150,152-173,175-185,224-225,230-238,245-246,490-492
+src/server/conversation.server.ts
+  s_9d1c5a9b4e5822::t_7c7095b383ab2d 28-36,39
+src/server/conversation.test.ts
+  s_9d1c5a9b4e5822::t_9a1dbd713e2cbf 55,75,93-98,132,153-154,161,175-179,193-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "5e34b4d56256e61d8fabb555e4b7792b4609aaf5",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
