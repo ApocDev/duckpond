@@ -63,6 +63,8 @@ Dictation needs a supported browser and a secure page, such as the Tailscale HTT
 
 Parallel replies appear in an expandable round, with each duck's status visible. Tap a row to read its full response. Guide summaries stay expanded. Existing conversations use this layout without changing their saved messages.
 
+On phones, touch tablets, and narrow windows, replies appear when each duck finishes. Thinking status and tool approval questions still arrive immediately, and Stop reveals any partial reply. Desktop keeps live text streaming. Closed reply rows only render their Markdown when opened. Unchanged messages stay rendered while you type or reconnect.
+
 The transcript follows replies while you are at the bottom. Scrolling up or opening a duck's reply pauses following and preserves your reading position when other replies grow above it. **New replies** returns to the bottom and resumes following.
 
 **Summarize and guide** catches up on the current conversation and switches to Guided conversation. It preserves any unsent draft. Guide uses GPT-5.6-Sol with Medium reasoning through Codex, reads the transcript and shared notes, and separates decisions from suggestions and disagreements. Its summaries use an additional provider call after each review or discussion round. Guide keeps native tool access and the same approval controls as the other ducks. Stopping a round skips its remaining replies and automatic summary.

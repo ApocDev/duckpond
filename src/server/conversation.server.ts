@@ -29,12 +29,21 @@ export async function runConversation(
     run = reply,
     persist = saveRoom,
     messageId = crypto.randomUUID(),
+    streamText = true,
   }: {
     run?: Runner;
     persist?: (room: Room) => unknown;
     messageId?: string;
+    streamText?: boolean;
   } = {},
 ) {
+  function emitRoom() {
+    const snapshot = structuredClone(room);
+    if (!streamText)
+      for (const message of snapshot.messages) if (message.status === "thinking") message.text = "";
+    emit({ type: "room", room: snapshot });
+  }
+
   room.messages.push({
     id: messageId,
     speaker: "You",
@@ -45,7 +54,7 @@ export async function runConversation(
   });
   if (room.messages.length === 1) room.title = text.slice(0, 65);
   persist(room);
-  emit({ type: "room", room: structuredClone(room) });
+  emitRoom();
   const initial = structuredClone(room.messages);
 
   async function speak(duck: Duck, history: Message[], phase: Message["phase"]) {
@@ -74,13 +83,17 @@ export async function runConversation(
         signal,
         (delta) => {
           message.text += delta;
-          if (phase !== "observer") emit({ type: "message", message: { ...message } });
+          if (streamText && phase !== "observer")
+            emit({ type: "message", message: { ...message } });
         },
         (event) => {
           if (event.type === "activity") {
             message.tools ??= [];
             if (!message.tools.includes(event.label)) message.tools.push(event.label);
-            emit({ type: "message", message: { ...message } });
+            emit({
+              type: "message",
+              message: { ...message, text: streamText ? message.text : "" },
+            });
           }
           emit(event);
         },
@@ -98,7 +111,7 @@ export async function runConversation(
         message.text = `${message.text ? message.text + "\n\n" : ""}${error instanceof Error ? error.message : "The provider could not complete this reply."}`;
     }
     persist(room);
-    emit({ type: "room", room: structuredClone(room) });
+    emitRoom();
   }
 
   if (mode === "guide") {

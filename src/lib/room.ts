@@ -100,6 +100,7 @@ export type Mode = z.infer<typeof modeSchema>;
 export const turnSchema = z.object({
   roomId: z.string().uuid(),
   submissionId: z.string().uuid().optional(),
+  streamText: z.boolean().default(true),
   text: z.string().trim().min(1).max(20000),
   mode: modeSchema,
   target: duckSchema.shape.id,

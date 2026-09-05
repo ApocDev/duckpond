@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { defaults, guide, selectDucks, type Room } from "../lib/room";
+import { defaults, guide, selectDucks, type Room, type RoomEvent } from "../lib/room";
 vi.mock("./providers.server", () => ({ reply: vi.fn() }));
 vi.mock("./store.server", () => ({ saveRoom: vi.fn() }));
 import { runConversation } from "./conversation.server";
@@ -201,4 +201,66 @@ describe("conversation rounds", () => {
     expect(value.messages[1]).toMatchObject({ status: "error", text: "Usage limit" });
     expect(value.messages[2]).toMatchObject({ status: "complete", text: "Still useful" });
   });
+});
+
+it("hides unfinished peer text in mobile snapshots while preserving completed and failed replies", async () => {
+  const value = room();
+  const events: RoomEvent[] = [];
+  let finishPeer = () => {};
+  const peer = new Promise<void>((resolve) => {
+    finishPeer = resolve;
+  });
+  const turn = runConversation(
+    value,
+    "Review this",
+    "review",
+    "explorer",
+    new AbortController().signal,
+    (event) => events.push(structuredClone(event)),
+    {
+      streamText: false,
+      persist,
+      run: async (duck, _system, _prompt, _signal, write) => {
+        write(`opinion-${duck.id}`);
+        if (duck.id === "skeptic") await peer;
+        if (duck.id === "simplifier") throw new Error("Usage limit");
+      },
+    },
+  );
+  try {
+    await vi.waitFor(() =>
+      expect(
+        events.some(
+          (event) =>
+            event.type === "room" &&
+            event.room.messages.some(
+              (message) => message.duckId === "explorer" && message.status === "complete",
+            ),
+        ),
+      ).toBe(true),
+    );
+    const snapshots = events.filter((event) => event.type === "room");
+    expect(
+      snapshots.some((event) =>
+        event.room.messages.some((message) => message.duckId === "skeptic"),
+      ),
+    ).toBe(true);
+    for (const event of snapshots)
+      expect(
+        event.room.messages
+          .filter((message) => message.status === "thinking")
+          .every((message) => message.text === ""),
+      ).toBe(true);
+    expect(value.messages.find((message) => message.duckId === "skeptic")?.text).toBe(
+      "opinion-skeptic",
+    );
+  } finally {
+    finishPeer();
+    await turn;
+  }
+  expect(value.messages.find((message) => message.duckId === "simplifier")).toMatchObject({
+    status: "error",
+    text: "opinion-simplifier\n\nUsage limit",
+  });
+  expect(events.at(-1)).toEqual({ type: "room", room: value });
 });

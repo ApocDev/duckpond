@@ -1,10 +1,15 @@
+import { memo, useState } from "react";
 import Markdown from "react-markdown";
 import { ChevronDown } from "lucide-react";
 import { duckAvatar, type Message } from "../lib/room";
 import { groupMessages } from "../lib/message-groups";
 import { DuckAvatar } from "./duck-avatar";
 
-export function ConversationMessages({ messages }: { messages: Message[] }) {
+export const ConversationMessages = memo(function ConversationMessages({
+  messages,
+}: {
+  messages: Message[];
+}) {
   return groupMessages(messages).map((group) =>
     group.kind === "message" ? (
       <ChatMessage key={group.id} message={group.message} />
@@ -12,7 +17,7 @@ export function ConversationMessages({ messages }: { messages: Message[] }) {
       <ReplyRound key={group.id} messages={group.messages} />
     ),
   );
-}
+});
 
 function ReplyRound({ messages }: { messages: Message[] }) {
   const thinking = messages.filter((message) => message.status === "thinking").length;
@@ -25,39 +30,43 @@ function ReplyRound({ messages }: { messages: Message[] }) {
         {incomplete > 0 && ` · ${incomplete} incomplete`}
       </div>
       {messages.map((message) => (
-        <details className="duck-reply" key={message.id}>
-          <summary data-scroll-anchor>
-            <DuckAvatar
-              avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })}
-              small
-            />
-            <span className="reply-author">
-              <strong>{message.speaker}</strong>
-              {message.phase !== "conversation" && (
-                <span className="reply-phase">{message.phase}</span>
-              )}
-            </span>
-            <span className={`reply-status ${message.status}`}>
-              {message.status === "thinking"
-                ? "Thinking"
-                : message.status === "complete"
-                  ? "Read reply"
-                  : message.status === "error"
-                    ? "Failed"
-                    : "Stopped"}
-            </span>
-            <ChevronDown size={14} />
-          </summary>
-          <div data-scroll-anchor className="reply-content">
-            <MessageText message={message} />
-          </div>
-        </details>
+        <ReplyDetails key={message.id} message={message} />
       ))}
     </section>
   );
 }
 
-function ChatMessage({ message }: { message: Message }) {
+const ReplyDetails = memo(function ReplyDetails({ message }: { message: Message }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="duck-reply" onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary data-scroll-anchor>
+        <DuckAvatar avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })} small />
+        <span className="reply-author">
+          <strong>{message.speaker}</strong>
+          {message.phase !== "conversation" && <span className="reply-phase">{message.phase}</span>}
+        </span>
+        <span className={`reply-status ${message.status}`}>
+          {message.status === "thinking"
+            ? "Thinking"
+            : message.status === "complete"
+              ? "Read reply"
+              : message.status === "error"
+                ? "Failed"
+                : "Stopped"}
+        </span>
+        <ChevronDown size={14} />
+      </summary>
+      {open && (
+        <div data-scroll-anchor className="reply-content">
+          <MessageText message={message} />
+        </div>
+      )}
+    </details>
+  );
+});
+
+const ChatMessage = memo(function ChatMessage({ message }: { message: Message }) {
   const human = !message.duckId;
   return (
     <article
@@ -86,7 +95,7 @@ function ChatMessage({ message }: { message: Message }) {
       </div>
     </article>
   );
-}
+});
 
 function MessageText({ message }: { message: Message }) {
   return (

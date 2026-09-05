@@ -12,7 +12,7 @@ export async function createChatResponse(request: Request) {
   }
   const parsed = turnSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return new Response("Invalid conversation request", { status: 400 });
-  const { roomId, submissionId, text, mode, target } = parsed.data;
+  const { roomId, submissionId, streamText, text, mode, target } = parsed.data;
   if (activeTurns.has(roomId))
     return new Response("This conversation is already running", { status: 409 });
   let room;
@@ -44,7 +44,7 @@ export async function createChatResponse(request: Request) {
             if (!request.signal.aborted)
               writer.write({ type: "data-room", data: event, transient: true });
           },
-          { messageId: submissionId },
+          { messageId: submissionId, streamText },
         );
       } finally {
         activeTurns.delete(roomId);

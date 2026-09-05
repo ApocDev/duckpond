@@ -11,27 +11,31 @@ import { requireAllowedRequest } from "./access.server";
 import { resolveApproval } from "./approvals.server";
 import { suggestParticipant } from "./suggestions.server";
 
-export const loadRooms = createServerFn({ method: "GET" }).handler(() => {
-  requireAllowedRequest(getRequest());
-  const rooms = listRooms().map((stored) => {
-    const room = liveRooms.get(stored.id)?.room ?? stored;
+export const loadRooms = createServerFn({ method: "GET" })
+  .validator(z.object({ streamText: z.boolean() }).optional())
+  .handler(({ data }) => {
+    requireAllowedRequest(getRequest());
+    const rooms = listRooms().map((stored) => {
+      const room = liveRooms.get(stored.id)?.room ?? stored;
+      return {
+        ...room,
+        messages: room.messages.map((message) =>
+          message.status === "thinking" && !activeTurns.has(room.id)
+            ? { ...message, status: "stopped" as const }
+            : data?.streamText !== true && message.status === "thinking"
+              ? { ...message, text: "" }
+              : message,
+        ),
+      };
+    });
     return {
-      ...room,
-      messages: room.messages.map((message) =>
-        message.status === "thinking" && !activeTurns.has(room.id)
-          ? { ...message, status: "stopped" as const }
-          : message,
-      ),
+      rooms,
+      active: [...liveRooms.entries()].map(([roomId, live]) => ({
+        roomId,
+        approvals: live.approvals,
+      })),
     };
   });
-  return {
-    rooms,
-    active: [...liveRooms.entries()].map(([roomId, live]) => ({
-      roomId,
-      approvals: live.approvals,
-    })),
-  };
-});
 export const newRoom = createServerFn({ method: "POST" }).handler(() => {
   requireAllowedRequest(getRequest());
   return createRoom();

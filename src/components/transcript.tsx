@@ -15,7 +15,8 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
     this.jumpToLatest();
   }
 
-  getSnapshotBeforeUpdate(): Anchor[] {
+  getSnapshotBeforeUpdate(previousProps: Readonly<TranscriptProps>): Anchor[] {
+    if (previousProps.messages === this.props.messages) return [];
     const viewport = this.viewport.current;
     if (!viewport || this.following) return [];
     const top = viewport.getBoundingClientRect().top;
@@ -32,7 +33,17 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
     }));
   }
 
-  componentDidUpdate(previousProps: Readonly<TranscriptProps>, _state: unknown, anchors: Anchor[]) {
+  componentDidUpdate(
+    previousProps: Readonly<TranscriptProps>,
+    previousState: Readonly<{ unread: boolean }>,
+    anchors: Anchor[],
+  ) {
+    // The unread button also changes the viewport height when it appears or disappears.
+    if (
+      previousProps.messages === this.props.messages &&
+      previousState.unread === this.state.unread
+    )
+      return;
     const viewport = this.viewport.current;
     if (!viewport) return;
     if (this.following) {

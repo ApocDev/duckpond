@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, replaceEqualDeep } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
@@ -48,6 +48,11 @@ const prompts = [
   "I want a second opinion on something I'm building.",
 ];
 
+// Match the composer's mobile keyboard behavior, including touch tablets.
+function shouldStreamText() {
+  return !window.matchMedia("(max-width: 650px), (pointer: coarse)").matches;
+}
+
 function Home() {
   const initial = Route.useLoaderData();
   const [rooms, setRooms] = useState<Room[]>(initial.rooms);
@@ -79,7 +84,9 @@ function Home() {
   const ducks = room?.ducks ?? defaults;
   const currentTarget = ducks.some((duck) => duck.id === target) ? target : ducks[0].id;
   function receiveRoom(value: Room) {
-    setRooms((current) => [value, ...current.filter((item) => item.id !== value.id)]);
+    setRooms((current) =>
+      replaceEqualDeep(current, [value, ...current.filter((item) => item.id !== value.id)]),
+    );
   }
   const chat = useChat<RoomStream>({
     transport,
@@ -123,9 +130,9 @@ function Home() {
       if (localBusy || refreshing || document.visibilityState === "hidden") return;
       refreshing = true;
       try {
-        const value = await loadRooms();
+        const value = await loadRooms({ data: { streamText: shouldStreamText() } });
         if (disposed) return;
-        setRooms(value.rooms);
+        setRooms((current) => replaceEqualDeep(current, value.rooms));
         setRemoteActive(value.active);
         setApprovals(
           value.active.filter((item) => item.roomId === selected).flatMap((item) => item.approvals),
@@ -231,6 +238,7 @@ function Home() {
           body: {
             roomId: active.id,
             submissionId: messageId,
+            streamText: shouldStreamText(),
             text,
             mode: requestedMode,
             target: currentTarget,
