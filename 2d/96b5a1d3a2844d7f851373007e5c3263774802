@@ -1,0 +1,29 @@
+README.md
+  s_9d1c5a9b4e5822::t_a41a52b6a39a52 49,54,61-64,66,68,116
+src/lib/room.ts
+  s_9d1c5a9b4e5822::t_7642e9688961ce 109-121,130,184,208-215
+src/server/conversation.server.ts
+  s_9d1c5a9b4e5822::t_2756910964ff74 143-145,147
+src/server/conversation.test.ts
+  s_9d1c5a9b4e5822::t_f3fcb6e8774f26 2,103-109,141,161,171,231,235,367-373,429-435,437,454,458,466-645
+src/server/discussion.server.ts
+  s_9d1c5a9b4e5822::t_9fb7dc446a3f9a 5,20,32-46,48-50,54,61-70,83-88,105-125,162,186-188,190-195,212-229,247-288,303-313,346,363-433
+src/server/room-tools.integration.test.ts
+  s_9d1c5a9b4e5822::t_76b7bf51ceedf6 133-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "2d96b5a1d3a2844d7f851373007e5c3263774802",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
