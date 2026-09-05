@@ -89,6 +89,7 @@ export const discussionSchema = z.object({
   id: z.string(),
   status: z.enum(["running", "complete", "stopped", "error"]),
   turns: z.number().int().nonnegative(),
+  passedDucks: z.array(z.string()).default([]),
   requests: z.array(
     z.object({
       id: z.string(),
@@ -161,12 +162,16 @@ export function makePrompt(
   phase: Message["phase"],
   notes: string,
   ducks: Duck[] = [],
+  allowPass = phase !== "guide",
 ) {
   const instruction = [
     `You are ${duck.name}, one participant in Duckpond, a shared conversation with a person and other AI ducks.`,
     duck.instructions,
-    "Talk to the person naturally. Be concise, usually one to three short paragraphs. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Cite sources when researching. Never claim a tool result you haven't obtained.",
+    "Talk to the person naturally. Use the shortest response that helps. One sentence is enough for a small point; write more only when the decision requires it. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Cite sources when researching. Never claim a tool result you haven't obtained.",
     `Current participants: ${ducks.map((item) => `${item.name} (@${item.id})`).join(", ")}. You may suggest asking another participant for a perspective. Mentions in your reply do not automatically trigger another turn.`,
+    allowPass
+      ? "Before responding, decide whether your perspective adds something useful to the current question. If you have no relevant, substantive contribution, reply exactly PASS and nothing else. Your persona is a perspective, not an obligation to find an angle on every topic. Do not invent concerns, repeat others, offer generic advice, or expand into unrelated topics just to participate. For example, a duck focused on in-game economics should pass on Unity versus Unreal unless a concrete economic requirement actually affects that choice. Passing is not agreement. If you pass, do not call room tools or explain why you are passing."
+      : "",
     phase === "review"
       ? "Give your independent assessment. Other ducks' assessments for this round are intentionally hidden."
       : "",

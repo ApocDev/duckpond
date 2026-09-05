@@ -40,8 +40,9 @@ export async function runConversation(
 ) {
   function emitRoom() {
     const snapshot = structuredClone(room);
-    if (!streamText)
-      for (const message of snapshot.messages) if (message.status === "thinking") message.text = "";
+    for (const message of snapshot.messages)
+      if (message.status === "thinking" && (!streamText || "PASS".startsWith(message.text.trim())))
+        message.text = "";
     emit({ type: "room", room: snapshot });
   }
 
@@ -92,7 +93,7 @@ export async function runConversation(
         signal,
         (delta) => {
           message.text += delta;
-          if (streamText && phase !== "observer")
+          if (streamText && phase !== "observer" && !"PASS".startsWith(message.text.trim()))
             emit({ type: "message", message: { ...message } });
         },
         (event) => {
@@ -101,7 +102,10 @@ export async function runConversation(
             if (!message.tools.includes(event.label)) message.tools.push(event.label);
             emit({
               type: "message",
-              message: { ...message, text: streamText ? message.text : "" },
+              message: {
+                ...message,
+                text: streamText && !"PASS".startsWith(message.text.trim()) ? message.text : "",
+              },
             });
           }
           emit(event);
@@ -109,9 +113,7 @@ export async function runConversation(
         roomTools,
       );
       message.status = signal.aborted ? "stopped" : "complete";
-      if (phase === "observer" && message.text.trim() === "PASS")
-        room.messages = room.messages.filter((item) => item.id !== message.id);
-      else if (!message.text.trim() && !signal.aborted) {
+      if (!message.text.trim() && !signal.aborted) {
         message.status = "error";
         message.text = "No reply was returned. Try this duck again.";
       }
@@ -122,11 +124,18 @@ export async function runConversation(
     }
     const requests =
       discussion?.state.requests.filter((request) => request.messageId === message.id) ?? [];
+    const passed = message.status === "complete" && message.text.trim() === "PASS";
+    if (passed) {
+      message.text = "";
+      if (!requests.length) room.messages = room.messages.filter((item) => item.id !== message.id);
+      if (discussion && !discussion.state.passedDucks.includes(duck.id))
+        discussion.state.passedDucks.push(duck.id);
+    }
     if (requests.length)
       message.text += `\n\n${requests.map((request) => (request.kind === "question" ? `To @${request.to}: ${request.text}` : `Requested follow-up: ${request.text}`)).join("\n\n")}`;
     persist(room);
     emitRoom();
-    return message;
+    return passed ? undefined : message;
   }
 
   if (mode === "guide") {

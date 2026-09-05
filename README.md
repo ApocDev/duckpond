@@ -53,6 +53,8 @@ tailscale serve --https=3998 off
 
 Discuss together uses a dedicated Mediator running GPT-5.6-Sol with Medium reasoning. Each duck receives the full published transcript when it speaks. Initial assessments stay independent; subsequent responses also include the shared question queue. Waiting ducks are not continuously running. The app allows up to eight follow-up turns after the initial assessments and retains the 15-minute turn limit.
 
+Ducks check whether their perspective is relevant before contributing. If they have nothing substantive to add, they return `PASS` and no reply is shown. A small useful point can be one sentence. Passing does not mean agreement or count as answering an assigned question. Mediator sees which ducks passed and invites them again only if a new issue needs their expertise. The initial relevance checks still use the ducks' subscriptions.
+
 The room tools are scoped to the current room and speaker:
 
 - `ask_duck` records a question for a named peer. `request_turn` records a concern the speaker wants to discuss.

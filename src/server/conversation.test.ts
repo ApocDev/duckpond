@@ -338,3 +338,106 @@ it("hides unfinished peer text in mobile snapshots while preserving completed an
   });
   expect(events.at(-1)).toEqual({ type: "room", room: value });
 });
+
+it.each(["conversation", "review", "discussion"] as const)(
+  "%s hides passes, including split streamed tokens, and keeps useful replies",
+  async (mode) => {
+    const value = room();
+    const events: RoomEvent[] = [];
+    await runConversation(
+      value,
+      "@explorer @skeptic @simplifier Unity or Unreal?",
+      mode,
+      "explorer",
+      new AbortController().signal,
+      (event) => events.push(structuredClone(event)),
+      {
+        persist,
+        run: async (duck, system, prompt, _signal, write, emit, tools) => {
+          if (duck.id === "mediator") {
+            expect(system).not.toContain("reply exactly PASS");
+            expect(prompt).toContain('"passedDucks":["skeptic","simplifier"]');
+            tools!.call("finish_discussion", {
+              summary: "Use the relevant engine assessment.",
+              disagreements: [],
+              question: "",
+              deferred: [],
+            });
+          } else if (duck.id === "guide") write("Use the relevant engine assessment.");
+          else {
+            expect(system).toContain("persona is a perspective, not an obligation");
+            if (duck.id === "explorer") {
+              // A normal response starting with the sentinel prefix must still stream.
+              write("P");
+              write("assing assets between editors needs a concrete workflow test.");
+            } else {
+              write("P");
+              write("AS");
+              emit({ type: "activity", duckId: duck.id, label: "Read" });
+              write("S");
+            }
+          }
+        },
+      },
+    );
+    expect(
+      value.messages.some(
+        (message) => message.duckId === "skeptic" || message.duckId === "simplifier",
+      ),
+    ).toBe(false);
+    expect(value.messages.find((message) => message.duckId === "explorer")?.text).toContain(
+      "Passing assets",
+    );
+    for (const event of events) {
+      if (event.type === "message") expect(["P", "PAS", "PASS"]).not.toContain(event.message.text);
+      if (event.type === "room")
+        expect(event.room.messages.some((message) => message.text === "PASS")).toBe(false);
+    }
+  },
+);
+
+it("keeps an assigned question open when its recipient passes", async () => {
+  const value = room();
+  let mediatorTurns = 0;
+  await runConversation(
+    value,
+    "Review the engine choice",
+    "discussion",
+    "explorer",
+    new AbortController().signal,
+    emit,
+    {
+      persist,
+      run: async (duck, _system, prompt, _signal, write, _emit, tools) => {
+        const state = value.discussions![0];
+        if (duck.id === "mediator") {
+          const request = state.requests[0];
+          if (mediatorTurns++ === 0)
+            tools!.call("give_floor", {
+              duckId: "skeptic",
+              prompt: "Answer the engine question",
+              requestIds: [request.id],
+            });
+          else {
+            expect(request.status).toBe("open");
+            expect(request.responseId).toBeUndefined();
+            expect(prompt).toContain('"passedDucks":["skeptic"]');
+            tools!.call("finish_discussion", {
+              summary: "No relevant answer from Skeptic.",
+              disagreements: [],
+              question: "",
+              deferred: [{ requestId: request.id, reason: "Outside this duck's expertise." }],
+            });
+          }
+        } else if (duck.id === "explorer" && mediatorTurns === 0) {
+          tools!.call("ask_duck", { duckId: "skeptic", question: "Any editor workflow concerns?" });
+          write("Compare a small level-authoring task.");
+        } else
+          write(duck.id === "skeptic" && mediatorTurns > 0 ? "PASS" : "A brief relevant point.");
+      },
+    },
+  );
+  expect(value.messages.filter((message) => message.duckId === "skeptic")).toHaveLength(1);
+  expect(value.discussions![0].requests[0].status).toBe("deferred");
+  expect(value.messages.at(-1)?.text).toContain("Still open:");
+});

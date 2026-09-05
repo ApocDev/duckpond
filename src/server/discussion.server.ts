@@ -16,7 +16,7 @@ export const mediator: Duck = {
   ...guide,
   id: "mediator",
   name: "Mediator",
-  instructions: `Run the discussion, not a poll of opinions. After the independent assessments, identify the most consequential disagreement and give one duck the floor to address a specific peer's argument or question. Invite rebuttals, test revised proposals, and ask whether objections have actually been answered. Participants may challenge your framing. Don't manufacture disagreement, force consensus, or silently skip open requests. An addressed request has received a response, not necessarily a satisfactory resolution. Read the response before deciding whether a follow-up is needed. Let ducks speak for themselves. Avoid repeatedly favoring one duck. Stop when further discussion adds little or the person's preferences are needed. Use give_floor or finish_discussion exactly once per invocation, then end your turn. Your ordinary text is internal coordination; the finish_discussion tool supplies the result shown to the person. Preserve minority views and failed or stopped replies. Finish with at most one question for the person. Never use native subagent tools to impersonate or run the room's ducks. The app runs them with their own provider and model.`,
+  instructions: `Run the discussion, not a poll of opinions. After the independent assessments, identify the most consequential disagreement and give one duck the floor to address a specific peer's argument or question. Invite rebuttals, test revised proposals, and ask whether objections have actually been answered. Participants may challenge your framing. Don't manufacture disagreement, force consensus, or silently skip open requests. An addressed request has received a response, not necessarily a satisfactory resolution. Read the response before deciding whether a follow-up is needed. Let ducks speak for themselves. Invite only ducks whose expertise is relevant to the specific question. Do not poll everyone for equal participation. passedDucks records ducks that declined to contribute; passing means no useful input, not agreement. Do not invite a duck that passed again unless a new, specifically relevant issue needs its expertise. Avoid repeatedly favoring one duck. Stop when further discussion adds little or the person's preferences are needed. Use give_floor or finish_discussion exactly once per invocation, then end your turn. Your ordinary text is internal coordination; the finish_discussion tool supplies the result shown to the person. Preserve minority views and failed or stopped replies. Finish with at most one question for the person. Never use native subagent tools to impersonate or run the room's ducks. The app runs them with their own provider and model.`,
 };
 const text = z.string().trim().min(1).max(4000);
 const askSchema = z.object({ duckId: z.string(), question: text, replyTo: z.string().optional() });
@@ -32,11 +32,11 @@ type Decision =
   | { type: "floor"; value: z.infer<typeof floorSchema> }
   | { type: "finish"; value: z.infer<typeof finishSchema> };
 
-export const participantInstructions = `You are in a mediated discussion. During the initial review, form your own opinion independently. In later turns, address the assigned question and the other ducks directly; explain whether their arguments change your view. Use ask_duck to queue a specific question for a peer and request_turn to flag a concern you want to discuss. Include important arguments in your published reply so everyone can see them. Tool requests join a shared queue; they do not immediately launch or wait for another duck. Plain @mentions alone do not schedule replies. You cannot give_floor or finish_discussion. Do not use native subagent tools to contact or impersonate room participants. Mediator handles their speaking order.`;
+export const participantInstructions = `You are in a mediated discussion. During the initial review, assess relevance before forming an opinion. PASS is a valid response in both initial reviews and follow-ups; do not manufacture a contribution just because you were given the floor. In later turns, address the assigned question and the other ducks directly; explain whether their arguments change your view. Use ask_duck to queue a specific question for a peer and request_turn to flag a concern you want to discuss. Include important arguments in your published reply so everyone can see them. Tool requests join a shared queue; they do not immediately launch or wait for another duck. Plain @mentions alone do not schedule replies. You cannot give_floor or finish_discussion. Do not use native subagent tools to contact or impersonate room participants. Mediator handles their speaking order.`;
 
 /** Requests are persisted alongside the transcript; tool calls never start another provider. */
 export function createDiscussion(room: Room, id: string, signal: AbortSignal, save: () => void) {
-  const state: Discussion = { id, status: "running", turns: 0, requests: [] };
+  const state: Discussion = { id, status: "running", turns: 0, passedDucks: [], requests: [] };
   room.discussions ??= [];
   room.discussions.push(state);
   function participant(id: string) {
@@ -201,6 +201,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
           "discussion",
           room.notes,
           room.ducks,
+          false,
         );
         try {
           let correction = "";

@@ -22,7 +22,8 @@ export const loadRooms = createServerFn({ method: "GET" })
         messages: room.messages.map((message) =>
           message.status === "thinking" && !activeTurns.has(room.id)
             ? { ...message, status: "stopped" as const }
-            : data?.streamText !== true && message.status === "thinking"
+            : message.status === "thinking" &&
+                (data?.streamText !== true || "PASS".startsWith(message.text.trim()))
               ? { ...message, text: "" }
               : message,
         ),
