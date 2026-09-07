@@ -1527,3 +1527,37 @@ select {
 .outfit-preview span {
   font-size: 0.85rem;
 }
+
+/* Keep the reading view to one input line; all editing controls return on focus. */
+.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .conversation-actions,
+.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer-hint,
+.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .input-tools,
+.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer-options {
+  display: none;
+}
+.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .mention-input {
+  flex: 1;
+  min-width: 0;
+}
+.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer textarea {
+  height: 28px !important;
+  overflow: hidden;
+}
+.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer-controls {
+  margin: 0;
+}
+@media (max-width: 650px) {
+  .composer textarea {
+    max-height: min(160px, 25dvh);
+  }
+  .composer .send-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

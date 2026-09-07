@@ -25,7 +25,7 @@ export function MentionInput({
     if (!element) return;
     function resize() {
       if (!element) return;
-      element.style.height = "auto";
+      element.style.height = "0px";
       element.style.height = `${element.scrollHeight}px`;
     }
     resize();

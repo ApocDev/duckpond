@@ -231,7 +231,11 @@ function Home() {
       const messageId = crypto.randomUUID();
       submission.current = { roomId: active.id, messageId, text, restoreDraft: !summarize };
       if (summarize) setMode("guide");
-      else setInput("");
+      else {
+        setInput("");
+        const focused = document.activeElement;
+        if (focused instanceof HTMLElement && focused.closest(".composer")) focused.blur();
+      }
       await chat.sendMessage(
         { text },
         {
@@ -405,7 +409,7 @@ function Home() {
             </div>
           )}
         </Transcript>
-        <div className="composer-wrap">
+        <div className="composer-wrap" data-dictating={dictating}>
           {error && (
             <div className="error-banner" role="alert">
               {error}
