@@ -1,3 +1,4 @@
+import type { DuckSuggestion } from "../lib/suggestions";
 import { SavedPermissions } from "./saved-permissions";
 import { mentionHandle } from "../lib/mentions";
 import { useEffect, useRef, useState } from "react";
@@ -34,7 +35,9 @@ export function Settings({
   const [loading, setLoading] = useState(false);
   const [removed, setRemoved] = useState<{ duck: Duck; index: number }>();
   const [suggesting, setSuggesting] = useState(false);
-  const [suggestion, setSuggestion] = useState<{ reason: string; duckId?: string }>();
+  const [suggestion, setSuggestion] = useState<DuckSuggestion>();
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
+  const previouslySuggestedNames = useRef<string[]>([]);
   const [suggestionError, setSuggestionError] = useState("");
   const suggestionRequest = useRef<AbortController | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -50,27 +53,23 @@ export function Settings({
     setSuggestionError("");
     try {
       const result = await suggestDuck({
-        data: { roomId, ducks: draft, notes },
+        data: {
+          roomId,
+          ducks: draft,
+          notes,
+          previouslySuggestedNames: previouslySuggestedNames.current,
+        },
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
-      if (result.duck) {
-        const id = `duck-${crypto.randomUUID().slice(0, 8)}`;
-        const proposed: Duck = {
-          ...result.duck,
-          id,
-          provider: "claude",
-          model: "sonnet",
-          reasoning: "",
-          avatar: "base",
-        };
-        setDraft((current) => [...current, proposed]);
-        setExpanded(id);
-        setSuggestion({ reason: result.reason, duckId: id });
-        requestAnimationFrame(() =>
-          document.getElementById(`edit-${id}`)?.scrollIntoView({ block: "center" }),
-        );
-      } else setSuggestion({ reason: result.reason });
+      setSuggestion(result);
+      setSelectedSuggestions([]);
+      previouslySuggestedNames.current = [
+        ...new Set([
+          ...previouslySuggestedNames.current,
+          ...result.suggestions.map((duck) => duck.name),
+        ]),
+      ].slice(-25);
     } catch (cause) {
       if (!controller.signal.aborted)
         setSuggestionError(
@@ -80,6 +79,33 @@ export function Settings({
       suggestionRequest.current = null;
       setSuggesting(false);
     }
+  }
+  function addSelectedSuggestions() {
+    const chosen =
+      suggestion?.suggestions.filter((duck) => selectedSuggestions.includes(duck.name)) ?? [];
+    if (!chosen.length) return;
+    const additions: Duck[] = chosen.map(({ name, instructions }) => ({
+      id: `duck-${crypto.randomUUID().slice(0, 8)}`,
+      name,
+      instructions,
+      provider: draft[0].provider,
+      model: draft[0].model,
+      reasoning: draft[0].reasoning,
+      avatar: "base",
+    }));
+    setDraft((current) => [...current, ...additions]);
+    setExpanded(additions[0].id);
+    setSuggestion((current) =>
+      current
+        ? {
+            ...current,
+            suggestions: current.suggestions.filter(
+              (duck) => !selectedSuggestions.includes(duck.name),
+            ),
+          }
+        : current,
+    );
+    setSelectedSuggestions([]);
   }
   async function refreshModels(refresh = false) {
     setLoading(true);
@@ -180,8 +206,8 @@ export function Settings({
             </button>
           )}
           <small>
-            GPT-5.6-Sol with Medium reasoning looks for a missing perspective. Review the suggestion
-            before saving.
+            GPT-5.6-Sol with Medium reasoning finds up to five different perspectives in one call.
+            Pick the ducks you want, then save the room.
           </small>
         </div>
         {suggestionError && (
@@ -189,10 +215,45 @@ export function Settings({
             {suggestionError}
           </p>
         )}
-        {suggestion && !suggestion.duckId && (
-          <p className="suggestion-reason" role="status">
-            {suggestion.reason}
-          </p>
+        {suggestion && (
+          <section className="suggestion-options" aria-label="Suggested ducks">
+            <p>{suggestion.reason}</p>
+            {suggestion.suggestions.map((duck) => (
+              <div className="suggestion-option" key={duck.name}>
+                <label>
+                  <input
+                    type="checkbox"
+                    disabled={saving || suggesting}
+                    checked={selectedSuggestions.includes(duck.name)}
+                    onChange={(event) =>
+                      setSelectedSuggestions((current) =>
+                        event.target.checked
+                          ? [...current, duck.name]
+                          : current.filter((name) => name !== duck.name),
+                      )
+                    }
+                  />
+                  <strong>{duck.name}</strong>
+                </label>
+                <p>{duck.reason}</p>
+                <details>
+                  <summary>Perspective</summary>
+                  <p>{duck.instructions}</p>
+                </details>
+              </div>
+            ))}
+            {!!suggestion.suggestions.length && (
+              <button
+                type="button"
+                className="primary-button"
+                disabled={saving || suggesting || !selectedSuggestions.length}
+                onClick={addSelectedSuggestions}
+              >
+                Add selected ({selectedSuggestions.length})
+              </button>
+            )}
+            <small>Added ducks appear below. Save room to keep them.</small>
+          </section>
         )}
         <fieldset className="settings-content" disabled={saving || suggesting}>
           <div className="roster-heading">
@@ -276,7 +337,6 @@ export function Settings({
                     onClick={() => {
                       setRemoved({ duck, index });
                       setDraft((current) => current.filter((item) => item.id !== duck.id));
-                      if (suggestion?.duckId === duck.id) setSuggestion(undefined);
                       if (open) setExpanded(draft.find((item) => item.id !== duck.id)?.id);
                     }}
                   >
@@ -284,16 +344,6 @@ export function Settings({
                   </button>
                 </div>
                 <div className="duck-editor-fields" id={`edit-${duck.id}`} hidden={!open}>
-                  {suggestion?.duckId === duck.id && (
-                    <div className="suggestion-reason" role="status">
-                      <strong>Suggested duck</strong>
-                      <p>{suggestion.reason}</p>
-                      <small>
-                        Edit any field below, then save the room to add this duck. Use Remove to
-                        dismiss it.
-                      </small>
-                    </div>
-                  )}
                   <div className="settings-row">
                     <label>
                       Name

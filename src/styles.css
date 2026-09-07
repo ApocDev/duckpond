@@ -1416,3 +1416,35 @@ select {
   background: transparent;
   color: var(--accent);
 }
+.suggestion-options {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.suggestion-options > small {
+  color: var(--muted);
+}
+.suggestion-option {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+.suggestion-option label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.suggestion-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.suggestion-option p {
+  margin: 10px 0;
+  font-size: 13px;
+}
+.suggestion-option details {
+  color: var(--muted);
+  font-size: 13px;
+}

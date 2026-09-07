@@ -60,18 +60,23 @@ it("requires context and allows the model to say another duck would not help", (
   );
   expect(() => suggestionContext({ ...context, messages: [] })).not.toThrow();
   expect(
-    suggestionSchema.parse({ duck: null, reason: "The existing ducks cover the open questions." })
-      .duck,
-  ).toBeNull();
+    suggestionSchema.parse({
+      suggestions: [],
+      reason: "The existing ducks cover the open questions.",
+    }).suggestions,
+  ).toEqual([]);
 });
 it("returns a reviewable suggestion without mutating the roster and forwards cancellation", async () => {
   const original = structuredClone(context);
   const output = {
     reason: "Player motivation has not been explored.",
-    duck: {
-      name: "Playtester",
-      instructions: "Evaluate whether the moment-to-moment actions are enjoyable.",
-    },
+    suggestions: [
+      {
+        reason: "Player motivation has not been explored.",
+        name: "Playtester",
+        instructions: "Evaluate whether the moment-to-moment actions are enjoyable.",
+      },
+    ],
   };
   const signal = new AbortController().signal;
   mocks.connect.mockImplementation(
@@ -115,4 +120,22 @@ it("returns a reviewable suggestion without mutating the roster and forwards can
     }),
   );
   expect(mocks.close).toHaveBeenCalled();
+});
+
+it("accepts five options, rejects six, and includes previous names to discourage repeats", () => {
+  const options = Array.from({ length: 5 }, (_, i) => ({
+    name: `Perspective ${i}`,
+    instructions: "Offer a distinct perspective.",
+    reason: "Fills a gap.",
+  }));
+  expect(
+    suggestionSchema.parse({ reason: "Choose useful perspectives.", suggestions: options })
+      .suggestions,
+  ).toHaveLength(5);
+  expect(() =>
+    suggestionSchema.parse({ reason: "Too many", suggestions: [...options, options[0]] }),
+  ).toThrow();
+  expect(suggestionContext(context, ["Playtester"])).toContain(
+    '"previouslySuggestedNames":["Playtester"]',
+  );
 });

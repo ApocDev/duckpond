@@ -57,6 +57,7 @@ export const suggestDuck = createServerFn({ method: "POST" })
     z.object({
       roomId: z.string().uuid().optional(),
       ducks: ducksSchema,
+      previouslySuggestedNames: z.array(z.string().max(32)).max(25).default([]),
       notes: z.string().max(20000),
     }),
   )
@@ -69,6 +70,7 @@ export const suggestDuck = createServerFn({ method: "POST" })
       return await suggestParticipant(
         { id: data.roomId, messages, ducks: data.ducks, notes: data.notes },
         AbortSignal.any([request.signal, timeout]),
+        data.previouslySuggestedNames,
       );
     } catch (error) {
       if (timeout.aborted) throw new Error("The suggestion took too long. Try again.");
