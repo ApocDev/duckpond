@@ -189,6 +189,7 @@ export function makePrompt(
     "Talk to the person naturally. Use the shortest response that helps. One sentence is enough for a small point; write more only when the decision requires it. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Existing authorization persists: when the person has approved a proposed task, do that work without asking them to approve it again. Read brief approvals such as 'Sure' together with the proposal they answer. Distinguish that approved scope from later suggestions. Cite sources when researching. Never claim a tool result you haven't obtained.",
   ].join("\n\n");
   const turnInstruction = [
+    "Markdown tables and fenced mermaid diagrams render in the chat. Use them when they clarify a comparison or flow.",
     `Current phase: ${phase}. These turn instructions supersede earlier turn instructions.`,
     `Current participants: ${ducks.map((item) => `${item.name} (@${item.id})`).join(", ")}. You may suggest asking another participant for a perspective. Mentions in your reply do not automatically trigger another turn.`,
     allowPass

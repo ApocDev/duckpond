@@ -83,6 +83,8 @@ Parallel replies appear in an expandable round, with 64px duck avatars and each 
 
 On phones, touch tablets, and narrow windows, replies appear when each duck finishes. Thinking status and tool approval questions still arrive immediately, and Stop reveals any partial reply. Desktop keeps live text streaming. Closed reply rows only render their Markdown when opened. Unchanged messages stay rendered while you type or reconnect.
 
+Messages render Markdown tables, including tables already saved in conversations. Wide tables scroll within the message on mobile. Fenced `mermaid` code blocks become diagrams after a reply completes and the diagram enters view. Mermaid loads on demand, uses strict security, and has animations disabled. Diagram source stays available; invalid diagrams fall back to readable code. Plain code blocks stay code.
+
 The transcript follows replies while you are at the bottom. Scrolling up or opening a duck's reply pauses following and preserves your reading position when other replies grow above it. **New replies** returns to the bottom and resumes following.
 
 **Summarize and guide** catches up on the current conversation and switches to Guided conversation. It preserves any unsent draft. Guide uses GPT-5.6-Sol with Medium reasoning through Codex, reads the transcript and shared notes, and separates decisions from suggestions and disagreements. Its summaries use an additional provider call after each Independent review round. Discuss together uses Mediator calls to direct the exchange and produce its result. Guide keeps native tool access and the same approval controls as the other ducks. Stopping a round skips its remaining replies and automatic summary.

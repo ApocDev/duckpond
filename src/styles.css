@@ -1448,3 +1448,52 @@ select {
   color: var(--muted);
   font-size: 13px;
 }
+.table-scroll,
+.diagram-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 14px 0;
+}
+.message-text table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.message-text th,
+.message-text td {
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  text-align: left;
+  min-width: 130px;
+  vertical-align: top;
+}
+.message-text th {
+  background: #262626;
+  color: var(--accent);
+}
+.message-text tbody tr:nth-child(even) {
+  background: #1d1d1d;
+}
+.mermaid-diagram {
+  min-width: 0;
+}
+.diagram-scroll {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1d1d1d;
+}
+.diagram-scroll svg {
+  display: block;
+  margin: auto;
+  min-width: 300px;
+}
+.mermaid-diagram summary,
+.mermaid-diagram small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.diagram-scroll * {
+  animation: none !important;
+  transition: none !important;
+}

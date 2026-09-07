@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, memo, useState } from "react";
-import Markdown from "react-markdown";
+import { MessageMarkdown } from "./message-markdown";
 import { ChevronDown } from "lucide-react";
 import { duckAvatar, type Duck, type Message } from "../lib/room";
 import { groupMessages } from "../lib/message-groups";
@@ -124,14 +124,16 @@ function MessageText({ message }: { message: Message }) {
       {message.text ? (
         assignment ? (
           <>
-            <Markdown>{text.split(/\.\s|\n/)[0]}</Markdown>
+            <MessageMarkdown complete={message.status === "complete"}>
+              {text.split(/\.\s|\n/)[0]}
+            </MessageMarkdown>
             <details>
               <summary>Full assignment</summary>
-              <Markdown>{text}</Markdown>
+              <MessageMarkdown complete={message.status === "complete"}>{text}</MessageMarkdown>
             </details>
           </>
         ) : (
-          <Markdown>{text}</Markdown>
+          <MessageMarkdown complete={message.status === "complete"}>{text}</MessageMarkdown>
         )
       ) : (
         <span className="thinking-text">

@@ -24,9 +24,11 @@
     "ai": "^7.0.92",
     "ai-sdk-provider-claude-code": "^4.2.0",
     "lucide-react": "^1.40.0",
+    "mermaid": "^11.17.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.1.18",
     "zod": "^4.5.4"
   },
