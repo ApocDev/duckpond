@@ -1,0 +1,55 @@
+README.md
+  s_9d1c5a9b4e5822::t_95709cee4767ef 74,82,100
+src/components/chat-message.tsx
+  s_9d1c5a9b4e5822::t_30efb756d15480 1,4,6,9-10,13,16,18-34,60,117-121,125-135
+src/components/mention-input.tsx
+  s_9d1c5a9b4e5822::t_334b4c3ed0b28d 4,47-49,62,111-112
+src/components/saved-permissions.tsx
+  s_9d1c5a9b4e5822::t_386987dbd814f1 1-51
+src/components/settings.tsx
+  s_9d1c5a9b4e5822::t_e18a13bf6bfafa 1-2,406-407,438
+src/lib/mentions.test.ts
+  s_9d1c5a9b4e5822::t_e456c1d5aa7e95 38-50
+src/lib/mentions.ts
+  s_9d1c5a9b4e5822::t_dd73c4108a75a5 17-35
+src/lib/room.ts
+  s_9d1c5a9b4e5822::t_a14b0317b542d8 1,158-161,171
+src/routes/index.tsx
+  s_9d1c5a9b4e5822::t_e5a7a8604ff63c 404,609,614,630-647,649,703-712
+src/server/approvals.server.ts
+  s_9d1c5a9b4e5822::t_469fe210b36067 1,4-8,11,20-21,25-29,33
+src/server/approvals.test.ts
+  s_9d1c5a9b4e5822::t_b4ab4564d16ddc 1-9,37-79
+src/server/codex.server.ts
+  s_9d1c5a9b4e5822::t_2a2889d20113cd 1,55-69
+src/server/command-permissions.server.ts
+  s_9d1c5a9b4e5822::t_4f645b0363c4a4 1-32
+src/server/conversation.test.ts
+  s_9d1c5a9b4e5822::t_eaf9be1b0b625a 647-681
+src/server/discussion.server.ts
+  s_9d1c5a9b4e5822::t_39e1eff62d9785 367-380,421-422
+src/server/providers.server.ts
+  s_9d1c5a9b4e5822::t_05a9c639e4620f 1,189-194
+src/server/rooms.functions.ts
+  s_9d1c5a9b4e5822::t_fb85c4240c2b3f 1,119-124,128-140
+src/server/store.server.ts
+  s_9d1c5a9b4e5822::t_30f2e7e034ed1b 70-97
+src/styles.css
+  s_9d1c5a9b4e5822::t_0a043130771ca5 1370-1418
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "022a596467c218b08e376395f36fe62861b781fa",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
