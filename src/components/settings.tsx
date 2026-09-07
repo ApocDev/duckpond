@@ -1,3 +1,4 @@
+import { OutfitGenerator } from "./outfit-generator";
 import type { DuckSuggestion } from "../lib/suggestions";
 import { SavedPermissions } from "./saved-permissions";
 import { mentionHandle } from "../lib/mentions";
@@ -452,6 +453,16 @@ export function Settings({
                       </button>
                     ))}
                   </div>
+                  {open &&
+                    (roomId ? (
+                      <OutfitGenerator
+                        roomId={roomId}
+                        duck={duck}
+                        onUse={(avatar) => change(duck.id, { avatar })}
+                      />
+                    ) : (
+                      <p className="mention-handle">Save the room before generating an outfit.</p>
+                    ))}
                   <p className="mention-handle">
                     Mention with @{mentionHandle(duck, draft)}, or select {duck.name} from the @
                     picker.

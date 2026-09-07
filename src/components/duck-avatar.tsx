@@ -8,6 +8,14 @@ export function DuckAvatar({
   small?: boolean;
 }) {
   return (
-    <img className={`duck-avatar ${small ? "small" : ""}`} src={`/brand/${avatar}.png`} alt="" />
+    <img
+      className={`duck-avatar ${small ? "small" : ""}`}
+      src={
+        avatar.startsWith("generated-")
+          ? `/api/avatar?id=${avatar.slice(10)}`
+          : `/brand/${avatar}.png`
+      }
+      alt=""
+    />
   );
 }

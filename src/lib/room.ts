@@ -5,13 +5,17 @@ import type { UIMessage } from "ai";
 
 export const providerSchema = z.enum(["claude", "codex"]);
 export const avatarSchema = z.enum(["base", "explorer", "detective", "builder", "wizard"]);
+export const outfitSchema = z.union([
+  avatarSchema,
+  z.string().regex(/^generated-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+]);
 export const duckSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
   name: z.string().trim().min(1).max(32),
   provider: providerSchema,
   model: z.string().trim().max(120),
   reasoning: z.string().trim().max(32).optional(),
-  avatar: avatarSchema.optional(),
+  avatar: outfitSchema.optional(),
   instructions: z.string().trim().min(1).max(4000),
 });
 export type Duck = z.infer<typeof duckSchema>;
@@ -78,7 +82,7 @@ export const messageSchema = z.object({
   provider: providerSchema.optional(),
   model: z.string().optional(),
   reasoning: z.string().optional(),
-  avatar: avatarSchema.optional(),
+  avatar: outfitSchema.optional(),
   text: z.string(),
   tools: z.array(z.string()).optional(),
   status: z.enum(["thinking", "complete", "stopped", "error"]),

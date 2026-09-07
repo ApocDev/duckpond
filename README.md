@@ -138,3 +138,11 @@ Provider integration tests are opt-in and use the local subscriptions. Set `DUCK
 `DUCKPOND_SESSION_INTEGRATION=1 vp test src/server/sessions.integration.test.ts` checks two short Codex turns across separate connections, including remembered context and room-tool access. It also requires isolated data and agent directories and consumes subscription usage.
 
 The UI uses the base duck and four outfits in `public/brand/`. Their source artwork and generation prompts live in `design/duck-avatars/v1/`. Each duck chooses an outfit independently of its provider or persona.
+
+## Generate an outfit
+
+Open Edit room, expand a duck, and choose Generate outfit. Enter a hat and clothing description, or leave it blank for Codex to choose from the duck's perspective. The generator uses Sol 5.6 Medium with the native imagegen skill and `design/duck-avatars/v1/base.png`. It does not use an API-key fallback. Native image generation must be available in the signed-in Codex account.
+
+Generation continues when settings or the browser tab closes. Reopen the duck to see its saved previews. Choose Use outfit, then Save room. Existing replies keep their original outfit. Only one outfit generates at a time. If the generated PNG is opaque, the same session attempts one background correction using the supplied cleanup prompt. Both turns count toward usage. An outfit must contain actual transparent pixels before it is offered for use. A server restart interrupts an unfinished generation and shows an error so you can try again.
+
+Generated PNGs and job records live in `.data/avatars`, or under `DUCKPOND_DATA_DIR` when configured. Each job also saves its prompt. Back up this directory with the database. Reported Codex token usage appears in the usage endpoint; it does not measure remaining image-generation quota.
