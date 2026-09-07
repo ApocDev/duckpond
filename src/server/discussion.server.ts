@@ -364,6 +364,20 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
             }
           },
         };
+        const thinking: Message = {
+          id: crypto.randomUUID(),
+          speaker: mediator.name,
+          duckId: mediator.id,
+          provider: mediator.provider,
+          model: mediator.model,
+          avatar: mediator.avatar,
+          text: "",
+          status: "thinking",
+          phase: "discussion",
+          createdAt: new Date().toISOString(),
+        };
+        room.messages.push(thinking);
+        save();
         const { system } = makePrompt(
           mediator,
           room.messages,
@@ -404,6 +418,8 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
             correction = `\nYour previous invocation ended without a valid room-tool decision. ${rejection || "No scheduling tool was called."} Correct this by calling one of the provided scheduling tools. Read the tool result directly; do not assume it has an MCP content array.`;
           }
         } finally {
+          room.messages = room.messages.filter((message) => message.id !== thinking.id);
+          save();
           accepting = false;
         }
         signal.throwIfAborted();

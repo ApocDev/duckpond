@@ -35,3 +35,16 @@ it("reads existing rooms without reasoning or avatar fields and accepts changing
   expect(roomSchema.parse(room).ducks).toEqual(defaults);
   expect(roomSchema.parse({ ...room, ducks: [defaults[0]] }).ducks).toHaveLength(1);
 });
+
+it("selects a generated duck through its readable name without changing its ID", async () => {
+  const { mentionHandle } = await import("./mentions");
+  const { selectDucks, defaults } = await import("./room");
+  const duck = { ...defaults[0], id: "duck-c276f40c", name: "Technical Director" };
+  expect(mentionHandle(duck, [duck])).toBe("technical-director");
+  expect(
+    selectDucks([defaults[0], duck], "@technical-director please review", defaults[0].id),
+  ).toEqual([duck]);
+  expect(selectDucks([defaults[0], duck], "@duck-c276f40c please review", defaults[0].id)).toEqual([
+    duck,
+  ]);
+});

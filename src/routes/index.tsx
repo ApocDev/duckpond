@@ -401,7 +401,7 @@ function Home() {
               <div className="date-divider">
                 <span>Room to think. No need to have it figured out.</span>
               </div>
-              <ConversationMessages messages={room.messages} />
+              <ConversationMessages messages={room.messages} ducks={room.ducks} />
             </div>
           )}
         </Transcript>
@@ -606,12 +606,12 @@ function ApprovalCard({ approval }: { approval: Approval }) {
   const [answers, setAnswers] = useState<Record<string, string | boolean | number>>({});
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
-  async function respond(approved: boolean) {
+  async function respond(approved: boolean, remember = false) {
     setError("");
     setSending(true);
     try {
       await answerApproval({
-        data: { id: approval.id, approved, answer: JSON.stringify(answers) },
+        data: { id: approval.id, approved, remember, answer: JSON.stringify(answers) },
       });
     } catch (cause) {
       setSending(false);
@@ -627,9 +627,26 @@ function ApprovalCard({ approval }: { approval: Approval }) {
       }}
     >
       <strong>{approval.duck} needs your input</strong>
-      <div>{approval.input ? "A question before continuing" : "Permission to use a tool"}</div>
+      <div>{approval.title}</div>
+      {approval.reason && <p>{approval.reason}</p>}
+      {approval.command && (
+        <pre className="approval-command">
+          <code>{approval.command}</code>
+        </pre>
+      )}
+      {approval.cwd && (
+        <p className="approval-directory">
+          In <code>{approval.cwd}</code>
+        </p>
+      )}
+      {approval.remember && (
+        <p>
+          Always allow saves this exact command and requested access in this project for all ducks.
+          Revoke it in room settings.
+        </p>
+      )}
       <details>
-        <summary>{approval.title}</summary>
+        <summary>Technical details</summary>
         <pre>{approval.detail}</pre>
       </details>
       {approval.url?.startsWith("https://") && (
@@ -683,6 +700,16 @@ function ApprovalCard({ approval }: { approval: Approval }) {
         >
           Decline
         </button>
+        {approval.remember && (
+          <button
+            disabled={sending}
+            type="button"
+            className="secondary-button"
+            onClick={() => respond(true, true)}
+          >
+            Always allow in this project
+          </button>
+        )}
         <button disabled={sending} type="submit" className="primary-button">
           {approval.input ? "Submit" : "Allow once"}
         </button>

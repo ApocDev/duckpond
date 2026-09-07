@@ -14,3 +14,22 @@ export function insertMention(text: string, range: { start: number; end: number 
   const prefix = text.slice(0, range.start) + `@${id}` + (/^\s/.test(suffix) ? "" : " ");
   return { text: prefix + suffix, caret: prefix.length };
 }
+
+/** Readable aliases leave stored duck IDs and provider sessions unchanged. */
+export function mentionHandle(
+  duck: { id: string; name: string },
+  ducks: { id: string; name: string }[],
+) {
+  const slug = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+  const name = slug(duck.name);
+  if (
+    !name ||
+    ducks.some((other) => other.id !== duck.id && (slug(other.name) === name || other.id === name))
+  )
+    return duck.id;
+  return name;
+}

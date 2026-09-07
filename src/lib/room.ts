@@ -1,3 +1,4 @@
+import { mentionHandle } from "./mentions";
 import { z } from "zod";
 import type { ApprovalField } from "./approval";
 import type { UIMessage } from "ai";
@@ -154,6 +155,10 @@ export type Approval = {
   title: string;
   detail: string;
   input: boolean;
+  reason?: string;
+  command?: string;
+  cwd?: string;
+  remember?: { id: string; provider: string; command: string; cwd: string };
   fields?: ApprovalField[];
   url?: string;
 };
@@ -163,7 +168,7 @@ export type RoomStream = UIMessage<never, { room: RoomEvent }>;
 export function selectDucks(ducks: Duck[], text: string, target: Duck["id"]): Duck[] {
   const mentions = new Set([...text.matchAll(/@([\w-]+)/g)].map((match) => match[1].toLowerCase()));
   const selected = ducks.filter(
-    (duck) => mentions.has(duck.id) || mentions.has(duck.name.toLowerCase().replace(/\s+/g, "-")),
+    (duck) => mentions.has(duck.id) || mentions.has(mentionHandle(duck, ducks)),
   );
   return selected.length
     ? selected

@@ -1,3 +1,5 @@
+import { SavedPermissions } from "./saved-permissions";
+import { mentionHandle } from "../lib/mentions";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Lightbulb, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { loadModels, suggestDuck } from "../server/rooms.functions";
@@ -401,7 +403,8 @@ export function Settings({
                     ))}
                   </div>
                   <p className="mention-handle">
-                    Mention with @{duck.id}, or select {duck.name} from the @ picker.
+                    Mention with @{mentionHandle(duck, draft)}, or select {duck.name} from the @
+                    picker.
                   </p>
                 </div>
               </section>
@@ -432,6 +435,7 @@ export function Settings({
             />
           </label>
         </fieldset>
+        <SavedPermissions />
         <div className="settings-actions">
           <button className="text-button" type="button" disabled={saving} onClick={onClose}>
             Cancel

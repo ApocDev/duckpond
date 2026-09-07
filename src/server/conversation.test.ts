@@ -644,3 +644,38 @@ it.each(["PASS", "I can do that. Want me to?"])(
     expect(value.messages.at(-1)?.text).toContain("Unfinished work:");
   },
 );
+
+it("shows Mediator thinking before a decision and removes that temporary row when finished", async () => {
+  const value = room();
+  const events: RoomEvent[] = [];
+  await runConversation(
+    value,
+    "Clarify the task",
+    "discussion",
+    "explorer",
+    new AbortController().signal,
+    (event) => events.push(structuredClone(event)),
+    {
+      persist,
+      run: async (duck, _system, _prompt, _signal, _write, _emit, tools) => {
+        expect(duck.id).toBe("mediator");
+        expect(
+          events.some(
+            (event) =>
+              event.type === "room" &&
+              event.room.messages.some(
+                (message) => message.duckId === "mediator" && message.status === "thinking",
+              ),
+          ),
+        ).toBe(true);
+        tools!.call("finish_discussion", {
+          summary: "Task clarified",
+          disagreements: [],
+          question: "",
+          deferred: [],
+        });
+      },
+    },
+  );
+  expect(value.messages.some((message) => message.status === "thinking")).toBe(false);
+});

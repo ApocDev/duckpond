@@ -1,3 +1,4 @@
+import { commandPermission } from "./command-permissions.server";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir } from "node:fs/promises";
@@ -185,7 +186,12 @@ export async function reply(
           const response = await askApproval(
             {
               duck: duck.name,
-              title: name,
+              title: name === "Bash" ? "Run a command" : name,
+              command: typeof input.command === "string" ? input.command : undefined,
+              reason: typeof input.description === "string" ? input.description : undefined,
+              cwd,
+              remember:
+                name === "Bash" ? commandPermission("claude", { ...input, cwd }) : undefined,
               detail: JSON.stringify(input, null, 2),
               input: name === "AskUserQuestion",
               fields: name === "AskUserQuestion" ? questionFields(input.questions) : [],

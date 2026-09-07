@@ -1,3 +1,4 @@
+import { listCommandPermissions, deleteCommandPermission } from "./store.server";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -115,9 +116,26 @@ export const stopRoom = createServerFn({ method: "POST" })
   });
 export const answerApproval = createServerFn({ method: "POST" })
   .validator(
-    z.object({ id: z.string().uuid(), approved: z.boolean(), answer: z.string().max(20000) }),
+    z.object({
+      id: z.string().uuid(),
+      approved: z.boolean(),
+      answer: z.string().max(20000),
+      remember: z.boolean().default(false),
+    }),
   )
   .handler(({ data }) => {
     requireAllowedRequest(getRequest());
-    return resolveApproval(data.id, data.approved, data.answer);
+    return resolveApproval(data.id, data.approved, data.answer, data.remember);
+  });
+
+export const savedPermissions = createServerFn({ method: "GET" }).handler(() => {
+  requireAllowedRequest(getRequest());
+  return listCommandPermissions();
+});
+export const revokePermission = createServerFn({ method: "POST" })
+  .validator(z.string())
+  .handler(({ data }) => {
+    requireAllowedRequest(getRequest());
+    deleteCommandPermission(data);
+    return { revoked: true };
   });

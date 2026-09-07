@@ -71,7 +71,7 @@ Room tools use [Codex App Server dynamic tools](https://developers.openai.com/co
 
 Room settings add and remove ducks, and edit their names, perspectives, outfits, provider, model, and reasoning level. Keep at least one duck in a room. Removal preserves earlier messages. Changes apply when you save the room.
 
-Type `@` or tap **Invite a duck** to choose participants. The picker inserts a stable handle, so renaming a duck does not break its mentions. Keyboard users can filter, move with arrow keys, select with Enter or Tab, and dismiss with Escape.
+Type `@` or tap **Invite a duck** to choose participants. The picker inserts a readable handle such as `@technical-director`. Stored duck IDs and provider sessions stay unchanged. Existing ID mentions still work, and chat messages display the duck's name. Renaming a duck updates its readable handle. Keyboard users can filter, move with arrow keys, select with Enter or Tab, and dismiss with Escape.
 
 The message box starts at one line and grows as you type, up to a scrollable height. On mobile, Return inserts a new line and the arrow button sends the message. On desktop, Enter sends and Shift+Enter adds a new line.
 
@@ -79,7 +79,7 @@ Tap **Dictate** beside **Invite a duck** to use the browser's speech recognition
 
 Dictation needs a supported browser and a secure page, such as the Tailscale HTTPS address or localhost. Duckpond does not record or upload audio itself. The browser handles recognition and may use an online speech service. See [browser speech recognition support](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition).
 
-Parallel replies appear in an expandable round, with each duck's status visible. Tap a row to read its full response. Guide summaries stay expanded. Existing conversations use this layout without changing their saved messages.
+Parallel replies appear in an expandable round, with 64px duck avatars and each duck's status visible. Mediator has a thinking row immediately while deciding its next step. Long work assignments show a short first sentence with the full instructions under Full assignment. Tap a row to read its full response. Guide summaries stay expanded. Existing conversations use this layout without changing their saved messages.
 
 On phones, touch tablets, and narrow windows, replies appear when each duck finishes. Thinking status and tool approval questions still arrive immediately, and Stop reveals any partial reply. Desktop keeps live text streaming. Closed reply rows only render their Markdown when opened. Unchanged messages stay rendered while you type or reconnect.
 
@@ -97,7 +97,7 @@ Conversations, settings, notes, and completed or stopped responses are stored in
 
 Claude uses `ai-sdk-provider-claude-code` with the Vercel AI SDK. Codex uses its local App Server protocol; AI SDK's UI stream carries both providers' updates.
 
-Ducks retain native tools, skills, and MCP configuration. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests appear in the app and do not automatically approve themselves. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported in this POC.
+Ducks retain native tools, skills, and MCP configuration. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests show the reason, command, and project directory, with raw provider data under Technical details. Allow once approves one request. Always allow in this project saves the exact command, directory, provider, and requested access for future requests from any duck. Different commands, projects, providers, or requested privileges require another approval. Saved command permissions persist across restarts and can be revoked in room settings. Revoking affects future requests, not already-running commands. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported in this POC.
 
 `DUCKPOND_AGENT_CWD` selects the working directory for both providers and their project-specific tools/settings. The default is `.data/agent`. Set it to a project directory when you want that project's configuration. `DUCKPOND_CLAUDE_BIN` can specify an absolute Claude executable path for a bundled build.
 

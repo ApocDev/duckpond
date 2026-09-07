@@ -67,3 +67,31 @@ export function listProviderUsage(): unknown[] {
     .all()
     .map((row) => JSON.parse(rowSchema.parse(row).payload));
 }
+
+db.exec(
+  "CREATE TABLE IF NOT EXISTS command_permissions (id TEXT PRIMARY KEY, payload TEXT NOT NULL)",
+);
+const permissionSchema = z.object({
+  id: z.string(),
+  command: z.string(),
+  cwd: z.string(),
+  provider: z.string(),
+});
+export function hasCommandPermission(id: string) {
+  return !!db.prepare("SELECT id FROM command_permissions WHERE id = ?").get(id);
+}
+export function saveCommandPermission(permission: z.infer<typeof permissionSchema>) {
+  db.prepare("INSERT OR REPLACE INTO command_permissions VALUES (?, ?)").run(
+    permission.id,
+    JSON.stringify(permission),
+  );
+}
+export function listCommandPermissions() {
+  return db
+    .prepare("SELECT payload FROM command_permissions ORDER BY rowid")
+    .all()
+    .map((row) => permissionSchema.parse(JSON.parse(rowSchema.parse(row).payload)));
+}
+export function deleteCommandPermission(id: string) {
+  db.prepare("DELETE FROM command_permissions WHERE id = ?").run(id);
+}

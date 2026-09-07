@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { AtSign, Mic, Square } from "lucide-react";
 import { duckAvatar, type Duck } from "../lib/room";
-import { insertMention, mentionAt } from "../lib/mentions";
+import { insertMention, mentionAt, mentionHandle } from "../lib/mentions";
 import { DuckAvatar } from "./duck-avatar";
 import { useDictation } from "./use-dictation";
 
@@ -44,7 +44,9 @@ export function MentionInput({
   const [active, setActive] = useState(0);
   const range = dismissed ? null : mentionAt(value, caret);
   const options = range
-    ? ducks.filter((duck) => `${duck.name} ${duck.id}`.toLowerCase().includes(range.query))
+    ? ducks.filter((duck) =>
+        `${duck.name} ${duck.id} ${mentionHandle(duck, ducks)}`.toLowerCase().includes(range.query),
+      )
     : [];
   const open = range !== null;
   const selected = Math.min(active, Math.max(0, options.length - 1));
@@ -57,7 +59,7 @@ export function MentionInput({
   }
   function choose(duck: Duck) {
     if (!range) return;
-    const inserted = insertMention(value, range, duck.id);
+    const inserted = insertMention(value, range, mentionHandle(duck, ducks));
     onChange(inserted.text);
     setDismissed(true);
     focusAt(inserted.caret);
@@ -106,7 +108,8 @@ export function MentionInput({
                 <span>
                   {duck.name}
                   <small>
-                    @{duck.id} · {duck.provider === "claude" ? "Claude" : "Codex"}
+                    @{mentionHandle(duck, ducks)} ·{" "}
+                    {duck.provider === "claude" ? "Claude" : "Codex"}
                   </small>
                 </span>
               </button>

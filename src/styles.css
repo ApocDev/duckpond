@@ -1367,3 +1367,52 @@ select {
 .dictation-error {
   color: #fda4af;
 }
+
+.duck-reply > summary .duck-avatar {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+}
+.approval-command,
+.approval-directory,
+.saved-permission code,
+.saved-permission small {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.approval-card .approval-command {
+  font-size: 14px;
+  padding: 12px;
+  background: #171717;
+  border-radius: 6px;
+}
+.approval-card .settings-actions {
+  flex-wrap: wrap;
+}
+.saved-permissions {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+.saved-permissions summary {
+  cursor: pointer;
+}
+.saved-permissions p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.saved-permission {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.saved-permission button {
+  justify-self: start;
+}
+.approval-card .secondary-button {
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+}

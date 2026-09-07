@@ -1,3 +1,4 @@
+import { commandPermission } from "./command-permissions.server";
 import { codexUsageTracker, type NativeSession } from "./sessions.server";
 import { connectCodex, type CodexPacket } from "./codex-client.server";
 import { z } from "zod";
@@ -51,7 +52,21 @@ export async function codexReply(
       const response = await askApproval(
         {
           duck: duck.name,
-          title: method,
+          title:
+            method === "item/commandExecution/requestApproval"
+              ? "Run a command"
+              : method === "item/fileChange/requestApproval"
+                ? "Change files"
+                : needsInput
+                  ? "Answer a question"
+                  : "Approve tool access",
+          reason: typeof params.reason === "string" ? params.reason : undefined,
+          command: typeof params.command === "string" ? params.command : undefined,
+          cwd: typeof params.cwd === "string" ? params.cwd : undefined,
+          remember:
+            method === "item/commandExecution/requestApproval"
+              ? commandPermission("codex", params)
+              : undefined,
           detail: JSON.stringify(params, null, 2),
           input: needsInput,
           url: typeof params.url === "string" ? params.url : undefined,
