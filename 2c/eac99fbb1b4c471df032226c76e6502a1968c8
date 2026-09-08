@@ -1,0 +1,21 @@
+README.md
+  s_9d1c5a9b4e5822::t_1603a8fdba2963 149-150
+src/routes/index.tsx
+  s_9d1c5a9b4e5822::t_8c5fa6077a4aaf 1,57-61,68-105,270-273
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "2ceac99fbb1b4c471df032226c76e6502a1968c8",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
