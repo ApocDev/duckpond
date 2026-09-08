@@ -1,0 +1,25 @@
+README.md
+  s_9d1c5a9b4e5822::t_7ba7090889e1f8 92
+src/lib/suggestions.ts
+  s_9d1c5a9b4e5822::t_10a7594b7afcac 22-25,27-68
+src/server/suggestions.server.ts
+  s_9d1c5a9b4e5822::t_aa4ea3fb5dee5c 96
+src/server/suggestions.test.ts
+  s_9d1c5a9b4e5822::t_1a45ab117724f6 123-133,153-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "cdd7fbf72671d92e4c2707d80f058099050a3db2",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
