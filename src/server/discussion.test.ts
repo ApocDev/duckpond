@@ -214,3 +214,31 @@ it("recovers when a swallowed tool rejection used the discussion ID as a request
   expect(discussion.state.status).toBe("complete");
   expect(room.messages.at(-1)?.text).toBe("Map the garage session first.");
 });
+
+it("publishes a long final answer without truncating tables or rerunning the ducks", async () => {
+  const { discussion, room } = setup();
+  const summary =
+    "| Decision | Evidence |\n|---|---|\n" +
+    "| Keep this constraint | Agreed by the person |\n".repeat(120) +
+    "\n```mermaid\nflowchart LR\nA-->B\n```";
+  expect(summary.length).toBeGreaterThan(4000);
+  const run = vi
+    .fn<typeof reply>()
+    .mockImplementation(async (_duck, _system, prompt, _signal, _write, _emit, tools) => {
+      expect(prompt).toContain("A rejected call does not count");
+      expect(
+        callRoomTool(tools, "finish_discussion", {
+          summary,
+          disagreements: [],
+          question: "",
+          deferred: [],
+        }).success,
+      ).toBe(true);
+    });
+  const speak = vi.fn();
+  await discussion.moderate(run, speak, () => {});
+  expect(discussion.state.status).toBe("complete");
+  expect(room.messages.at(-1)?.text).toBe(summary);
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(speak).not.toHaveBeenCalled();
+});

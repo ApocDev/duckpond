@@ -33,7 +33,13 @@ const floorSchema = z.object({
     ),
 });
 const finishSchema = z.object({
-  summary: text,
+  summary: z
+    .string()
+    .trim()
+    .min(1)
+    .describe(
+      "The final answer shown to the person. Keep it concise, while preserving useful tables, diagrams, decisions, and evidence.",
+    ),
   disagreements: z.array(text),
   question: z.string().max(2000),
   deferred: z.array(z.object({ requestId: z.string(), reason: text })),
@@ -399,7 +405,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
                 room.ducks,
                 false,
               );
-              return `${prompt}\n\n${context()}\n\nCall one of the scheduling tools now. Use start_review for independent opinions, assign_action for approved work, review_action to check a reported result, give_floor for a peer response, or finish_discussion for the final answer. Plain text does not schedule a speaker or finish the room.${correction}`;
+              return `${prompt}\n\n${context()}\n\nCall one of the scheduling tools now. Use start_review for independent opinions, assign_action for approved work, review_action to check a reported result, give_floor for a peer response, or finish_discussion for the final answer. Plain text does not schedule a speaker or finish the room. End only after one scheduling call is accepted. A rejected call does not count: read the error, correct its arguments, and call the tool again. Keep the final answer concise; summary has no 4,000-character cap.${correction}`;
             };
             await run(
               mediator,
