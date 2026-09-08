@@ -1,0 +1,41 @@
+README.md
+  s_9d1c5a9b4e5822::t_5c8384e71297ec 108,110,151-158
+src/components/agent-context.tsx
+  s_9d1c5a9b4e5822::t_f36943fc0d7f4d 1-62
+src/routes/index.tsx
+  s_9d1c5a9b4e5822::t_93a2d3becf4932 1,616
+src/server/codex-client.server.ts
+  s_9d1c5a9b4e5822::t_a4eba44d6e6a9d 35-40
+src/server/codex.server.ts
+  s_9d1c5a9b4e5822::t_84b2ac55d5a950 31-34,127-128
+src/server/context.server.ts
+  s_9d1c5a9b4e5822::t_1ba86db82606d4 1-59
+src/server/context.test.ts
+  s_9d1c5a9b4e5822::t_530813f57094fc 1-49
+src/server/providers.server.ts
+  s_9d1c5a9b4e5822::t_9c810b7ba6911f 105-106,108-112
+src/server/rooms.functions.ts
+  s_9d1c5a9b4e5822::t_bb4d9c7cf8540b 1-2,146-163
+src/server/sessions.server.ts
+  s_9d1c5a9b4e5822::t_f23cf70886ddb1 1,19-20,34-35,62-72,98-106,109-111,116-125,153,161-186
+src/server/sessions.test.ts
+  s_9d1c5a9b4e5822::t_ab0427905209b3 218-274
+src/styles.css
+  s_9d1c5a9b4e5822::t_795bf14c673455 1564-1578
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "e72a4a8f334ecb02e3280268f39a442358923a27",
+  "prompts": {},
+  "sessions": {
+    "s_9d1c5a9b4e5822": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06fce-9922-74b1-8bf3-b347ca896c8f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
