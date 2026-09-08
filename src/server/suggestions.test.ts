@@ -120,6 +120,17 @@ it("returns a reviewable suggestion without mutating the roster and forwards can
     }),
   );
   expect(mocks.close).toHaveBeenCalled();
+  const large = {
+    ...context,
+    messages: Array.from({ length: 600 }, (_, index) => ({
+      ...context.messages[0],
+      id: String(index),
+      text: "x".repeat(2000),
+    })),
+  };
+  await expect(suggestParticipant(large, signal)).resolves.toEqual(output);
+  const lastTurn = mocks.request.mock.calls.filter(([method]) => method === "turn/start").at(-1);
+  expect(lastTurn?.[1].input[0].text.length).toBeLessThanOrEqual(60000);
 });
 
 it("accepts five options, rejects six, and includes previous names to discourage repeats", () => {
@@ -138,4 +149,23 @@ it("accepts five options, rejects six, and includes previous names to discourage
   expect(suggestionContext(context, ["Playtester"])).toContain(
     '"previouslySuggestedNames":["Playtester"]',
   );
+});
+
+it("bounds large-room suggestions while preserving current context and roster", () => {
+  const large = {
+    ...context,
+    messages: Array.from({ length: 600 }, (_, index) => ({
+      ...context.messages[0],
+      id: String(index),
+      text: `Topic ${index}: ` + "x".repeat(2000),
+    })),
+  };
+  const parsed = JSON.parse(suggestionContext(large, ["Playtester"]));
+  expect(JSON.stringify(parsed).length).toBeLessThanOrEqual(60000);
+  expect(parsed.conversation.at(-1).text).toContain("Topic 599");
+  expect(parsed.sharedNotes).toBe(context.notes);
+  expect(parsed.currentDucks).toHaveLength(context.ducks.length);
+  expect(parsed.previouslySuggestedNames).toEqual(["Playtester"]);
+  expect(parsed.contextNote).toContain("omitted");
+  expect(large.messages).toHaveLength(600);
 });

@@ -93,7 +93,7 @@ export async function suggestParticipant(
     await client.request("turn/start", {
       threadId: result.thread.id,
       effort: "medium",
-      input: [{ type: "text", text: prompt }],
+      input: [{ type: "text", text: session.prompt }],
       outputSchema: z.toJSONSchema(suggestionSchema),
     });
     await Promise.race([completion.promise, client.disconnected]);
