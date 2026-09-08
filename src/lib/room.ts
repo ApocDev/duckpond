@@ -23,7 +23,7 @@ export const guide: Duck = {
   id: "guide",
   name: "Guide",
   provider: "codex",
-  model: "gpt-5.6-sol",
+  model: "gpt-5.6-luna",
   reasoning: "medium",
   avatar: "wizard",
   instructions:

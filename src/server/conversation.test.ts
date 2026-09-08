@@ -61,7 +61,7 @@ describe("conversation rounds", () => {
     expect(runner.mock.calls[0][2]).toContain("Keep it small");
     expect(value.messages.at(-1)).toMatchObject({
       phase: "guide",
-      model: "gpt-5.6-sol",
+      model: "gpt-5.6-luna",
       reasoning: "medium",
       status: "complete",
     });
