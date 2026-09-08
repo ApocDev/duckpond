@@ -71,6 +71,8 @@ Room tools use [Codex App Server dynamic tools](https://developers.openai.com/co
 
 Room settings add and remove ducks, and edit their names, perspectives, outfits, provider, model, and reasoning level. Keep at least one duck in a room. Removal preserves earlier messages. Changes apply when you save the room.
 
+Personas define a priority, temperament, limits, and what would change their mind. Reviews ask each duck for its own contribution; Mediator preserves consequential dissent instead of requesting repeated whole-room plans. The game-room persona examples live in `design/personas/game-room.json`. Existing rooms keep their saved instructions; edit their perspectives in room settings to customize them.
+
 Type `@` or tap **Invite a duck** to choose participants. The picker inserts a readable handle such as `@technical-director`. Stored duck IDs and provider sessions stay unchanged. Existing ID mentions still work, and chat messages display the duck's name. Renaming a duck updates its readable handle. Keyboard users can filter, move with arrow keys, select with Enter or Tab, and dismiss with Escape.
 
 The message box starts at one line and grows as you type, up to a scrollable height. On mobile, Return inserts a new line and the arrow button sends the message. On desktop, Enter sends and Shift+Enter adds a new line.
