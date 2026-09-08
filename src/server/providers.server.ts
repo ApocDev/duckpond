@@ -102,7 +102,14 @@ export async function reply(
               session.native.accepted();
             }
           }
+          if (message.type === "system" && message.subtype === "compact_boundary")
+            session.native.compacted?.();
           if (message.type === "assistant") {
+            if (!message.parent_tool_use_id)
+              session.native.contextUsage?.({
+                last: { inputTokens: claudeUsage(message.message.usage).input },
+                modelContextWindow: null,
+              });
             messages.set(message.message.id, claudeUsage(message.message.usage));
             const total: TokenUsage = {
               input: 0,

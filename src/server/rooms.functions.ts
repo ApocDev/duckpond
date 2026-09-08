@@ -1,3 +1,5 @@
+import { contextStatusSchema } from "./context.server";
+import { readProviderSession } from "./store.server";
 import { listCommandPermissions, deleteCommandPermission } from "./store.server";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
@@ -140,4 +142,22 @@ export const revokePermission = createServerFn({ method: "POST" })
     requireAllowedRequest(getRequest());
     deleteCommandPermission(data);
     return { revoked: true };
+  });
+
+export const loadContext = createServerFn({ method: "GET" })
+  .validator(z.string().uuid())
+  .handler(({ data }) => {
+    requireAllowedRequest(getRequest());
+    const room = getRoom(data);
+    return [
+      ...room.ducks,
+      { id: "mediator", name: "Mediator" },
+      { id: "guide", name: "Guide" },
+    ].map((duck) => {
+      const session = z
+        .object({ context: contextStatusSchema.optional() })
+        .optional()
+        .parse(readProviderSession(`${room.id}/${duck.id}`));
+      return { id: duck.id, name: duck.name, context: session?.context ?? null };
+    });
   });

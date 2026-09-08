@@ -1,3 +1,4 @@
+import { buildHandoff, contextStatusSchema, promptCharacterBudget } from "./context.server";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Duck, Message } from "../lib/room";
@@ -15,6 +16,8 @@ export type TokenUsage = z.infer<typeof tokenUsageSchema>;
 const sessionSchema = z.object({
   fingerprint: z.string(),
   nativeId: z.string().optional(),
+  compatibility: z.string().optional(),
+  context: contextStatusSchema.optional(),
   delivered: z.record(z.string(), z.string()),
 });
 export type ReplyContext = {
@@ -28,6 +31,8 @@ export type NativeSession = {
   id?: string;
   opened: (id: string) => void;
   accepted: () => void;
+  contextUsage?: (value: unknown) => void;
+  compacted?: () => void;
   usage: (usage: TokenUsage) => void;
 };
 export const usageRecordSchema = z.object({
@@ -54,6 +59,17 @@ function hash(value: unknown) {
 function messageHash({ id, duckId, speaker, text, status, tools }: Message) {
   return hash({ id, duckId, speaker, text, status, tools });
 }
+// Descriptions and string length guidance can change without replacing a tool's shape.
+function toolShape(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(toolShape);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => !["description", "title", "maxLength"].includes(key))
+        .map(([key, item]) => [key, toolShape(item)]),
+    );
+  return value;
+}
 const storage = { readProviderSession, saveProviderSession, saveProviderUsage };
 
 /** Keep delivery state separate from the room. Never silently replace a failed resume. */
@@ -79,16 +95,34 @@ export function prepareReply(
       schema: z.toJSONSchema(inputSchema),
     })),
   });
+  const compatibility = hash({
+    provider: duck.provider,
+    model: duck.model,
+    cwd,
+    tools: tools?.definitions.map(({ name, inputSchema }) => ({
+      name,
+      schema: toolShape(z.toJSONSchema(inputSchema)),
+    })),
+  });
   const previous = key ? sessionSchema.optional().parse(store.readProviderSession(key)) : undefined;
   const session: z.infer<typeof sessionSchema> =
-    previous?.fingerprint === fingerprint
-      ? previous
-      : { fingerprint, delivered: {}, nativeId: undefined };
+    previous && (previous.fingerprint === fingerprint || previous.compatibility === compatibility)
+      ? { ...previous, fingerprint, compatibility }
+      : { fingerprint, compatibility, delivered: {}, nativeId: undefined };
   const unseen = context?.messages.filter((message) => {
     const delivered = session.delivered[message.id];
     return delivered !== "native" && delivered !== messageHash(message);
   });
-  const prompt = context ? context.makePrompt(unseen!) : originalPrompt;
+  let prompt = context ? context.makePrompt(unseen!) : originalPrompt;
+  if (prompt.length > promptCharacterBudget) {
+    if (!context)
+      throw new Error("Input exceeds Duckpond's request budget. No provider call was started.");
+    prompt = buildHandoff(context.messages, context.makePrompt).prompt;
+    session.context = {
+      ...contextStatusSchema.parse(session.context ?? {}),
+      handoffAt: new Date().toISOString(),
+    };
+  }
   const record = usageRecordSchema.parse({
     id: crypto.randomUUID(),
     roomId: context?.roomId ?? null,
@@ -116,13 +150,39 @@ export function prepareReply(
     opened(id) {
       if (session.nativeId === id) return;
       session.nativeId = id;
-      save();
+      // Commit a replacement only after it accepts input, preserving the last working session on failure.
     },
     accepted() {
       if (accepted) return;
       accepted = true;
       for (const message of unseen ?? []) session.delivered[message.id] = messageHash(message);
       save();
+    },
+    contextUsage(value) {
+      const parsed = z
+        .object({
+          last: z.object({ inputTokens: z.number().nonnegative() }),
+          modelContextWindow: z.number().positive().nullish(),
+        })
+        .safeParse(value);
+      if (!parsed.success) return;
+      session.context = {
+        ...contextStatusSchema.parse(session.context ?? {}),
+        inputTokens: parsed.data.last.inputTokens,
+        windowTokens: parsed.data.modelContextWindow ?? null,
+        updatedAt: new Date().toISOString(),
+      };
+      if (accepted) save();
+    },
+    compacted() {
+      const current = contextStatusSchema.parse(session.context ?? {});
+      session.context = {
+        ...current,
+        inputTokens: null,
+        compactions: current.compactions + 1,
+        compactedAt: new Date().toISOString(),
+      };
+      if (accepted) save();
     },
     usage(tokens) {
       record.tokens = tokens;

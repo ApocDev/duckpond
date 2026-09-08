@@ -105,9 +105,9 @@ Ducks retain native tools, skills, and MCP configuration. Claude loads user, pro
 
 Each room keeps one native provider session per duck, including Guide and Mediator. Claude resumes its saved session ID; Codex resumes its saved thread across App Server connections. SQLite stores the IDs and delivered-message hashes. Native conversation files stay in the providers' local storage, so back those up alongside Duckpond's database.
 
-The first call for a duck sends the room history once. Later calls append unseen or changed published messages. The provider already retains its own replies. Independent reviews receive only the frozen room snapshot, so they cannot see peers' current reviews. Persona instructions and room-tool definitions stay stable across conversation modes; current mode, roster, notes, assignments, and passing rules arrive with the next turn. Room coordination tools only execute during a mediated discussion.
+The first call for a duck sends the room history once, using an archived handoff if it exceeds the request budget. Later calls append unseen or changed published messages. The provider already retains its own replies. Independent reviews receive only the frozen room snapshot, so they cannot see peers' current reviews. Persona instructions and room-tool definitions stay stable across conversation modes; current mode, roster, notes, assignments, and passing rules arrive with the next turn. Room coordination tools only execute during a mediated discussion.
 
-Changing a duck's provider, model, name/persona, tool definitions, or working directory starts a separate session with the room history. Changing reasoning effort or switching modes keeps the session. A missing or failed native session does not silently fall back to resending the full history. Rooms without saved session IDs need one initial setup call per duck. No provider calls run as part of setup or migration.
+Changing a duck's provider, model, tool shape, or working directory starts a separate session with a bounded room handoff. Compatible instruction and tool-guidance changes preserve its session. Changing reasoning effort or switching modes keeps the session. A missing or failed native session does not silently fall back to resending the full history. Rooms without saved session IDs need one initial setup call per duck. No provider calls run as part of setup or migration.
 
 Session reuse supports prefix caching, but does not guarantee a cache hit. Cache expiry, native compaction, provider settings, and tool configuration can affect reuse. Cached input still counts as input tokens, and subscription allowance accounting is controlled by the provider. Turns have a 15-minute limit; Claude has a 20-turn tool limit per reply. There is no automatic paid-API fallback.
 
@@ -148,3 +148,11 @@ Generation continues when settings or the browser tab closes. Reopen the duck to
 Generated PNGs and job records live in `.data/avatars`, or under `DUCKPOND_DATA_DIR` when configured. Each job also saves its prompt. Back up this directory with the database. Reported Codex token usage appears in the usage endpoint; it does not measure remaining image-generation quota.
 
 Conversation mode and the selected reply duck are remembered per room in browser storage. Refresh also restores the last open room. These preferences stay local to each browser.
+
+## Context and session recovery
+
+Sessions survive changes to prompt wording, tool descriptions, and string-length guidance. Provider, model, working-directory, and tool-shape changes require a new session. Duckpond commits a replacement session only after it accepts input, so a failed replacement preserves the previous working session.
+
+Duckpond bounds room prompts to 250,000 characters before provider calls. Larger histories use selected recent replies, human messages, and mediator summaries, with the full visible transcript saved under `.data/context` for native file-tool lookup. This handoff is a selection of original messages, not a generated summary. It identifies omitted history and requires checking original decisions and authorizing messages before acting. Oversized individual messages remain intact in the archive. Independent reviewers only receive archives of messages visible to their review.
+
+Open Agent context in the duck sidebar for each agent's last reported input tokens and recorded compactions. Codex also reports the model's context window. Claude input counts include cached tokens, but no window percentage is shown without a reported capacity. These figures are separate from cumulative usage. Compaction remains managed by the native provider.

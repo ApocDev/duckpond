@@ -77,15 +77,6 @@ it("isolates rooms, ducks, and changed provider configuration", () => {
     f.prepare([f.message("old")], "other-room"),
     f.prepare([f.message("old")], "room", { ...defaults[0], id: "other-duck" }),
     f.prepare([f.message("old")], "room", { ...defaults[0], model: "other-model" }),
-    prepareReply(
-      defaults[0],
-      "changed persona",
-      "",
-      "/agent",
-      inactiveParticipantTools,
-      { roomId: "room", messages: [f.message("old")], makePrompt: JSON.stringify },
-      f.store,
-    ),
   ]) {
     expect(next.native.id).toBeUndefined();
     expect(next.prompt).toContain("old");
@@ -223,4 +214,61 @@ it("includes Claude subagents in final usage without adding the main-loop count 
       },
     ),
   ).toEqual({ input: 226, output: 8, cacheRead: 100, cacheWrite: 120, reasoning: null });
+});
+
+it("preserves a working session when a replacement fails before accepting input", () => {
+  const f = fixture();
+  const original = f.prepare([f.message("old")]);
+  original.native.opened("working");
+  original.native.accepted();
+  original.finish("complete");
+  const replacement = f.prepare([f.message("old")], "room", { ...defaults[0], model: "other" });
+  replacement.native.opened("failed-replacement");
+  replacement.finish("error");
+  expect(f.prepare([f.message("old")]).native.id).toBe("working");
+});
+it("keeps sessions across prompt wording and relaxed string limits, but isolates changed tool shapes", () => {
+  const f = fixture();
+  const tools = (limit: number) => ({
+    definitions: [
+      {
+        name: "finish",
+        description: `Limit ${limit}`,
+        inputSchema: z.object({ summary: z.string().max(limit) }),
+      },
+    ],
+    call: vi.fn(),
+  });
+  const prepare = (system: string, tool: ReturnType<typeof tools>) =>
+    prepareReply(
+      defaults[0],
+      system,
+      "",
+      "/agent",
+      tool,
+      { roomId: "room", messages: [], makePrompt: () => "prompt" },
+      f.store,
+    );
+  const first = prepare("old instructions", tools(4000));
+  first.native.opened("native");
+  first.native.accepted();
+  first.finish("complete");
+  expect(prepare("updated instructions", tools(20000)).native.id).toBe("native");
+  const changed = tools(20000);
+  changed.definitions[0].name = "different";
+  expect(prepare("updated instructions", changed).native.id).toBeUndefined();
+});
+it("records per-inference context and compaction separately from accumulated usage", () => {
+  const f = fixture();
+  const session = f.prepare([]);
+  session.native.opened("native");
+  session.native.accepted();
+  session.native.contextUsage?.({ last: { inputTokens: 1200 }, modelContextWindow: 10000 });
+  expect(f.sessions.get("room/explorer")).toMatchObject({
+    context: { inputTokens: 1200, windowTokens: 10000 },
+  });
+  session.native.compacted?.();
+  expect(f.sessions.get("room/explorer")).toMatchObject({
+    context: { inputTokens: null, compactions: 1 },
+  });
 });

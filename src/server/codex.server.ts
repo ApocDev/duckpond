@@ -28,7 +28,10 @@ export async function codexReply(
   let lastTextItem: string | undefined;
   async function handle(packet: CodexPacket) {
     const params = packet.params ?? {};
-    if (packet.method === "thread/tokenUsage/updated") usage.update(params.tokenUsage);
+    if (packet.method === "thread/tokenUsage/updated") {
+      usage.update(params.tokenUsage);
+      session?.contextUsage?.(params.tokenUsage);
+    }
     if (packet.method === "turn/started") session?.accepted();
     if (packet.id !== undefined && packet.method) {
       const method = packet.method;
@@ -121,6 +124,8 @@ export async function codexReply(
         .passthrough()
         .safeParse(params.item);
       if (item.success) {
+        if (packet.method === "item/completed" && item.data.type === "contextCompaction")
+          session?.compacted?.();
         if (
           packet.method === "item/completed" &&
           item.data.type === "agentMessage" &&

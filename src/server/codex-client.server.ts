@@ -32,6 +32,12 @@ export function connectCodex(
     if (!child.stdin.destroyed) child.stdin.write(JSON.stringify(packet) + "\n");
   }
   function request(method: string, params: unknown) {
+    if (method === "turn/start" && JSON.stringify(params).length > 1000000)
+      return Promise.reject(
+        new Error(
+          "Codex input exceeds the request-size limit. The conversation is saved; no turn was started.",
+        ),
+      );
     if (failure) return Promise.reject(failure);
     const id = nextId++;
     const task = Promise.withResolvers<unknown>();

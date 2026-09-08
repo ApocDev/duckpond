@@ -1561,3 +1561,18 @@ select {
     min-width: 44px;
   }
 }
+
+.agent-context {
+  margin: 18px 0;
+  font-size: 12px;
+  color: #aaa;
+}
+.agent-context summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 32px;
+}
+.agent-context p {
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}

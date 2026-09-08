@@ -1,3 +1,4 @@
+import { AgentContext } from "../components/agent-context";
 import { z } from "zod";
 import { createFileRoute, replaceEqualDeep } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
@@ -612,6 +613,7 @@ function Home() {
             </div>
           );
         })}
+        {room && <AgentContext key={room.id} roomId={room.id} />}
         <div className="notes-heading">
           <NotebookPen size={15} />
           <span>SHARED NOTES</span>
