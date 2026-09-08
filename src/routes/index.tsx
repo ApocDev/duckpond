@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createFileRoute, replaceEqualDeep } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -53,14 +54,55 @@ function shouldStreamText() {
   return !window.matchMedia("(max-width: 650px), (pointer: coarse)").matches;
 }
 
+const composerPreferencesSchema = z.object({
+  selected: z.string().nullable(),
+  rooms: z.record(z.string(), z.object({ mode: modeSchema, target: duckSchema.shape.id })),
+});
+
 function Home() {
   const initial = Route.useLoaderData();
   const [rooms, setRooms] = useState<Room[]>(initial.rooms);
   const [selected, setSelected] = useState(initial.rooms[0]?.id ?? null);
   const [input, setInput] = useState("");
   const [dictating, setDictating] = useState(false);
-  const [mode, setMode] = useState<Mode>("conversation");
-  const [target, setTarget] = useState<Duck["id"]>("explorer");
+  const [composerPreferences, setComposerPreferences] = useState<
+    z.infer<typeof composerPreferencesSchema>["rooms"]
+  >({});
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const preferenceKey = selected ?? "new";
+  const mode = composerPreferences[preferenceKey]?.mode ?? "conversation";
+  const target = composerPreferences[preferenceKey]?.target ?? "explorer";
+  function setMode(mode: Mode) {
+    setComposerPreferences((current) => ({ ...current, [preferenceKey]: { mode, target } }));
+  }
+  function setTarget(target: Duck["id"]) {
+    setComposerPreferences((current) => ({ ...current, [preferenceKey]: { mode, target } }));
+  }
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("duckpond:composer");
+      const parsed = composerPreferencesSchema.safeParse(stored ? JSON.parse(stored) : null);
+      if (parsed.success) {
+        setComposerPreferences(parsed.data.rooms);
+        const previousRoom = initial.rooms.find((room) => room.id === parsed.data.selected);
+        if (previousRoom) setSelected(previousRoom.id);
+      }
+    } catch {
+      // Storage can be unavailable in private or restricted browser sessions.
+    }
+    setPreferencesLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    try {
+      localStorage.setItem(
+        "duckpond:composer",
+        JSON.stringify({ selected, rooms: composerPreferences }),
+      );
+    } catch {
+      // Keep the controls usable even when browser storage is unavailable.
+    }
+  }, [preferencesLoaded, composerPreferences, selected]);
   const [editing, setEditing] = useState(false);
   const [panel, setPanel] = useState(false);
   const [sidebar, setSidebar] = useState(false);
@@ -225,6 +267,10 @@ function Home() {
       const active = room ?? (await newRoom());
       if (!room) {
         receiveRoom(active);
+        setComposerPreferences((current) => ({
+          ...current,
+          [active.id]: { mode: requestedMode, target: currentTarget },
+        }));
         setSelected(active.id);
       }
       runningRoom.current = active.id;

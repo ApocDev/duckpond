@@ -146,3 +146,5 @@ Open Edit room, expand a duck, and choose Generate outfit. Enter a hat and cloth
 Generation continues when settings or the browser tab closes. Reopen the duck to see its saved previews. Choose Use outfit, then Save room. Existing replies keep their original outfit. Only one outfit generates at a time. If the generated PNG is opaque, the same session attempts one background correction using the supplied cleanup prompt. Both turns count toward usage. An outfit must contain actual transparent pixels before it is offered for use. A server restart interrupts an unfinished generation and shows an error so you can try again.
 
 Generated PNGs and job records live in `.data/avatars`, or under `DUCKPOND_DATA_DIR` when configured. Each job also saves its prompt. Back up this directory with the database. Reported Codex token usage appears in the usage endpoint; it does not measure remaining image-generation quota.
+
+Conversation mode and the selected reply duck are remembered per room in browser storage. Refresh also restores the last open room. These preferences stay local to each browser.
