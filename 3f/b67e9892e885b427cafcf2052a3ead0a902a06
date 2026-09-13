@@ -1,0 +1,71 @@
+src/components/duck-picker.tsx
+  s_2a0fc964ce2712::t_d9675b24057ee9 1-182
+src/components/pond-dialog.tsx
+  s_2a0fc964ce2712::t_ef78829ef49a4a 1-183
+src/components/settings.tsx
+  s_2a0fc964ce2712::t_b046e18848da96 11,15-16,26-27,33-38,42,51-53,73,75-79,84-85,87-93,104,117-121,189,194-195,207-227,234-272,276,280-288,300-304,312-350,387,588,606-633,635,641
+src/lib/suggestions.ts
+  s_2a0fc964ce2712::t_002f79679a851b 21,26,30
+src/routes/index.tsx
+  s_fb7e287cd3850f::t_64a395da6aa427 21-24,34,40-41,68-71,77-93,99,114-121,123-133,145-151,156,158-162,182-183,235,247-251,304-320,324-335,337-412,414,428,430-432,446,464,487-489,492-493,511-537,539,541,543,545-637,679,734,919,929-984,989-1043
+src/server/ponds.server.ts
+  s_2a0fc964ce2712::t_9f1bb20cc5f08c 1-128
+src/server/ponds.test.ts
+  s_2a0fc964ce2712::t_b033aecd0691cd 1-91
+src/server/providers.server.ts
+  s_2a0fc964ce2712::t_c5e228f4010c73 4,21-27,70
+src/server/providers.test.ts
+  s_2a0fc964ce2712::t_55850ab07a91d9 5-7,53-56,89-125
+src/server/rooms.functions.ts
+  s_2a0fc964ce2712::t_c9d19e2243ce3d 10-17,23,45,52-61,63-68,70-79,92-105,110-113,116,119-120
+src/server/store.server.ts
+  s_2a0fc964ce2712::t_cd1c86c501963e 5-12,22-50,69,72,74,82-124
+src/server/store.test.ts
+  s_2a0fc964ce2712::t_b55ea66fd9a8e9 1-101
+src/server/suggestions.server.ts
+  s_2a0fc964ce2712::t_6ca4b2f1a9bf3a 8,10,13-14,16-25,29-37,39-42,45,64,86-90,92,109-127,135,143,146-148,160-161
+src/server/suggestions.test.ts
+  s_2a0fc964ce2712::t_f547cab4e995d5 6-11,14,139-153,174-258
+src/styles.css
+  s_fb7e287cd3850f::t_cfc9ce8625b8d4 121-164,205-318,1690-1693,1696,1702,1706,1710
+README.md
+  s_2a0fc964ce2712::t_94221f3b6aa3b4 47-64,92-93
+src/lib/pond.ts
+  s_2a0fc964ce2712::t_f680b15eece5ff 1-16
+src/lib/room.ts
+  s_2a0fc964ce2712::t_1882a9a07a6629 129-130,141-172
+src/server/conversation.server.ts
+  s_2a0fc964ce2712::t_b27298b8cb8949 138
+src/server/conversation.test.ts
+  s_2a0fc964ce2712::t_5c29c55afee814 24,60,87,100-101
+src/server/discussion.server.ts
+  s_2a0fc964ce2712::t_daefdc4fe66d54 420
+src/server/ponds.functions.ts
+  s_2a0fc964ce2712::t_5f99dcbfb34207 1-34
+src/server/sessions.server.ts
+  s_2a0fc964ce2712::t_ac73ee086424d9 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3fb67e9892e885b427cafcf2052a3ead0a902a06",
+  "prompts": {},
+  "sessions": {
+    "s_2a0fc964ce2712": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b0b-9eec-7b70-9ea3-a54c02f5260f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    },
+    "s_fb7e287cd3850f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b86-c174-7700-967d-193b2cca93dc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
