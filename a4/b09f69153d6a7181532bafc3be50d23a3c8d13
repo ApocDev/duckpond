@@ -1,0 +1,37 @@
+README.md
+  s_fb7e287cd3850f::t_54cd32ab229539 67,72,79,83,178,180
+src/lib/room.ts
+  s_fb7e287cd3850f::t_f9dc3d1f12c9a4 226-227,241
+src/server/context.server.ts
+  s_fb7e287cd3850f::t_8a10a4cb41dae2 9,21,25-32,37,39-40,42-46,53,55,63-66
+src/server/context.test.ts
+  s_fb7e287cd3850f::t_efdfee54bdc0e8 12,25,34-60
+src/server/conversation.test.ts
+  s_fb7e287cd3850f::t_0309c8904e8eec 108-111,151,174,179,372,377,434,570-628
+src/server/discussion.behavior.integration.test.ts
+  s_fb7e287cd3850f::t_e43f92314f0d1e 1-93
+src/server/discussion.server.ts
+  s_fb7e287cd3850f::t_fe9cb8a8f90007 17,22-34,45,60,82,118,200-203,257,275,302,333,335,425,458,543
+src/server/discussion.test.ts
+  s_fb7e287cd3850f::t_0b4d4476cdc18a 3,121,134-186
+src/server/sessions.server.ts
+  s_fb7e287cd3850f::t_18dfea0cacb252 1-6,114,118,123-125,127-132,135-136
+src/server/sessions.test.ts
+  s_fb7e287cd3850f::t_95e264979ae20e 1-4,7-8,10-12,20,57,95-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a4b09f69153d6a7181532bafc3be50d23a3c8d13",
+  "prompts": {},
+  "sessions": {
+    "s_fb7e287cd3850f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b86-c174-7700-967d-193b2cca93dc",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
