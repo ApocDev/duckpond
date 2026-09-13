@@ -1,4 +1,9 @@
-import { buildHandoff, contextStatusSchema, promptCharacterBudget } from "./context.server";
+import {
+  buildHandoff,
+  contextStatusSchema,
+  handoffCharacterBudget,
+  promptCharacterBudget,
+} from "./context.server";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Duck, Message } from "../lib/room";
@@ -106,24 +111,29 @@ export function prepareReply(
     })),
   });
   const previous = key ? sessionSchema.optional().parse(store.readProviderSession(key)) : undefined;
-  const session: z.infer<typeof sessionSchema> =
+  let session: z.infer<typeof sessionSchema> =
     previous && (previous.fingerprint === fingerprint || previous.compatibility === compatibility)
       ? { ...previous, fingerprint, compatibility }
       : { fingerprint, compatibility, delivered: {}, nativeId: undefined };
-  const unseen = context?.messages.filter((message) => {
+  let unseen = context?.messages.filter((message) => {
     const delivered = session.delivered[message.id];
     return delivered !== "native" && delivered !== messageHash(message);
   });
   let prompt = context ? context.makePrompt(unseen!) : originalPrompt;
-  if (prompt.length > promptCharacterBudget) {
-    if (!context)
-      throw new Error("Input exceeds Duckpond's request budget. No provider call was started.");
+  if (context && context.reuse !== false && prompt.length > handoffCharacterBudget) {
+    // A shorter new message cannot shrink an existing native transcript. Start a bounded
+    // handoff, committing its replacement session only after the provider accepts input.
     prompt = buildHandoff(context.messages, context.makePrompt).prompt;
-    session.context = {
-      ...contextStatusSchema.parse(session.context ?? {}),
-      handoffAt: new Date().toISOString(),
+    unseen = context.messages;
+    session = {
+      fingerprint,
+      compatibility,
+      delivered: {},
+      context: { ...contextStatusSchema.parse({}), handoffAt: new Date().toISOString() },
     };
   }
+  if (prompt.length > promptCharacterBudget)
+    throw new Error("Input exceeds Duckpond's request budget. No provider call was started.");
   const record = usageRecordSchema.parse({
     id: crypto.randomUUID(),
     roomId: context?.roomId ?? null,

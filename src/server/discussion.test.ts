@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vite-plus/test";
 import { defaults, roomSchema, type Message, type Room } from "../lib/room";
-import { createDiscussion, discussionTurnLimit } from "./discussion.server";
+import { createDiscussion, discussionOpinionLimit } from "./discussion.server";
 import { callRoomTool } from "./room-tools.server";
 import type { reply } from "./providers.server";
 
@@ -118,7 +118,7 @@ it("enforces the turn budget even when the Mediator keeps requesting speakers", 
   const run = vi.fn<typeof reply>(
     async (_duck, _system, _prompt, _signal, _write, _emit, tools) => {
       const action = { duckId: "skeptic", prompt: "Challenge the proposal", requestIds: [] };
-      if (discussion.state.turns < discussionTurnLimit) tools!.call("give_floor", action);
+      if (discussion.state.turns < discussionOpinionLimit) tools!.call("give_floor", action);
       else {
         expect(() => tools!.call("give_floor", action)).toThrow("budget is exhausted");
         tools!.call("finish_discussion", {
@@ -131,8 +131,59 @@ it("enforces the turn budget even when the Mediator keeps requesting speakers", 
     },
   );
   await discussion.moderate(run, speak, () => {});
-  expect(speak).toHaveBeenCalledTimes(discussionTurnLimit);
-  expect(run).toHaveBeenCalledTimes(discussionTurnLimit + 1);
+  expect(speak).toHaveBeenCalledTimes(discussionOpinionLimit);
+  expect(run).toHaveBeenCalledTimes(discussionOpinionLimit + 1);
+});
+it("counts independent assessments against the opinion budget and preserves unaddressed objections", async () => {
+  const { discussion, tools, room } = setup();
+  tools.call("ask_duck", { duckId: "skeptic", question: "This still teaches the wrong behavior." });
+  const request = discussion.state.requests[0];
+  let turns = 0;
+  const speak = vi.fn(async () => undefined);
+  await discussion.moderate(
+    async (_duck, _system, _prompt, _signal, _write, _emit, tools) => {
+      turns++;
+      if (turns === 1) {
+        expect(() =>
+          tools!.call("start_review", {
+            duckIds: ["explorer", "skeptic", "simplifier"],
+            prompt: "Everyone weigh in.",
+          }),
+        ).toThrow();
+        tools!.call("start_review", {
+          duckIds: ["explorer", "skeptic"],
+          prompt: "Explorer: possible benefit. Skeptic: failure case.",
+        });
+      } else if (turns === 2) {
+        expect(_prompt).toContain("Opinion replies remaining: 1");
+        tools!.call("give_floor", {
+          duckId: "explorer",
+          prompt: "Defend or revise the disputed benefit.",
+          requestIds: [],
+        });
+      } else {
+        expect(() =>
+          tools!.call("give_floor", {
+            duckId: "skeptic",
+            prompt: "Try once more.",
+            requestIds: [request.id],
+          }),
+        ).toThrow("opinion budget is exhausted");
+        tools!.call("finish_discussion", {
+          summary: "The benefit remains disputed.",
+          disagreements: ["Skeptic's concern is unanswered."],
+          question: "",
+          deferred: [{ requestId: request.id, reason: "Reply limit reached; still unresolved." }],
+        });
+      }
+    },
+    speak,
+    () => {},
+  );
+  expect(speak).toHaveBeenCalledTimes(3);
+  expect(discussion.state.status).toBe("complete");
+  expect(request.status).toBe("deferred");
+  expect(room.messages.at(-1)?.text).toContain("still unresolved");
 });
 it("does not grant another turn after Stop and preserves open questions", async () => {
   const { discussion, tools, signal, room } = setup();

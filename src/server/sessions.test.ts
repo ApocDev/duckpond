@@ -1,7 +1,15 @@
-import { expect, it, vi } from "vite-plus/test";
+import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 import { defaults, makePrompt, visibleMessages, type Message } from "../lib/room";
+const directory = mkdtempSync(join(tmpdir(), "duckpond-session-context-test-"));
+afterAll(() => rmSync(directory, { recursive: true, force: true }));
 vi.mock("./store.server", () => ({
+  get dataDirectory() {
+    return directory;
+  },
   readProviderSession: vi.fn(),
   saveProviderSession: vi.fn(),
   saveProviderUsage: vi.fn(),
@@ -9,6 +17,7 @@ vi.mock("./store.server", () => ({
 import { prepareReply, codexUsageTracker, claudeUsage, usageRecordSchema } from "./sessions.server";
 import { inactiveParticipantTools } from "./discussion.server";
 import { usageReport } from "./usage.server";
+import { handoffCharacterBudget } from "./context.server";
 
 function fixture() {
   const sessions = new Map<string, unknown>();
@@ -45,7 +54,7 @@ function fixture() {
 
 it("resumes from persisted state and delivers only unseen or changed messages, without echoing its answer", () => {
   const f = fixture();
-  const history = [f.message("old", "x".repeat(100000)), f.message("question")];
+  const history = [f.message("old", "x".repeat(10000)), f.message("question")];
   const first = f.prepare(history, "room", defaults[0], "answer");
   first.native.opened("native-1");
   first.native.accepted();
@@ -81,6 +90,53 @@ it("isolates rooms, ducks, and changed provider configuration", () => {
     expect(next.native.id).toBeUndefined();
     expect(next.prompt).toContain("old");
   }
+});
+
+it("keeps a large cached session when only a small new message is needed", () => {
+  const f = fixture();
+  const first = f.prepare([f.message("old")]);
+  first.native.opened("cached-session");
+  first.native.accepted();
+  first.native.contextUsage?.({ last: { inputTokens: 100000 }, modelContextWindow: 200000 });
+  first.finish("complete");
+  const next = f.prepare([f.message("old"), f.message("followup", "What about the other option?")]);
+  expect(next.native.id).toBe("cached-session");
+  expect(JSON.parse(next.prompt)).toEqual([f.message("followup", "What about the other option?")]);
+});
+
+it("bounds oversized new context and commits a replacement only after it accepts the handoff", () => {
+  const f = fixture();
+  const first = f.prepare([f.message("old")]);
+  first.native.opened("working");
+  first.finish("complete");
+  const history = [
+    f.message("old"),
+    ...Array.from({ length: 60 }, (_, i) => ({
+      ...f.message(`peer-${i}`, "Long peer opinion. ".repeat(200)),
+      duckId: "skeptic",
+      speaker: "Skeptic",
+    })),
+    f.message("latest", "Keep real physical items; do not implement anything yet."),
+  ];
+  const next = f.prepare(history);
+  expect(next.native.id).toBeUndefined();
+  expect(next.prompt.length).toBeLessThanOrEqual(handoffCharacterBudget);
+  expect(next.prompt).toContain(history.at(-1)!.text);
+  const archivePath = next.prompt.match(/"[^"\n]+\.jsonl"/)![0];
+  const archived = readFileSync(JSON.parse(archivePath), "utf8")
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  expect(archived).toEqual(history);
+  next.native.opened("failed");
+  next.finish("error");
+  expect(f.prepare([f.message("old")]).native.id).toBe("working");
+  const retry = f.prepare(history);
+  retry.native.opened("replacement");
+  retry.native.accepted();
+  retry.finish("complete");
+  const resumed = f.prepare([...history, f.message("continue")]);
+  expect(resumed.native.id).toBe("replacement");
+  expect(JSON.parse(resumed.prompt)).toEqual([f.message("continue")]);
 });
 
 it("preserves accepted input through a crash and does not drop unaccepted input on a failed resume", () => {

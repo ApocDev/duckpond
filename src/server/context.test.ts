@@ -9,7 +9,7 @@ vi.mock("./store.server", () => ({
     return directory;
   },
 }));
-const { buildHandoff, promptCharacterBudget } = await import("./context.server");
+const { buildHandoff, handoffCharacterBudget } = await import("./context.server");
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 it("bounds a handoff and keeps every visible message searchable without truncating records", () => {
   const messages: Message[] = Array.from({ length: 600 }, (_, index) => ({
@@ -22,7 +22,7 @@ it("bounds a handoff and keeps every visible message searchable without truncati
     createdAt: "",
   }));
   const result = buildHandoff(messages, JSON.stringify);
-  expect(result.prompt.length).toBeLessThan(promptCharacterBudget);
+  expect(result.prompt.length).toBeLessThan(handoffCharacterBudget);
   expect(result.prompt).toContain("constraint 599");
   expect(result.omitted).toBeGreaterThan(0);
   const files = readdirSync(join(directory, "context"));
@@ -30,6 +30,33 @@ it("bounds a handoff and keeps every visible message searchable without truncati
     .split("\n")
     .map((line) => JSON.parse(line));
   expect(archived).toEqual(JSON.parse(JSON.stringify(messages)));
+});
+it("retains the approval, its proposal, and recent dissent as original messages", () => {
+  const message = (id: string, text: string, duckId?: string): Message => ({
+    id,
+    text,
+    duckId,
+    speaker: duckId ?? "You",
+    status: "complete",
+    phase: "discussion",
+    createdAt: "",
+  });
+  const history = [
+    ...Array.from({ length: 50 }, (_, i) =>
+      message(`old-${i}`, "Old discussion. ".repeat(300), "explorer"),
+    ),
+    message(
+      "proposal",
+      "I can inspect the asset dimensions. I will not change the files.",
+      "explorer",
+    ),
+    message("approval", "Go ahead."),
+    message("dissent", "I still disagree with requiring every cable to be unwrapped.", "skeptic"),
+  ];
+  const { prompt } = buildHandoff(history, JSON.stringify);
+  for (const item of history.slice(-3)) expect(prompt).toContain(item.text);
+  expect(prompt.length).toBeLessThanOrEqual(handoffCharacterBudget);
+  expect(prompt).toContain("not a generated summary");
 });
 it("names an oversized latest human message for mandatory lookup instead of clipping it", () => {
   const result = buildHandoff(

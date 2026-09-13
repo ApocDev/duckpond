@@ -105,9 +105,10 @@ describe("conversation rounds", () => {
             expect(activeSpeakers).toBe(0);
             mediatorTurns++;
             if (mediatorTurns === 1) {
-              tools!.call("start_review", {
-                duckIds: value.ducks.map((duck) => duck.id),
-                prompt: "Assess independently.",
+              tools!.call("give_floor", {
+                duckId: "explorer",
+                prompt: "Give your strongest idea for the player experience.",
+                requestIds: [],
               });
               return;
             }
@@ -147,7 +148,7 @@ describe("conversation rounds", () => {
           if (duck.id === "explorer" && !followup)
             tools!.call("ask_duck", { duckId: "skeptic", question: "What makes repairs boring?" });
           if (duck.id === "skeptic" && followup) {
-            expect(prompt).toContain("opinion-simplifier");
+            expect(prompt).toContain("opinion-explorer");
             tools!.call("ask_duck", {
               duckId: "simplifier",
               question: "Can one authored puzzle avoid repetition?",
@@ -164,20 +165,18 @@ describe("conversation rounds", () => {
     expect(seen.map((item) => item.id)).toEqual([
       "mediator",
       "explorer",
-      "skeptic",
-      "simplifier",
       "mediator",
       "skeptic",
       "mediator",
       "simplifier",
       "mediator",
     ]);
-    for (const entry of seen.slice(1, 4)) {
+    for (const entry of seen.slice(1, 2)) {
       expect(entry.prompt).toContain("Would this be fun?");
       expect(entry.prompt).not.toContain("opinion-");
       expect(entry.prompt).not.toContain("What makes repairs boring?");
     }
-    expect(value.discussions![0]).toMatchObject({ status: "complete", turns: 2 });
+    expect(value.discussions![0]).toMatchObject({ status: "complete", turns: 3 });
     expect(value.discussions![0].requests.map((item) => item.status)).toEqual([
       "addressed",
       "addressed",
@@ -370,12 +369,12 @@ it.each(["conversation", "review", "discussion"] as const)(
             expect(system).not.toContain("reply exactly PASS");
             if (!value.messages.some((message) => message.phase === "review")) {
               tools!.call("start_review", {
-                duckIds: value.ducks.map((duck) => duck.id),
+                duckIds: ["explorer", "skeptic"],
                 prompt: "Assess independently.",
               });
               return;
             }
-            expect(prompt).toContain('"passedDucks":["skeptic","simplifier"]');
+            expect(prompt).toContain('"passedDucks":["skeptic"]');
             tools!.call("finish_discussion", {
               summary: "Use the relevant engine assessment.",
               disagreements: [],
@@ -432,7 +431,7 @@ it("keeps an assigned question open when its recipient passes", async () => {
         if (duck.id === "mediator") {
           if (mediatorTurns++ === 0) {
             tools!.call("start_review", {
-              duckIds: value.ducks.map((duck) => duck.id),
+              duckIds: ["explorer", "skeptic"],
               prompt: "Assess independently.",
             });
             return;
@@ -566,6 +565,65 @@ it("executes approved work, requires evidence and review, and persists completio
   ).toBe("complete");
   const restored = roomSchema.parse(JSON.parse(JSON.stringify(value)));
   expect(restored.actions).toEqual(value.actions);
+});
+
+it("can execute approved work after spending the opinion budget", async () => {
+  const value = room();
+  let turns = 0;
+  await runConversation(
+    value,
+    "Discuss the tradeoff, then write the approved two-line checklist.",
+    "discussion",
+    "explorer",
+    new AbortController().signal,
+    emit,
+    {
+      persist,
+      run: async (duck, _system, _prompt, _signal, write, _emit, tools) => {
+        const action = value.actions?.[0];
+        if (duck.id !== "mediator") {
+          if (action)
+            tools!.call("report_action", {
+              actionId: action.id,
+              status: "reported",
+              result: "1. Unpack. 2. Store.",
+              evidence: ["The two steps are in this reply."],
+            });
+          write(action ? "1. Unpack. 2. Store." : "A focused contribution.");
+          return;
+        }
+        turns++;
+        if (turns <= 3)
+          tools!.call("give_floor", {
+            duckId: value.ducks[turns - 1].id,
+            prompt: "Address the open tradeoff.",
+            requestIds: [],
+          });
+        else if (!action)
+          tools!.call("assign_action", {
+            duckId: "explorer",
+            task: "Write the checklist.",
+            deliverable: "Two lines in chat.",
+            authorizationId: value.messages[0].id,
+          });
+        else if (action.status === "reported")
+          tools!.call("review_action", {
+            actionId: action.id,
+            accepted: true,
+            reason: "The requested two steps are present.",
+          });
+        else
+          tools!.call("finish_discussion", {
+            summary: "Checklist complete.",
+            disagreements: [],
+            question: "",
+            deferred: [],
+          });
+      },
+    },
+  );
+  expect(value.actions?.[0].status).toBe("complete");
+  expect(value.discussions?.[0]).toMatchObject({ status: "complete", turns: 4 });
 });
 
 it.each(["PASS", "I can do that. Want me to?"])(

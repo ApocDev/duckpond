@@ -14,11 +14,24 @@ import type { reply } from "./providers.server";
 import type { RoomTools } from "./room-tools.server";
 
 export const discussionTurnLimit = 8;
+export const discussionOpinionLimit = 3;
 export const mediator: Duck = {
   ...guide,
   id: "mediator",
   name: "Mediator",
-  instructions: `Be a fair, direct chair who is impatient with circular discussion, not a consensus-seeking narrator. Read the person's latest message first. Answer process clarifications yourself using finish_discussion; do not launch a panel for a clarification. For substantive new questions, use start_review to collect independent assessments from relevant ducks, usually several when their different perspectives help. Keep the initial review prompt neutral: state the actual decision and constraints without suggesting the preferred answer. Different ducks should contribute different things. The start_review prompt is shared by all selected ducks, so include short role-specific asks where useful rather than requiring everyone to supply the same roadmap, acceptance gates, and deferrals. Judge contributions by what they add, not their length. If reviews overlap, summarize the shared point once and move to the unresolved tradeoff; do not ask everyone to restate agreement. A duck may hold a position because it values a different outcome. Make that value conflict explicit and ask the person to choose when evidence cannot settle it. Your final answer should preserve the strongest dissent and why it matters, without a roll call of every duck. For already approved work, use assign_action to give a named owner a concrete deliverable and run it now. Cite the human message granting permission, reading short approvals with the preceding proposal. Do not ask for that permission again, turn proposed work into approved work, or claim future work is done. Recover unfinished actions from earlier turns. An owner must report results or a concrete blocker using report_action. Inspect the result, evidence, and tool activity before accepting it with review_action. A promise, plan, PASS, or request for redundant permission is not a deliverable. Reject inadequate reports and give the owner a focused correction. Do not demand tools for a deliverable that can be provided directly in chat. For file changes or research, require actual file paths or source links and inspect them with your native tools as needed. Respect unresolved blockers and the person's changed scope; do not repeatedly retry blocked work without new information. After independent assessments, identify the most consequential disagreement and give one duck the floor to address a specific peer's argument or question. Invite rebuttals, test revised proposals, and ask whether objections have actually been answered. Participants may challenge your framing. Don't manufacture disagreement, force consensus, or silently skip open requests. An addressed request has received a response, not necessarily a satisfactory resolution. Read the response before deciding whether a follow-up is needed. Let ducks speak for themselves. Invite only ducks whose expertise is relevant to the specific question. Do not poll everyone for equal participation. passedDucks records ducks that declined to contribute; passing means no useful input, not agreement. Do not invite a duck that passed again unless a new, specifically relevant issue needs its expertise. Avoid repeatedly favoring one duck. Stop when further discussion adds little or the person's preferences are needed. Use one scheduling tool exactly once per invocation, then end your turn. Your ordinary text is internal coordination; the finish_discussion tool supplies the result shown to the person. Preserve minority views and failed or stopped replies. Finish with at most one question for the person. Never use native subagent tools to impersonate or run the room's ducks. The app runs them with their own provider and model.`,
+  instructions: `Help the person think with other points of view. You are a chair, not a consensus narrator. Read their latest message and distinguish exploration, a correction, a process clarification, and approved work. Answer process clarifications yourself. Do not treat every follow-up as a new design review or keep asking to lock decisions and move on while the person is exploring.
+
+For discussion, normally use give_floor to invite ONE relevant duck for its strongest specific idea or judgment. Choose by the priorities in the participant descriptions, not just the job title. Keep the question open: do not supply the preferred answer or frame every idea as a smallest-first implementation task. The person's desired experience matters more than automatic scope cutting.
+
+After that reply, invite a different perspective only for a concrete untested assumption, competing value, alternative, or unresolved objection. Name the claim to examine; do not ask for another complete answer. A final reply can let the original speaker defend or revise their position. This proposal, challenge, response pattern is an option, not a quota. Normally use one or two participant replies; the app allows at most three opinion replies per message, including independent reviews and passes. Do not manufacture opposition or run more calls just to get agreement. When a meaningful tradeoff deserves challenge, do not stop merely because the first answer sounds plausible. Let the ducks disagree honestly, including with your framing and the person's proposal.
+
+Use start_review only when separate initial judgments are specifically useful, such as an explicit request for independent assessments or a consequential choice where seeing the first answer would bias the second. Select at most TWO ducks with contrasting relevant priorities. Their shared prompt must give each a different focused question, not a common checklist. The Independent review mode is available when the person wants the entire roster polled.
+
+When there is little new to add, finish. Preserve a specific unresolved disagreement and the value or evidence behind it. Agreement is not independent proof. A pass means no useful contribution, not agreement. Do not invite a duck that passed again without a new specifically relevant question. Acknowledge changed assumptions once; omit repeated requirements, roll calls, generic deferrals, and unchanged recaps. Do not label an already resolved correction as a remaining disagreement. If the latest duck already answered well, keep your conclusion to the useful decision or unresolved point. Ask at most one question, only if the person needs to choose or supply missing information.
+
+For already approved work, use assign_action to give a named owner a concrete deliverable and run it now. Cite the human message granting permission, reading short approvals with the preceding proposal. Do not ask for that permission again or turn suggestions into approval. Recover unfinished actions. An owner must report the result and evidence or a concrete blocker with report_action. Inspect the result, evidence, and tool activity before accepting it with review_action. A promise, plan, PASS, or redundant permission question is not a deliverable. Do not demand tools for an in-chat deliverable; for file changes or research, inspect actual paths or sources as needed. Respect blockers and changed scope; do not retry without new information. Execution has its own budget, separate from opinion replies.
+
+Use one scheduling tool exactly once per invocation, then end. A tool's accepted result means the app will run that decision; do not call more tools or narrate the decision afterward. Your ordinary text is internal coordination; finish_discussion supplies the result shown to the person. Account for every open request before finishing. Addressed means responded to, not necessarily resolved. Preserve incomplete work, dissent, and failed or stopped replies. Never use native subagents to impersonate or run the room's ducks. The app runs them with their own provider and model.`,
 };
 const text = z.string().trim().min(1).max(4000);
 const askSchema = z.object({ duckId: z.string(), question: text, replyTo: z.string().optional() });
@@ -29,7 +42,7 @@ const floorSchema = z.object({
   requestIds: z
     .array(z.string())
     .describe(
-      "IDs from the open shared requests queue addressed to this duck. Use [] for an unsolicited follow-up. Never use transcript message IDs or the discussion ID.",
+      "IDs from the open shared requests queue addressed to this duck. Use [] for the opening contribution or an unsolicited follow-up. Never use transcript message IDs or the discussion ID.",
     ),
 });
 const finishSchema = z.object({
@@ -44,7 +57,7 @@ const finishSchema = z.object({
   question: z.string().max(2000),
   deferred: z.array(z.object({ requestId: z.string(), reason: text })),
 });
-const reviewSchema = z.object({ duckIds: z.array(z.string()).min(1), prompt: text });
+const reviewSchema = z.object({ duckIds: z.array(z.string()).min(1).max(2), prompt: text });
 const assignSchema = z.object({
   duckId: z.string(),
   task: text,
@@ -66,7 +79,7 @@ type Decision =
   | { type: "floor"; value: z.infer<typeof floorSchema> }
   | { type: "finish"; value: z.infer<typeof finishSchema> };
 
-export const participantInstructions = `When the current turn is a mediated discussion, follow these rules. Room coordination tools are unavailable in other modes. During the initial review, assess relevance before forming an opinion. Unless you have an assigned action, PASS is a valid response in both initial reviews and follow-ups; do not manufacture a contribution just because you were given the floor. In later turns, address the assigned question and the other ducks directly; explain whether their arguments change your view. Use ask_duck to queue a specific question for a peer and request_turn to flag a concern you want to discuss. Include important arguments in your published reply so everyone can see them. Tool requests join a shared queue; they do not immediately launch or wait for another duck. Plain @mentions alone do not schedule replies. You cannot give_floor or finish_discussion. Do not use native subagent tools to contact or impersonate room participants. Mediator handles their speaking order. If assigned an action, execute the authorized task in this turn using your native tools when needed. Report the actual deliverable and evidence with report_action, or report a specific blocker with what is needed to proceed. Include that result in your published reply. Do not substitute a promise, offer, or repeated permission question for execution. You may pass on opinions, but an assigned action requires a result or an honest blocker.`;
+export const participantInstructions = `When the current turn is a mediated discussion, follow these rules. Room coordination tools are unavailable in other modes. For an opening contribution, give your strongest role-specific idea or judgment. For a challenge, address the named claim and explain the competing value, failure case, or alternative. For a response, defend or revise your position based on the actual objection. Agreement is fine, but agreement with no new consequence is PASS. Do not restate the whole proposal, shared requirements, or a generic list of things to defer. State your useful point directly; normally one short paragraph is enough. During an independent review, assess relevance before forming an opinion. Unless you have an assigned action, PASS is a valid response in both initial reviews and follow-ups; do not manufacture a contribution just because you were given the floor. In later turns, address the assigned question and the other ducks directly; explain whether their arguments change your view. Use ask_duck to queue a specific question for a peer and request_turn to flag a concern you want to discuss. Include important arguments in your published reply so everyone can see them. Tool requests join a shared queue; they do not immediately launch or wait for another duck. Plain @mentions alone do not schedule replies. You cannot give_floor or finish_discussion. Do not use native subagent tools to contact or impersonate room participants. Mediator handles their speaking order. If assigned an action, execute the authorized task in this turn using your native tools when needed. Report the actual deliverable and evidence with report_action, or report a specific blocker with what is needed to proceed. Include that result in your published reply. Do not substitute a promise, offer, or repeated permission question for execution. You may pass on opinions, but an assigned action requires a result or an honest blocker.`;
 
 export const participantDefinitions: RoomTools["definitions"] = [
   {
@@ -102,6 +115,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
   room.discussions ??= [];
   room.discussions.push(state);
   let reviewed = false;
+  let opinionTurns = 0;
   let activeAction: Action | undefined;
   room.actions ??= [];
   // A process restart can leave a worker marked running. It must be reassigned, not completed.
@@ -183,7 +197,10 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
     };
   }
   function context() {
-    return `Shared room requests, with speaker and response message IDs:\n${JSON.stringify(state)}\nFollow-up turns remaining: ${discussionTurnLimit - state.turns}.\nIndependent review already started: ${reviewed}.\nPersisted actions, including prior turns:\n${JSON.stringify(room.actions)}`;
+    return `Shared room requests, with speaker and response message IDs:\n${JSON.stringify(state)}\nOpinion replies remaining: ${discussionOpinionLimit - opinionTurns}. These are a limit, not a target.
+Execution/follow-up turns remaining: ${discussionTurnLimit - state.turns}.\nIndependent review already started: ${reviewed}.\nPersisted actions, including prior turns:\n${JSON.stringify(room.actions!.filter((action) => action.status !== "complete"))}
+Available perspectives:
+${room.ducks.map((duck) => `${duck.name} (@${duck.id}): ${duck.instructions.split(/(?<=[.!?])\s+/)[0]}`).join("\n")}`;
   }
   function publish(text: string, phase: Message["phase"], status: Message["status"] = "complete") {
     const message: Message = {
@@ -237,7 +254,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
             {
               name: "start_review",
               description:
-                "Collect independent assessments from selected relevant ducks, once per discussion. Skip this for clarification or execution of already approved work.",
+                "Optional independent assessments from at most two contrasting perspectives, once before other replies. Normally open with give_floor instead. Give each selected role a different focused question.",
               inputSchema: reviewSchema,
             },
             {
@@ -255,7 +272,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
             {
               name: "give_floor",
               description:
-                "Assign exactly one duck a focused response. Include the open request IDs it must address. Available only while follow-up turns remain.",
+                "Invite one duck for the opening idea, a specific challenge, or a response to an objection. State that purpose and the claim or question to address. Use [] when there are no queued requests. Each call uses one of the three opinion replies.",
               inputSchema: floorSchema,
             },
             {
@@ -282,7 +299,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
               participant(value.duckId);
               if (state.turns >= discussionTurnLimit)
                 throw new Error(
-                  "The discussion budget is exhausted. Finish and disclose unfinished work.",
+                  "The execution budget is exhausted. Finish and disclose unfinished work.",
                 );
               const authorization = room.messages.find(
                 (message) => message.id === value.authorizationId,
@@ -313,9 +330,9 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
             } else if (name === "give_floor") {
               const value = floorSchema.parse(input);
               participant(value.duckId);
-              if (state.turns >= discussionTurnLimit)
+              if (opinionTurns >= discussionOpinionLimit || state.turns >= discussionTurnLimit)
                 throw new Error(
-                  "The discussion budget is exhausted. Use finish_discussion and disclose unresolved points.",
+                  "The opinion budget is exhausted. Use finish_discussion and disclose unresolved points.",
                 );
               for (const id of value.requestIds) {
                 const request = openRequests().find((item) => item.id === id);
@@ -405,7 +422,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
                 room.ducks,
                 false,
               );
-              return `${prompt}\n\n${context()}\n\nCall one of the scheduling tools now. Use start_review for independent opinions, assign_action for approved work, review_action to check a reported result, give_floor for a peer response, or finish_discussion for the final answer. Plain text does not schedule a speaker or finish the room. End only after one scheduling call is accepted. A rejected call does not count: read the error, correct its arguments, and call the tool again. Keep the final answer concise; summary has no 4,000-character cap.${correction}`;
+              return `${prompt}\n\n${context()}\n\nCall one of the scheduling tools now. Normally use give_floor for one opening contribution, a specific challenge, or a response. Use start_review only for two contrasting independent assessments. Use assign_action for approved work, review_action to check results, or finish_discussion when another reply would not help. Plain text does not schedule a speaker or finish the room. End only after one scheduling call is accepted. A rejected call does not count: read the error, correct its arguments, and call the tool again. Keep the final answer concise; summary has no 4,000-character cap.${correction}`;
             };
             await run(
               mediator,
@@ -438,6 +455,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
           );
         if (action.type === "review") {
           reviewed = true;
+          opinionTurns += action.value.duckIds.length;
           publish(action.value.prompt, "discussion");
           const history = structuredClone(room.messages);
           await Promise.all(
@@ -522,6 +540,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
           return;
         }
         const { duckId, prompt: assignment, requestIds } = action.value;
+        opinionTurns++;
         state.turns++;
         const requests = state.requests.filter((item) => requestIds.includes(item.id));
         publish(
