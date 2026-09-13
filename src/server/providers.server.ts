@@ -1,7 +1,7 @@
 import { commandPermission } from "./command-permissions.server";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir } from "node:fs/promises";
+import { mkdir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createClaudeCode, createSdkMcpServer, tool } from "ai-sdk-provider-claude-code";
 import { streamText } from "ai";
@@ -18,7 +18,13 @@ import { callRoomTool, type RoomTools } from "./room-tools.server";
 const exec = promisify(execFile);
 const claude = createClaudeCode();
 const agentDirectory = join(dataDirectory, "agent");
-export async function getAgentDirectory() {
+export async function getAgentDirectory(workspace?: string) {
+  if (workspace) {
+    const directory = await realpath(workspace);
+    if (!(await stat(directory)).isDirectory())
+      throw new Error("The pond workspace is not a directory.");
+    return directory;
+  }
   await mkdir(agentDirectory, { recursive: true });
   return process.env.DUCKPOND_AGENT_CWD ?? agentDirectory;
 }
@@ -61,7 +67,7 @@ export async function reply(
   roomTools?: RoomTools,
   context?: ReplyContext,
 ): Promise<void> {
-  const cwd = await getAgentDirectory();
+  const cwd = await getAgentDirectory(context?.workspace);
   const session = prepareReply(duck, system, prompt, cwd, roomTools, context);
   let status: "complete" | "error" | "stopped" = "error";
   try {

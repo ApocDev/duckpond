@@ -7,12 +7,20 @@ import { z } from "zod";
 import { ducksSchema, providerSchema } from "../lib/room";
 import { validateModelSelection } from "../lib/models";
 import { providerModels } from "./models.server";
-import { createRoom, getRoom, listRooms, saveRoom } from "./store.server";
+import {
+  createRoom,
+  deleteRoom,
+  getRoom,
+  listDuckGroups,
+  listRooms,
+  saveRoom,
+} from "./store.server";
 import { activeTurns, liveRooms } from "./conversation.server";
 import { providerStatus } from "./providers.server";
 import { requireAllowedRequest } from "./access.server";
 import { resolveApproval } from "./approvals.server";
 import { suggestParticipant } from "./suggestions.server";
+import { getPond, listPonds } from "./ponds.server";
 
 export const loadRooms = createServerFn({ method: "GET" })
   .validator(z.object({ streamText: z.boolean() }).optional())
@@ -34,16 +42,41 @@ export const loadRooms = createServerFn({ method: "GET" })
     });
     return {
       rooms,
+      ponds: listPonds(),
       active: [...liveRooms.entries()].map(([roomId, live]) => ({
         roomId,
         approvals: live.approvals,
       })),
     };
   });
-export const newRoom = createServerFn({ method: "POST" }).handler(() => {
+export const newRoom = createServerFn({ method: "POST" })
+  .validator(
+    z.object({ ducks: ducksSchema.optional(), pondId: z.string().uuid().optional() }).optional(),
+  )
+  .handler(({ data }) => {
+    requireAllowedRequest(getRequest());
+    const pond = data?.pondId ? getPond(data.pondId) : undefined;
+    return createRoom(data?.ducks ?? pond?.ducks, pond);
+  });
+export const reusableDucks = createServerFn({ method: "GET" }).handler(() => {
   requireAllowedRequest(getRequest());
-  return createRoom();
+  return [
+    ...listPonds()
+      .filter((pond) => !pond.error)
+      .map((pond) => ({ id: pond.id, title: `${pond.name} defaults`, ducks: pond.ducks })),
+    ...listDuckGroups(),
+  ];
 });
+export const removeRoom = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().uuid(), onlyIfUntouched: z.boolean().default(false) }))
+  .handler(({ data }) => {
+    requireAllowedRequest(getRequest());
+    if (activeTurns.has(data.id) || liveRooms.has(data.id)) {
+      if (data.onlyIfUntouched) return { deleted: false };
+      throw new Error("Stop the current replies before deleting this conversation.");
+    }
+    return { deleted: deleteRoom(data.id, data.onlyIfUntouched) };
+  });
 export const connections = createServerFn({ method: "GET" }).handler(() => {
   requireAllowedRequest(getRequest());
   return providerStatus();
@@ -56,23 +89,35 @@ export const loadModels = createServerFn({ method: "GET" })
   });
 export const suggestDuck = createServerFn({ method: "POST" })
   .validator(
-    z.object({
-      roomId: z.string().uuid().optional(),
-      ducks: ducksSchema,
-      previouslySuggestedNames: z.array(z.string().max(32)).max(25).default([]),
-      notes: z.string().max(20000),
-    }),
+    z
+      .object({
+        roomId: z.string().uuid().optional(),
+        pondId: z.string().uuid().optional(),
+        ducks: ducksSchema,
+        previouslySuggestedNames: z.array(z.string().max(32)).max(25).default([]),
+        idea: z.string().trim().min(1).max(2000).optional(),
+        inspectWorkspace: z.boolean().default(false),
+        notes: z.string().max(20000),
+      })
+      .refine((data) => !data.inspectWorkspace || (!!data.pondId && !data.idea && !data.roomId), {
+        message:
+          "Workspace suggestions require a pond and cannot include a conversation or persona idea.",
+      }),
   )
   .handler(async ({ data }) => {
     const request = getRequest();
     requireAllowedRequest(request);
-    const messages = data.roomId ? getRoom(data.roomId).messages : [];
-    const timeout = AbortSignal.timeout(120000);
+    const room = data.roomId ? getRoom(data.roomId) : undefined;
+    const messages = room?.messages ?? [];
+    const workspace = room?.workspace ?? (data.pondId ? getPond(data.pondId).workspace : undefined);
+    const timeout = AbortSignal.timeout(data.inspectWorkspace ? 180000 : 120000);
     try {
       return await suggestParticipant(
-        { id: data.roomId, messages, ducks: data.ducks, notes: data.notes },
+        { id: data.roomId, messages, ducks: data.ducks, notes: data.notes, workspace },
         AbortSignal.any([request.signal, timeout]),
         data.previouslySuggestedNames,
+        data.idea,
+        data.inspectWorkspace,
       );
     } catch (error) {
       if (timeout.aborted) throw new Error("The suggestion took too long. Try again.");

@@ -44,6 +44,24 @@ tailscale serve --https=3998 off
 
 ## Conversations
 
+Choose a pond in the sidebar. **New conversation** starts with that pond's default ducks. **Choose other ducks** lets you pick individual ducks or a previous room's whole group. A conversation's menu also has **New conversation with these ducks**. Names, instructions, outfits, models, and reasoning settings carry over; messages, shared notes, and provider sessions start fresh. Editing a conversation's duck affects only that conversation.
+
+Conversations are saved when you send a message or save room settings. Untouched empty rooms disappear when you leave them, and other unused empty rooms are cleaned up when you open the app. Draft messages stay in this browser when you switch conversations or reload. Customized rooms are kept even without messages.
+
+Use a conversation's menu to delete it after confirming. Stop any active replies first. Deleting removes the conversation and its provider session references from Duckpond. Its ducks remain available in the picker. Native CLI transcripts and usage records are retained.
+
+### Ponds and workspaces
+
+**New pond** creates or opens a pond in an existing absolute workspace directory. A new pond starts with the currently displayed ducks. **Edit pond** changes its name and default ducks. Existing conversations stay in General until you use **Move to pond** in their menu. Moving preserves their messages and personas; subsequent replies run in the destination workspace with a fresh native session when the directory changes.
+
+The workspace contains `.duckpond/pond.json` with the pond ID, name, and duck settings. Each duck's instructions live in `.duckpond/ducks/<duck-id>.md`. The manifest's duck list determines which personas are active. You can edit and version these files in Git. Duckpond reads them when opening the pond editor or starting a new conversation. It rejects a stale editor save if the files changed externally. Removing a duck from the manifest leaves its Markdown file intact. Opening an existing pond reads its files without replacing them.
+
+Conversations remain in Duckpond's SQLite database with their own roster and workspace. Changing pond defaults affects future conversations. Unsent drafts are kept separately for each pond in the browser. A missing or malformed pond file marks that pond unavailable instead of silently substituting defaults.
+
+In **Edit pond**, **Suggest ducks for this workspace** inspects the folder structure, project instructions, and a sample of docs and code. It suggests up to five personas with reasons tied to the files it read, accounting for the pond's existing ducks. Inspection uses a read-only command sandbox with MCP, app, plugin, and web tools disabled. Select suggestions, edit the added ducks, and **Save pond** to keep them. You can cancel inspection; it does not change the workspace or add personas automatically.
+
+All conversation participants, Guide, Mediator, and persona generation use the pond's workspace as their working directory. Claude loads user, project, and local settings. Codex starts its App Server in that workspace and passes the directory to its threads. Project instructions, skills, MCP configuration, trust, and permissions follow each native provider's rules. Duckpond does not create or change those provider files. General uses `DUCKPOND_AGENT_CWD` when set, otherwise `.data/agent`. To use another directory, create or open a pond there.
+
 - **Conversation:** the selected duck replies. An explicit `@explorer`, `@skeptic`, or `@simplifier` overrides that selection. Multiple mentions invite multiple ducks.
 - **Independent review:** all ducks receive the same conversation snapshot. They do not see each other's current reviews while writing their own. Guide summarizes their input afterward and asks at most one next question.
 - **Discuss together:** Mediator reads your message first. It answers clarifications directly, selects relevant ducks for independent reviews, or assigns already-approved work to an owner. Ducks ask each other questions and request follow-ups through room tools. Mediator assigns one speaker at a time, then presents the recommendation, remaining disagreements, and at most one question for you.
@@ -70,6 +88,8 @@ Requests, actions, evidence, review decisions, and published responses remain sa
 Room tools use [Codex App Server dynamic tools](https://developers.openai.com/codex/app-server) and [Claude's in-process MCP tools](https://code.claude.com/docs/en/agent-sdk/custom-tools). They do not need user approval because they only coordinate the conversation. Native tools and their existing approval controls remain available.
 
 Room settings add and remove ducks, and edit their names, perspectives, outfits, provider, model, and reasoning level. Keep at least one duck in a room. Removal preserves earlier messages. Changes apply when you save the room.
+
+In room settings, **Describe a duck** turns your idea into one complete persona using the same model as **Suggest a duck**. It works without conversation history. Review or edit the generated name and instructions, click **Add to room**, then choose its model and outfit and save the room. Generation supports cancellation and does not add the duck automatically.
 
 Personas define a priority, temperament, limits, and what would change their mind. Reviews ask each duck for its own contribution; Mediator preserves consequential dissent instead of requesting repeated whole-room plans. The game-room persona examples live in `design/personas/game-room.json`. Existing rooms keep their saved instructions; edit their perspectives in room settings to customize them.
 

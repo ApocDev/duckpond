@@ -21,6 +21,7 @@ const persist = () => {};
 describe("conversation rounds", () => {
   it("lets the guide see the conversation and follow-up answers without triggering mentions or observers", async () => {
     const value = room();
+    value.workspace = "/project/game";
     value.observe = true;
     value.messages.push(
       {
@@ -56,6 +57,7 @@ describe("conversation rounds", () => {
     );
     expect(runner).toHaveBeenCalledTimes(1);
     expect(runner.mock.calls[0][0]).toEqual(guide);
+    expect(runner.mock.calls[0][7]?.workspace).toBe(value.workspace);
     expect(runner.mock.calls[0][2]).toContain("Repairs may become chores");
     expect(runner.mock.calls[0][2]).toContain('"status":"stopped"');
     expect(runner.mock.calls[0][2]).toContain("Keep it small");
@@ -82,6 +84,7 @@ describe("conversation rounds", () => {
   });
   it("mediates sequential questions with shared replies and explicit deferral", async () => {
     const value = room();
+    value.workspace = "/project/game";
     const seen: { id: string; prompt: string }[] = [];
     let mediatorTurns = 0;
     let activeSpeakers = 0;
@@ -94,7 +97,8 @@ describe("conversation rounds", () => {
       emit,
       {
         persist,
-        run: async (duck, _system, prompt, _signal, write, _emit, tools) => {
+        run: async (duck, _system, prompt, _signal, write, _emit, tools, context) => {
+          expect(context?.workspace).toBe(value.workspace);
           seen.push({ id: duck.id, prompt });
           const state = value.discussions![0];
           if (duck.id === "mediator") {

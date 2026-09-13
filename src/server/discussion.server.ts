@@ -417,6 +417,7 @@ export function createDiscussion(room: Room, id: string, signal: AbortSignal, sa
               observedTools,
               {
                 roomId: room.id,
+                workspace: room.workspace,
                 messages: visibleMessages(room.messages, "discussion"),
                 makePrompt: buildPrompt,
               },

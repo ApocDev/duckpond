@@ -18,14 +18,16 @@ export type DuckSuggestion = z.infer<typeof suggestionSchema>;
 export function suggestionContext(
   room: Pick<Room, "messages" | "notes" | "ducks">,
   previouslySuggestedNames: string[] = [],
+  idea?: string,
 ) {
   const visible = room.messages.filter(
     (message) => message.status === "complete" || message.status === "stopped",
   );
-  if (!visible.length && !room.notes.trim())
+  if (!visible.length && !room.notes.trim() && !idea)
     throw new Error("Share your idea in the conversation or shared notes first.");
   const serialize = (messages: typeof visible) =>
     JSON.stringify({
+      ...(idea ? { requestedDuck: idea } : {}),
       conversation: messages.map(({ speaker, text }) => ({ speaker, text })),
       sharedNotes: room.notes,
       previouslySuggestedNames,

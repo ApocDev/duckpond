@@ -118,6 +118,50 @@ select {
 .new-chat:hover {
   background: #ffe477;
 }
+.pond-selector {
+  margin-top: 24px;
+}
+.pond-selector > label {
+  display: block;
+  color: #aaa;
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.pond-selector select {
+  width: 100%;
+  min-width: 0;
+  background: #242424;
+  color: #ddd;
+  border: 1px solid #444;
+  border-radius: 7px;
+  padding: 10px;
+  font-size: 12px;
+}
+.pond-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.pond-selector + .new-chat {
+  margin: 20px 0 12px;
+}
+.choose-ducks {
+  margin-bottom: 25px;
+  align-self: center;
+}
+.pond-workspace,
+.pond-error {
+  overflow-wrap: anywhere;
+}
+.pond-error {
+  font-size: 11px;
+  color: #ffaaaa;
+}
+.pond-dialog label {
+  margin: 20px 0;
+}
 .section-label {
   font-size: 9px;
   letter-spacing: 1.5px;
@@ -157,6 +201,120 @@ select {
 }
 .room-link:hover {
   background: #272727;
+}
+.room-row {
+  position: relative;
+}
+.room-row .room-link {
+  padding-right: 35px;
+}
+.room-menu {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+}
+.room-menu summary {
+  text-align: right;
+  cursor: pointer;
+  list-style: none;
+  padding: 5px 8px;
+  color: #b4b4b4;
+}
+.room-menu summary::-webkit-details-marker {
+  display: none;
+}
+.room-menu[open] {
+  z-index: 2;
+}
+.room-menu > div {
+  width: 190px;
+  padding: 5px;
+  border: 1px solid #494949;
+  border-radius: 8px;
+  background: #242424;
+  box-shadow: 0 8px 24px #0006;
+}
+.room-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background: none;
+  color: #dedede;
+  font-size: 12px;
+  text-align: left;
+  border-radius: 5px;
+}
+.room-menu button:hover {
+  background: #333;
+}
+.delete-conversation-button {
+  color: #ffaaaa !important;
+}
+.primary-button.delete-conversation-button {
+  background: #5b2929;
+}
+.duck-picker-group {
+  margin-top: 24px;
+}
+.duck-picker-group .roster-heading strong {
+  overflow-wrap: anywhere;
+}
+.settings-dialog .duck-picker-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #393939;
+  cursor: pointer;
+}
+.settings-dialog .duck-picker-option input {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  accent-color: #ffd43b;
+}
+.duck-picker-option strong,
+.duck-picker-option small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.duck-picker-option strong {
+  font-size: 13px;
+  color: #dedede;
+  margin-bottom: 4px;
+}
+.duck-picker-footer {
+  position: sticky;
+  bottom: -29px;
+  background: #212121;
+  padding: 14px 0;
+  border-top: 1px solid #444;
+  margin-top: 22px;
+}
+.duck-picker-footer .settings-actions {
+  flex-wrap: wrap;
+}
+.persona-mode {
+  display: flex;
+  gap: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #444;
+}
+.persona-mode .text-button {
+  color: #aaa;
+  padding: 8px 0;
+}
+.suggest-duck-controls > label,
+.suggest-duck-controls > .persona-mode {
+  flex-basis: 100%;
+}
+.persona-mode [aria-pressed="true"] {
+  color: #ffd43b;
+  box-shadow: 0 2px #ffd43b;
+}
+.suggestion-options > label {
+  margin-bottom: 16px;
 }
 .sidebar-empty {
   font-size: 12px;
@@ -1529,27 +1687,27 @@ select {
 }
 
 /* Keep the reading view to one input line; all editing controls return on focus. */
-.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .conversation-actions,
-.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer-hint,
-.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .input-tools,
-.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer-options {
+.composer-wrap:not(:focus-within)[data-dictating="false"] .conversation-actions,
+.composer-wrap:not(:focus-within)[data-dictating="false"] .composer-hint,
+.composer-wrap:not(:focus-within)[data-dictating="false"] .input-tools,
+.composer-wrap:not(:focus-within)[data-dictating="false"] .composer-options {
   display: none;
 }
-.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer {
+.composer-wrap:not(:focus-within)[data-dictating="false"] .composer {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
 }
-.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .mention-input {
+.composer-wrap:not(:focus-within)[data-dictating="false"] .mention-input {
   flex: 1;
   min-width: 0;
 }
-.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer textarea {
+.composer-wrap:not(:focus-within)[data-dictating="false"] .composer textarea {
   height: 28px !important;
   overflow: hidden;
 }
-.composer-wrap:not(:has(.composer:focus-within))[data-dictating="false"] .composer-controls {
+.composer-wrap:not(:focus-within)[data-dictating="false"] .composer-controls {
   margin: 0;
 }
 @media (max-width: 650px) {

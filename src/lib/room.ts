@@ -126,6 +126,8 @@ export const actionSchema = z.object({
 export type Action = z.infer<typeof actionSchema>;
 export const roomSchema = z.object({
   id: z.string().uuid(),
+  pondId: z.string().uuid().optional(),
+  workspace: z.string().optional(),
   title: z.string(),
   ducks: ducksSchema,
   messages: z.array(messageSchema),
@@ -136,6 +138,38 @@ export const roomSchema = z.object({
   updatedAt: z.string(),
 });
 export type Room = z.infer<typeof roomSchema>;
+export const duckGroupSchema = roomSchema.pick({ id: true, title: true, ducks: true });
+export type DuckGroup = z.infer<typeof duckGroupSchema>;
+
+/** Only discard rooms with no conversation or customized setup. */
+export function isUntouchedRoom(room: Room) {
+  return (
+    room.title === "New conversation" &&
+    !room.messages.length &&
+    !room.notes &&
+    !room.observe &&
+    !room.discussions?.length &&
+    !room.actions?.length &&
+    JSON.stringify(room.ducks) === JSON.stringify(defaults)
+  );
+}
+
+/** Combine rosters without duplicating identical personas or sharing a handle. */
+export function combineDucks(ducks: Duck[]): Duck[] {
+  const result: Duck[] = [];
+  const personas = new Set<string>();
+  for (const duck of ducks) {
+    const { id, ...persona } = duck;
+    const key = JSON.stringify(persona);
+    if (personas.has(key)) continue;
+    personas.add(key);
+    result.push({
+      ...duck,
+      id: result.some((item) => item.id === id) ? `duck-${crypto.randomUUID()}` : id,
+    });
+  }
+  return result;
+}
 export const modeSchema = z.enum(["conversation", "review", "discussion", "guide"]);
 export type Mode = z.infer<typeof modeSchema>;
 export const turnSchema = z.object({

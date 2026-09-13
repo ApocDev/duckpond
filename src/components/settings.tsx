@@ -8,9 +8,12 @@ import { loadModels, suggestDuck } from "../server/rooms.functions";
 import { avatarSchema, duckAvatar, duckSchema, type Duck } from "../lib/room";
 import { findModel, type ModelCatalog } from "../lib/models";
 import { DuckAvatar } from "./duck-avatar";
+import type { Pond } from "../lib/pond";
 
 export function Settings({
   roomId,
+  pondId,
+  pond,
   ducks,
   notes: initialNotes,
   observe: initialObserve,
@@ -20,15 +23,23 @@ export function Settings({
   onClose,
 }: {
   roomId?: string;
+  pondId?: string;
+  pond?: Pond;
   ducks: Duck[];
   notes: string;
   observe: boolean;
   saving: boolean;
   error: string;
-  onSave: (settings: { ducks: Duck[]; notes: string; observe: boolean }) => Promise<void>;
+  onSave: (settings: {
+    ducks: Duck[];
+    notes: string;
+    observe: boolean;
+    pondName?: string;
+  }) => Promise<void>;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState(structuredClone(ducks));
+  const [pondName, setPondName] = useState(pond?.name ?? "");
   const [notes, setNotes] = useState(initialNotes);
   const [observe, setObserve] = useState(initialObserve);
   const [expanded, setExpanded] = useState<string | undefined>(ducks[0]?.id);
@@ -37,6 +48,9 @@ export function Settings({
   const [removed, setRemoved] = useState<{ duck: Duck; index: number }>();
   const [suggesting, setSuggesting] = useState(false);
   const [suggestion, setSuggestion] = useState<DuckSuggestion>();
+  const [creationMode, setCreationMode] = useState<"suggest" | "describe">("suggest");
+  const [duckIdea, setDuckIdea] = useState("");
+  const [persona, setPersona] = useState<Pick<Duck, "name" | "instructions">>();
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
   const previouslySuggestedNames = useRef<string[]>([]);
   const [suggestionError, setSuggestionError] = useState("");
@@ -56,21 +70,27 @@ export function Settings({
       const result = await suggestDuck({
         data: {
           roomId,
+          pondId: pond?.id ?? pondId,
           ducks: draft,
-          notes,
-          previouslySuggestedNames: previouslySuggestedNames.current,
+          notes: pond ? `Pond: ${pondName}` : notes,
+          inspectWorkspace: !!pond && creationMode === "suggest",
+          previouslySuggestedNames:
+            creationMode === "suggest" ? previouslySuggestedNames.current : [],
+          ...(creationMode === "describe" ? { idea: duckIdea.trim() } : {}),
         },
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
-      setSuggestion(result);
+      if (creationMode === "describe") setPersona(result.suggestions[0]);
+      else setSuggestion(result);
       setSelectedSuggestions([]);
-      previouslySuggestedNames.current = [
-        ...new Set([
-          ...previouslySuggestedNames.current,
-          ...result.suggestions.map((duck) => duck.name),
-        ]),
-      ].slice(-25);
+      if (creationMode === "suggest")
+        previouslySuggestedNames.current = [
+          ...new Set([
+            ...previouslySuggestedNames.current,
+            ...result.suggestions.map((duck) => duck.name),
+          ]),
+        ].slice(-25);
     } catch (cause) {
       if (!controller.signal.aborted)
         setSuggestionError(
@@ -81,9 +101,7 @@ export function Settings({
       setSuggesting(false);
     }
   }
-  function addSelectedSuggestions() {
-    const chosen =
-      suggestion?.suggestions.filter((duck) => selectedSuggestions.includes(duck.name)) ?? [];
+  function addPersonas(chosen: Pick<Duck, "name" | "instructions">[]) {
     if (!chosen.length) return;
     const additions: Duck[] = chosen.map(({ name, instructions }) => ({
       id: `duck-${crypto.randomUUID().slice(0, 8)}`,
@@ -96,6 +114,11 @@ export function Settings({
     }));
     setDraft((current) => [...current, ...additions]);
     setExpanded(additions[0].id);
+  }
+  function addSelectedSuggestions() {
+    addPersonas(
+      suggestion?.suggestions.filter((duck) => selectedSuggestions.includes(duck.name)) ?? [],
+    );
     setSuggestion((current) =>
       current
         ? {
@@ -163,13 +186,13 @@ export function Settings({
         onSubmit={(event) => {
           event.preventDefault();
           if (suggesting) return;
-          void onSave({ ducks: draft, notes, observe });
+          void onSave({ ducks: draft, notes, observe, ...(pond ? { pondName } : {}) });
         }}
       >
         <div className="settings-heading">
           <div>
-            <span className="eyebrow">MAKE THIS ROOM YOURS</span>
-            <h2>Your ducks, your mix.</h2>
+            <span className="eyebrow">{pond ? "POND DEFAULTS" : "MAKE THIS ROOM YOURS"}</span>
+            <h2>{pond ? "Ducks for every new conversation." : "Your ducks, your mix."}</h2>
           </div>
           <button
             className="icon-button"
@@ -181,21 +204,88 @@ export function Settings({
             <X size={20} />
           </button>
         </div>
-        <p className="settings-intro">Give each duck a perspective, a model, and an outfit.</p>
+        {pond ? (
+          <>
+            <label>
+              Pond name
+              <input
+                value={pondName}
+                required
+                maxLength={80}
+                disabled={saving}
+                onChange={(event) => setPondName(event.target.value)}
+              />
+            </label>
+            <p className="settings-intro pond-workspace">{pond.workspace}</p>
+            <p className="settings-intro">
+              Defaults are saved in .duckpond/pond.json and .duckpond/ducks/*.md. Existing
+              conversations keep their ducks. To use another workspace, create or open a pond there.
+            </p>
+          </>
+        ) : (
+          <p className="settings-intro">Give each duck a perspective, a model, and an outfit.</p>
+        )}
         {error && (
           <p className="error-banner" role="alert">
             {error}
           </p>
         )}
         <div className="suggest-duck-controls">
+          <div className="persona-mode" aria-label="Persona creation method">
+            <button
+              type="button"
+              className="text-button"
+              aria-pressed={creationMode === "suggest"}
+              disabled={saving || suggesting}
+              onClick={() => {
+                setCreationMode("suggest");
+                setSuggestionError("");
+              }}
+            >
+              {pond ? "Workspace suggestions" : "Suggest a duck"}
+            </button>
+            <button
+              type="button"
+              className="text-button"
+              aria-pressed={creationMode === "describe"}
+              disabled={saving || suggesting}
+              onClick={() => {
+                setCreationMode("describe");
+                setSuggestionError("");
+              }}
+            >
+              Describe a duck
+            </button>
+          </div>
+          {creationMode === "describe" && (
+            <label>
+              What kind of duck do you have in mind?
+              <textarea
+                rows={3}
+                maxLength={2000}
+                value={duckIdea}
+                disabled={saving || suggesting}
+                placeholder="A game designer who challenges realism when it makes the game boring..."
+                onChange={(event) => setDuckIdea(event.target.value)}
+              />
+            </label>
+          )}
           <button
             className="suggest-duck-button"
             type="button"
-            disabled={saving || suggesting}
+            disabled={saving || suggesting || (creationMode === "describe" && !duckIdea.trim())}
             onClick={() => void suggest()}
           >
             <Lightbulb size={16} />{" "}
-            {suggesting ? "Considering the conversation..." : "Suggest a duck"}
+            {suggesting
+              ? pond && creationMode === "suggest"
+                ? "Reading workspace and suggesting ducks..."
+                : "Writing personas..."
+              : creationMode === "describe"
+                ? "Create persona"
+                : pond
+                  ? "Suggest ducks for this workspace"
+                  : "Find suggestions"}
           </button>
           {suggesting && (
             <button
@@ -207,8 +297,11 @@ export function Settings({
             </button>
           )}
           <small>
-            GPT-5.6-Sol with Medium reasoning finds up to five different perspectives in one call.
-            Pick the ducks you want, then save the room.
+            {creationMode === "describe"
+              ? "Describe an idea to get a name and full persona. Review it below before adding it."
+              : pond
+                ? "Reads this workspace's docs and code to suggest up to five useful ducks. Pick the ones you want, edit them below, then save the pond."
+                : "GPT-5.6-Sol with Medium reasoning finds up to five different perspectives in one call. Pick the ducks you want, then save your changes."}
           </small>
         </div>
         {suggestionError && (
@@ -216,7 +309,45 @@ export function Settings({
             {suggestionError}
           </p>
         )}
-        {suggestion && (
+        {creationMode === "describe" && persona && (
+          <section className="suggestion-options" aria-label="Generated persona">
+            <label>
+              Duck name
+              <input
+                value={persona.name}
+                maxLength={32}
+                disabled={saving || suggesting}
+                onChange={(event) => setPersona({ ...persona, name: event.target.value })}
+              />
+            </label>
+            <label>
+              Persona instructions
+              <textarea
+                value={persona.instructions}
+                rows={9}
+                maxLength={4000}
+                disabled={saving || suggesting}
+                onChange={(event) => setPersona({ ...persona, instructions: event.target.value })}
+              />
+            </label>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={
+                saving || suggesting || !persona.name.trim() || !persona.instructions.trim()
+              }
+              onClick={() => {
+                addPersonas([persona]);
+                setPersona(undefined);
+                setDuckIdea("");
+              }}
+            >
+              {pond ? "Add to pond" : "Add to room"}
+            </button>
+            <small>Choose its model and outfit below. Save your changes to keep it.</small>
+          </section>
+        )}
+        {creationMode === "suggest" && suggestion && (
           <section className="suggestion-options" aria-label="Suggested ducks">
             <p>{suggestion.reason}</p>
             {suggestion.suggestions.map((duck) => (
@@ -253,7 +384,7 @@ export function Settings({
                 Add selected ({selectedSuggestions.length})
               </button>
             )}
-            <small>Added ducks appear below. Save room to keep them.</small>
+            <small>Added ducks appear below. Save your changes to keep them.</small>
           </section>
         )}
         <fieldset className="settings-content" disabled={saving || suggesting}>
@@ -454,6 +585,7 @@ export function Settings({
                     ))}
                   </div>
                   {open &&
+                    !pond &&
                     (roomId ? (
                       <OutfitGenerator
                         roomId={roomId}
@@ -471,38 +603,42 @@ export function Settings({
               </section>
             );
           })}
-          <label className="observer-setting">
-            <input
-              type="checkbox"
-              checked={observe}
-              onChange={(event) => setObserve(event.target.checked)}
-            />
-            <span>
-              <strong>Let observers join in</strong>
-              <small>
-                Other ducks may add a useful point after a reply. These checks use your
-                subscriptions.
-              </small>
-            </span>
-          </label>
-          <label>
-            Shared notes
-            <textarea
-              rows={4}
-              value={notes}
-              maxLength={20000}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="What should everyone keep in mind?"
-            />
-          </label>
+          {!pond && (
+            <>
+              <label className="observer-setting">
+                <input
+                  type="checkbox"
+                  checked={observe}
+                  onChange={(event) => setObserve(event.target.checked)}
+                />
+                <span>
+                  <strong>Let observers join in</strong>
+                  <small>
+                    Other ducks may add a useful point after a reply. These checks use your
+                    subscriptions.
+                  </small>
+                </span>
+              </label>
+              <label>
+                Shared notes
+                <textarea
+                  rows={4}
+                  value={notes}
+                  maxLength={20000}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="What should everyone keep in mind?"
+                />
+              </label>
+            </>
+          )}
         </fieldset>
-        <SavedPermissions />
+        {!pond && <SavedPermissions />}
         <div className="settings-actions">
           <button className="text-button" type="button" disabled={saving} onClick={onClose}>
             Cancel
           </button>
           <button className="primary-button" disabled={saving || suggesting} type="submit">
-            <Check size={15} /> {saving ? "Saving..." : "Save room"}
+            <Check size={15} /> {saving ? "Saving..." : pond ? "Save pond" : "Save room"}
           </button>
         </div>
       </form>

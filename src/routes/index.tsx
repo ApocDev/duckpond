@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import Markdown from "react-markdown";
 import { Settings } from "../components/settings";
+import { DuckPicker } from "../components/duck-picker";
+import { PondDialog, MovePondDialog } from "../components/pond-dialog";
+import { loadPonds, moveToPond, savePond } from "../server/ponds.functions";
+import type { Pond } from "../lib/pond";
 import { DuckAvatar } from "../components/duck-avatar";
 import { MentionInput } from "../components/mention-input";
 import { Transcript } from "../components/transcript";
@@ -27,11 +31,14 @@ import {
   connections,
   loadRooms,
   newRoom,
+  removeRoom,
   stopRoom,
   updateRoom,
 } from "../server/rooms.functions";
 import {
   defaults,
+  ducksSchema,
+  isUntouchedRoom,
   duckSchema,
   duckAvatar,
   modeSchema,
@@ -58,19 +65,38 @@ function shouldStreamText() {
 const composerPreferencesSchema = z.object({
   selected: z.string().nullable(),
   rooms: z.record(z.string(), z.object({ mode: modeSchema, target: duckSchema.shape.id })),
+  drafts: z.record(z.string(), z.string()).default({}),
+  newDucks: ducksSchema.optional(),
+  pondId: z.string().nullable().default(null),
+  rosters: z.record(z.string(), ducksSchema).default({}),
 });
 
 function Home() {
   const initial = Route.useLoaderData();
   const [rooms, setRooms] = useState<Room[]>(initial.rooms);
-  const [selected, setSelected] = useState(initial.rooms[0]?.id ?? null);
-  const [input, setInput] = useState("");
+  const [ponds, setPonds] = useState(initial.ponds);
+  const [selectedPond, setSelectedPond] = useState<string | null>(initial.rooms[0]?.pondId ?? null);
+  const pond = ponds.find((item) => item.id === selectedPond);
+  const newKey = `new:${selectedPond ?? "general"}`;
+  const [selected, setSelected] = useState<string | null>(initial.rooms[0]?.id ?? null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [newRosters, setNewRosters] = useState<Record<string, Duck[]>>({});
+  const newDucks =
+    newRosters[selectedPond ?? "general"] ?? (pond?.ducks.length ? pond.ducks : defaults);
+  const input = drafts[selected ?? newKey] ?? "";
+  function setInput(value: string) {
+    const key = selected ?? newKey;
+    setDrafts((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
   const [dictating, setDictating] = useState(false);
   const [composerPreferences, setComposerPreferences] = useState<
     z.infer<typeof composerPreferencesSchema>["rooms"]
   >({});
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
-  const preferenceKey = selected ?? "new";
+  const preferenceKey = selected ?? newKey;
   const mode = composerPreferences[preferenceKey]?.mode ?? "conversation";
   const target = composerPreferences[preferenceKey]?.target ?? "explorer";
   function setMode(mode: Mode) {
@@ -85,8 +111,26 @@ function Home() {
       const parsed = composerPreferencesSchema.safeParse(stored ? JSON.parse(stored) : null);
       if (parsed.success) {
         setComposerPreferences(parsed.data.rooms);
+        setDrafts({
+          ...parsed.data.drafts,
+          "new:general": parsed.data.drafts["new:general"] ?? parsed.data.drafts.new ?? "",
+        });
+        setNewRosters({
+          ...(parsed.data.newDucks ? { general: parsed.data.newDucks } : {}),
+          ...parsed.data.rosters,
+        });
         const previousRoom = initial.rooms.find((room) => room.id === parsed.data.selected);
-        if (previousRoom) setSelected(previousRoom.id);
+        if (previousRoom) {
+          setSelected(previousRoom.id);
+          setSelectedPond(previousRoom.pondId ?? null);
+        } else if (parsed.data.selected === null) {
+          setSelected(null);
+          setSelectedPond(
+            initial.ponds.some((item) => item.id === parsed.data.pondId)
+              ? parsed.data.pondId
+              : null,
+          );
+        }
       }
     } catch {
       // Storage can be unavailable in private or restricted browser sessions.
@@ -98,13 +142,24 @@ function Home() {
     try {
       localStorage.setItem(
         "duckpond:composer",
-        JSON.stringify({ selected, rooms: composerPreferences }),
+        JSON.stringify({
+          selected,
+          rooms: composerPreferences,
+          drafts,
+          rosters: newRosters,
+          pondId: selectedPond,
+        }),
       );
     } catch {
       // Keep the controls usable even when browser storage is unavailable.
     }
-  }, [preferencesLoaded, composerPreferences, selected]);
+  }, [preferencesLoaded, composerPreferences, selected, drafts, newRosters, selectedPond]);
   const [editing, setEditing] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<Room | null>(null);
+  const [creatingPond, setCreatingPond] = useState(false);
+  const [editingPond, setEditingPond] = useState<Pond | null>(null);
+  const [moving, setMoving] = useState<Room | null>(null);
   const [panel, setPanel] = useState(false);
   const [sidebar, setSidebar] = useState(false);
   const [error, setError] = useState("");
@@ -124,7 +179,8 @@ function Home() {
     restoreDraft: boolean;
   } | null>(null);
   const room = rooms.find((item) => item.id === selected);
-  const ducks = room?.ducks ?? defaults;
+  const pondRooms = rooms.filter((item) => (item.pondId ?? null) === selectedPond);
+  const ducks = room?.ducks ?? newDucks;
   const currentTarget = ducks.some((duck) => duck.id === target) ? target : ducks[0].id;
   function receiveRoom(value: Room) {
     setRooms((current) =>
@@ -176,6 +232,7 @@ function Home() {
         const value = await loadRooms({ data: { streamText: shouldStreamText() } });
         if (disposed) return;
         setRooms((current) => replaceEqualDeep(current, value.rooms));
+        setPonds((current) => replaceEqualDeep(current, value.ponds));
         setRemoteActive(value.active);
         setApprovals(
           value.active.filter((item) => item.roomId === selected).flatMap((item) => item.approvals),
@@ -187,7 +244,11 @@ function Home() {
             ?.messages.some((message) => message.id === pending.messageId);
           if (accepted) setError("");
           else {
-            if (pending.restoreDraft) setInput((draft) => draft || pending.text);
+            if (pending.restoreDraft)
+              setDrafts((current) => ({
+                ...current,
+                [pending.roomId]: current[pending.roomId] || pending.text,
+              }));
             setError(
               pending.restoreDraft
                 ? "Your message wasn't received. It's back in the draft; try sending again."
@@ -240,17 +301,117 @@ function Home() {
       .catch(() => setError("Couldn't check provider connections."));
   }, []);
 
-  async function create() {
+  const cleanedEmptyRooms = useRef(false);
+  useEffect(() => {
+    if (!preferencesLoaded || cleanedEmptyRooms.current) return;
+    cleanedEmptyRooms.current = true;
+    async function cleanup() {
+      for (const item of initial.rooms) {
+        if (item.id === selected || drafts[item.id]?.trim() || !isUntouchedRoom(item)) continue;
+        const result = await removeRoom({ data: { id: item.id, onlyIfUntouched: true } });
+        if (result.deleted) setRooms((current) => current.filter((room) => room.id !== item.id));
+      }
+    }
+    void cleanup().catch(() =>
+      setError("Couldn't remove unused empty conversations. Try reloading."),
+    );
+  }, [preferencesLoaded, initial.rooms, selected, drafts]);
+
+  async function switchRoom(id: string | null, roster?: Duck[], pondId = selectedPond) {
     setSaving(true);
     setError("");
     try {
-      const value = await newRoom();
-      receiveRoom(value);
-      setSelected(value.id);
+      if (room && room.id !== id && !input.trim() && isUntouchedRoom(room)) {
+        const result = await removeRoom({ data: { id: room.id, onlyIfUntouched: true } });
+        if (result.deleted) setRooms((current) => current.filter((item) => item.id !== room.id));
+      }
+      const destination = id ? (rooms.find((item) => item.id === id)?.pondId ?? null) : pondId;
+      if (roster)
+        setNewRosters((current) => ({
+          ...current,
+          [destination ?? "general"]: structuredClone(roster),
+        }));
+      setSelectedPond(destination);
+      setSelected(id);
       setSidebar(false);
-      setInput("");
+      setCreating(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function startNew() {
+    setSaving(true);
+    setError("");
+    try {
+      const current = await loadPonds();
+      setPonds(current);
+      const selected = current.find((item) => item.id === selectedPond);
+      if (selected?.error) throw new Error(selected.error);
+      await switchRoom(null, drafts[newKey]?.trim() ? newDucks : (selected?.ducks ?? defaults));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Couldn't create a conversation.");
+      setError(cause instanceof Error ? cause.message : "Couldn't start a conversation.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function editPond() {
+    setSaving(true);
+    setError("");
+    try {
+      const current = await loadPonds();
+      setPonds(current);
+      const selected = current.find((item) => item.id === selectedPond);
+      if (!selected || selected.error) throw new Error(selected?.error ?? "Pond not found");
+      setEditingPond(selected);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Couldn't read the pond.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function savePondSettings(value: { ducks: Duck[]; pondName?: string }) {
+    if (!editingPond) return;
+    setSaving(true);
+    setError("");
+    try {
+      await savePond({
+        data: {
+          id: editingPond.id,
+          revision: editingPond.revision,
+          name: value.pondName ?? editingPond.name,
+          ducks: value.ducks,
+        },
+      });
+      setPonds(await loadPonds());
+      if (!drafts[newKey]?.trim())
+        setNewRosters((current) =>
+          Object.fromEntries(Object.entries(current).filter(([id]) => id !== editingPond.id)),
+        );
+      setEditingPond(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Couldn't save the pond.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function deleteConversation() {
+    if (!deleting) return;
+    setSaving(true);
+    setError("");
+    try {
+      await removeRoom({ data: { id: deleting.id, onlyIfUntouched: false } });
+      setRooms((current) => current.filter((item) => item.id !== deleting.id));
+      setDrafts((current) =>
+        Object.fromEntries(Object.entries(current).filter(([id]) => id !== deleting.id)),
+      );
+      setComposerPreferences((current) =>
+        Object.fromEntries(Object.entries(current).filter(([id]) => id !== deleting.id)),
+      );
+      if (selected === deleting.id)
+        setSelected(pondRooms.find((item) => item.id !== deleting.id)?.id ?? null);
+      setDeleting(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Couldn't delete this conversation.");
     } finally {
       setSaving(false);
     }
@@ -264,8 +425,11 @@ function Home() {
     setError("");
     setSaving(true);
     setActivity({});
+    let activeRoomId = selected;
     try {
-      const active = room ?? (await newRoom());
+      const active =
+        room ?? (await newRoom({ data: { ducks, pondId: selectedPond ?? undefined } }));
+      activeRoomId = active.id;
       if (!room) {
         receiveRoom(active);
         setComposerPreferences((current) => ({
@@ -279,7 +443,7 @@ function Home() {
       submission.current = { roomId: active.id, messageId, text, restoreDraft: !summarize };
       if (summarize) setMode("guide");
       else {
-        setInput("");
+        setDrafts((current) => ({ ...current, [selected ?? newKey]: "", [active.id]: "" }));
         const focused = document.activeElement;
         if (focused instanceof HTMLElement && focused.closest(".composer")) focused.blur();
       }
@@ -297,7 +461,7 @@ function Home() {
         },
       );
     } catch (cause) {
-      if (!summarize) setInput(text);
+      if (!summarize) setDrafts((current) => ({ ...current, [activeRoomId ?? newKey]: text }));
       setError(cause instanceof Error ? cause.message : "Couldn't send your message.");
     } finally {
       setSaving(false);
@@ -320,9 +484,13 @@ function Home() {
     setSaving(true);
     setError("");
     try {
-      const active = room ?? (await newRoom());
+      const active =
+        room ??
+        (await newRoom({ data: { ducks: value.ducks, pondId: selectedPond ?? undefined } }));
       const updated = await updateRoom({ data: { id: active.id, ...value } });
       receiveRoom(updated);
+      if (!room)
+        setDrafts((current) => ({ ...current, [newKey]: "", [updated.id]: current[newKey] ?? "" }));
       setSelected(updated.id);
       setEditing(false);
     } catch (cause) {
@@ -340,26 +508,133 @@ function Home() {
           </span>
           duckpond<span className="poc">POC</span>
         </a>
-        <button className="new-chat" onClick={create} disabled={busy || saving || dictating}>
+        <div className="pond-selector">
+          <label htmlFor="current-pond">POND</label>
+          <select
+            id="current-pond"
+            value={selectedPond ?? ""}
+            disabled={busy || saving || dictating || !preferencesLoaded}
+            onChange={(event) => {
+              const id = event.target.value || null;
+              void switchRoom(
+                rooms.find((item) => (item.pondId ?? null) === id)?.id ?? null,
+                undefined,
+                id,
+              ).catch((cause: unknown) =>
+                setError(cause instanceof Error ? cause.message : "Couldn't switch ponds."),
+              );
+            }}
+          >
+            <option value="">General</option>
+            {ponds.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+                {item.error ? " (unavailable)" : ""}
+              </option>
+            ))}
+          </select>
+          <div className="pond-controls">
+            {pond && (
+              <button
+                className="text-button"
+                disabled={busy || saving || dictating}
+                onClick={() => void editPond()}
+              >
+                Edit pond
+              </button>
+            )}
+            <button
+              className="text-button"
+              disabled={busy || saving || dictating}
+              onClick={() => setCreatingPond(true)}
+            >
+              + New pond
+            </button>
+          </div>
+          {pond?.error && <p className="pond-error">{pond.error}</p>}
+        </div>
+        <button
+          className="new-chat"
+          onClick={() => void startNew()}
+          disabled={busy || saving || dictating || !preferencesLoaded || !!pond?.error}
+        >
           <Plus size={16} /> New conversation
+        </button>
+        <button
+          className="text-button choose-ducks"
+          disabled={busy || saving || dictating || !!pond?.error}
+          onClick={() => setCreating(true)}
+        >
+          Choose other ducks
         </button>
         <div className="section-label">YOUR CONVERSATIONS</div>
         <div className="room-list">
-          {rooms.length ? (
-            rooms.map((item) => (
-              <button
-                key={item.id}
-                disabled={busy || saving || dictating}
-                className={`room-link ${item.id === selected ? "selected" : ""}`}
-                onClick={() => {
-                  setSelected(item.id);
-                  setSidebar(false);
-                  setError("");
-                }}
-              >
-                <MessageCircle size={15} />
-                <span>{item.title}</span>
-              </button>
+          {pondRooms.length ? (
+            pondRooms.map((item) => (
+              <div className="room-row" key={item.id}>
+                <button
+                  disabled={busy || saving || dictating}
+                  className={`room-link ${item.id === selected ? "selected" : ""}`}
+                  onClick={() =>
+                    void switchRoom(item.id).catch((cause: unknown) =>
+                      setError(
+                        cause instanceof Error ? cause.message : "Couldn't switch conversations.",
+                      ),
+                    )
+                  }
+                >
+                  <MessageCircle size={15} />
+                  <span>{item.title}</span>
+                </button>
+                <details className="room-menu">
+                  <summary
+                    aria-label={`Actions for ${item.title}`}
+                    aria-disabled={busy || saving || dictating}
+                    onClick={(event) => {
+                      if (busy || saving || dictating) event.preventDefault();
+                    }}
+                  >
+                    ···
+                  </summary>
+                  <div>
+                    <button
+                      disabled={busy || saving || dictating}
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        void switchRoom(null, item.ducks).catch((cause: unknown) =>
+                          setError(
+                            cause instanceof Error
+                              ? cause.message
+                              : "Couldn't start a conversation.",
+                          ),
+                        );
+                      }}
+                    >
+                      New conversation with these ducks
+                    </button>
+                    <button
+                      disabled={busy || saving || dictating}
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        setMoving(item);
+                      }}
+                    >
+                      Move to pond
+                    </button>
+                    <button
+                      className="delete-conversation-button"
+                      disabled={busy || saving || dictating}
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        setError("");
+                        setDeleting(item);
+                      }}
+                    >
+                      Delete conversation
+                    </button>
+                  </div>
+                </details>
+              </div>
             ))
           ) : (
             <p className="sidebar-empty">
@@ -401,7 +676,7 @@ function Home() {
           </button>
           <div>
             <div className="breadcrumb">
-              Your pond <span>/</span> Conversation
+              {pond?.name ?? "General"} <span>/</span> Conversation
             </div>
             <h1>{room?.title ?? "A little room to think."}</h1>
           </div>
@@ -456,7 +731,7 @@ function Home() {
             </div>
           )}
         </Transcript>
-        <div className="composer-wrap" data-dictating={dictating}>
+        <div className="composer-wrap" data-dictating={dictating} tabIndex={-1}>
           {error && (
             <div className="error-banner" role="alert">
               {error}
@@ -641,6 +916,7 @@ function Home() {
         <Settings
           key={room?.id ?? "new"}
           roomId={room?.id}
+          pondId={selectedPond ?? undefined}
           ducks={ducks}
           notes={room?.notes ?? ""}
           observe={room?.observe ?? false}
@@ -650,7 +926,118 @@ function Home() {
           onClose={() => setEditing(false)}
         />
       )}
+      {creating && (
+        <DuckPicker
+          onStart={(roster) => switchRoom(null, roster)}
+          onClose={() => setCreating(false)}
+        />
+      )}
+      {creatingPond && (
+        <PondDialog
+          ducks={ducks}
+          onClose={() => setCreatingPond(false)}
+          onCreated={async (pond) => {
+            setPonds(await loadPonds());
+            await switchRoom(null, pond.ducks, pond.id);
+            setCreatingPond(false);
+          }}
+        />
+      )}
+      {editingPond && (
+        <Settings
+          pond={editingPond}
+          ducks={editingPond.ducks}
+          notes=""
+          observe={false}
+          saving={saving}
+          error={error}
+          onSave={savePondSettings}
+          onClose={() => {
+            setEditingPond(null);
+            setError("");
+          }}
+        />
+      )}
+      {moving && (
+        <MovePondDialog
+          title={moving.title}
+          currentPond={moving.pondId}
+          ponds={ponds}
+          onClose={() => setMoving(null)}
+          onMove={async (pondId) => {
+            const moved = await moveToPond({ data: { roomId: moving.id, pondId } });
+            receiveRoom(moved);
+            setSelected(moved.id);
+            setSelectedPond(pondId);
+            setMoving(null);
+          }}
+        />
+      )}
+      {deleting && (
+        <DeleteConversation
+          room={deleting}
+          saving={saving}
+          error={error}
+          onDelete={deleteConversation}
+          onClose={() => setDeleting(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function DeleteConversation({
+  room,
+  saving,
+  error,
+  onDelete,
+  onClose,
+}: {
+  room: Room;
+  saving: boolean;
+  error: string;
+  onDelete: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="settings-dialog"
+      aria-labelledby="delete-conversation-title"
+      onCancel={(event) => {
+        if (saving) event.preventDefault();
+        else onClose();
+      }}
+    >
+      <div className="settings-heading">
+        <h2 id="delete-conversation-title">Delete "{room.title}"?</h2>
+      </div>
+      <p className="settings-intro">
+        This removes the conversation's messages and shared notes. Its ducks stay available to
+        reuse. This cannot be undone.
+      </p>
+      {error && (
+        <p className="error-banner" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="settings-actions">
+        <button className="text-button" disabled={saving} onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className="primary-button delete-conversation-button"
+          disabled={saving}
+          onClick={() => void onDelete()}
+        >
+          {saving ? "Deleting..." : "Delete conversation"}
+        </button>
+      </div>
+    </dialog>
   );
 }
 

@@ -22,6 +22,7 @@ const sessionSchema = z.object({
 });
 export type ReplyContext = {
   roomId?: string;
+  workspace?: string;
   reuse?: boolean;
   messages: Message[];
   responseId?: string;
