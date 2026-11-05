@@ -1,0 +1,21 @@
+src/components/duck-bar.tsx
+  s_105d2118509069::t_0fa14e4f3a4fb6 41-44,49-79,81-88,90-91
+src/styles.css
+  s_105d2118509069::t_402e8cbd97419d 157-162,911-913,916-927,933,1817-1825
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cdc613f90b3e9c2aa6f9284ff7ee47159fe85ab6",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "unknown"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
