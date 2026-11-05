@@ -83,7 +83,7 @@ export function Sidebar({
         <div className="pond-meta">
           <small className="pond-path" title={pond?.workspace}>
             {/* bdi keeps the path's own order while the ellipsis trims its start. */}
-            <bdi>{pond ? pond.workspace : "No project folder"}</bdi>
+            <bdi>{pond ? pond.workspace.replace(/^\/home\/[^/]+/, "~") : "No project folder"}</bdi>
           </small>
           {pond && !pond.error && (
             <button

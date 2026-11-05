@@ -62,7 +62,10 @@ export const ConversationMessages = memo(function ConversationMessages({
 /** One line once every reply finished; a running or interrupted round stays open. */
 function ReplyRound({ messages }: { messages: Message[] }) {
   const [expanded, setExpanded] = useState(false);
-  const thinking = messages.filter((message) => message.status === "thinking").length;
+  const working = unique(messages.filter((message) => message.status === "thinking"));
+  const unfinished = messages.filter(
+    (message) => message.status === "error" || message.status === "stopped",
+  ).length;
   const spoke = messages.filter((message) => message.status === "complete");
   const passed = messages.filter((message) => message.status === "passed");
   const settled = spoke.length + passed.length === messages.length;
@@ -96,7 +99,9 @@ function ReplyRound({ messages }: { messages: Message[] }) {
                 speakers.map((message) => message.speaker),
                 unique(passed).length,
               )
-            : `${messages.length - thinking} of ${messages.length} done`}
+            : working.length
+              ? `${listNames(working.map((message) => message.speaker))} ${working.length === 1 ? "is" : "are"} still working`
+              : `${unfinished} ${unfinished === 1 ? "reply" : "replies"} didn't finish`}
         </span>
         {settled && (
           <span className="round-toggle">
@@ -123,18 +128,22 @@ function unique(messages: Message[]) {
   return [...new Map(messages.map((message) => [message.duckId, message])).values()];
 }
 
+/** "Skeptic", "Skeptic and Explorer", or "Skeptic, Explorer and 2 others". */
+export function listNames(names: string[]) {
+  return names.length <= 2
+    ? names.join(" and ")
+    : names.length === 3
+      ? `${names[0]}, ${names[1]} and ${names[2]}`
+      : `${names[0]}, ${names[1]} and ${names.length - 2} others`;
+}
+
 function roundSummary(phase: Message["phase"], names: string[], passes: number) {
   const passNote = passes ? ` · ${passes} passed` : "";
   if (!names.length)
     return passes ? `Nobody had anything to add${passNote}` : "Mediator answered directly";
   if (phase === "review")
     return `${names.length} independent ${names.length === 1 ? "answer" : "answers"}${passNote}`;
-  const who =
-    names.length <= 2
-      ? names.join(" and ")
-      : names.length === 3
-        ? `${names[0]}, ${names[1]} and ${names[2]}`
-        : `${names[0]}, ${names[1]} and ${names.length - 2} others`;
+  const who = listNames(names);
   return phase === "discussion"
     ? `Mediator consulted ${who}${passNote}`
     : `${who} replied${passNote}`;

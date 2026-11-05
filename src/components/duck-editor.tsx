@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ComponentProps } from "react";
-import { ChevronDown, Trash2 } from "lucide-react";
+import { ChevronDown, Sparkles, Trash2 } from "lucide-react";
 import { avatarSchema, duckAvatar, duckSchema, type Duck } from "../lib/room";
 import { findModel, modelLabel, type ModelCatalog } from "../lib/models";
 import { mentionHandle } from "../lib/mentions";
@@ -36,8 +36,10 @@ export function DuckEditor({
   onRemove: () => void;
 }) {
   const model = findModel(catalog?.models ?? [], duck.model);
-  // A duck added without a perspective starts with its model settings showing.
-  const [newDuck] = useState(() => !duck.instructions);
+  // Long perspectives start capped so the outfit and remove controls stay in reach.
+  const long = duck.instructions.length > 500;
+  const [expanded, setExpanded] = useState(false);
+  const [drawing, setDrawing] = useState(false);
   const provider = duck.provider === "claude" ? "Claude" : "Codex";
   return (
     <section className={`duck-editor ${open ? "open" : ""}`} onInvalid={() => !open && onToggle()}>
@@ -48,7 +50,7 @@ export function DuckEditor({
         aria-controls={`edit-${duck.id}`}
         onClick={onToggle}
       >
-        <DuckAvatar avatar={duckAvatar(duck)} />
+        <DuckAvatar avatar={duckAvatar(duck)} color={color} />
         <span>
           <strong style={{ color }}>
             {duck.name}
@@ -76,91 +78,91 @@ export function DuckEditor({
           />
           <small>Mention as @{mentionHandle(duck, ducks)}</small>
         </label>
-        <label className="field">
-          <span>Perspective</span>
+        <div className="field-grid model-fields">
+          <div className="field">
+            <span>Provider</span>
+            <Select
+              label="Provider"
+              value={duck.provider}
+              options={[
+                { value: "claude", label: "Claude" },
+                { value: "codex", label: "Codex" },
+              ]}
+              onChange={(value) =>
+                onChange({
+                  provider: duckSchema.shape.provider.parse(value),
+                  model: "",
+                  reasoning: "",
+                })
+              }
+            />
+          </div>
+          <div className="field">
+            <span>Model</span>
+            <Select
+              label="Model"
+              disabled={!catalog || !!catalog.error}
+              value={model?.id ?? duck.model}
+              options={[
+                { value: "", label: "Account default" },
+                ...(duck.model && !model
+                  ? [{ value: duck.model, label: `${duck.model} (saved)` }]
+                  : []),
+                ...(catalog?.models.map((item) => ({ value: item.id, label: item.name })) ?? []),
+              ]}
+              onChange={(value) => onChange({ model: value, reasoning: "" })}
+            />
+          </div>
+          <div className="field">
+            <span>Reasoning</span>
+            <Select
+              label="Reasoning"
+              disabled={!model?.reasoning.length}
+              value={duck.reasoning ?? ""}
+              options={[
+                {
+                  value: "",
+                  label: model?.defaultReasoning
+                    ? `Default (${model.defaultReasoning})`
+                    : "Default",
+                },
+                ...(duck.reasoning && !model?.reasoning.includes(duck.reasoning)
+                  ? [{ value: duck.reasoning, label: `${duck.reasoning} (saved)` }]
+                  : []),
+                // The default level already has its own entry, unless this duck picked it.
+                ...(model?.reasoning
+                  .filter((level) => level !== model.defaultReasoning || level === duck.reasoning)
+                  .map((level) => ({
+                    value: level,
+                    label: level.charAt(0).toUpperCase() + level.slice(1),
+                  })) ?? []),
+              ]}
+              onChange={(value) => onChange({ reasoning: value })}
+            />
+          </div>
+        </div>
+        <p className="field-hint">
+          {model?.description ? `${model.description} ` : ""}Higher reasoning is slower and more
+          thorough.
+        </p>
+        <div className={`field perspective ${long && !expanded && !readOnly ? "capped" : ""}`}>
+          <label htmlFor={`perspective-${duck.id}`}>Perspective</label>
           <GrowingTextarea
+            id={`perspective-${duck.id}`}
             required
             maxLength={4000}
             value={duck.instructions}
             onChange={(instructions) => onChange({ instructions })}
           />
-          <small>What this duck cares about, how it talks, and when it should stay quiet.</small>
-        </label>
-        <details className="model-details" open={newDuck}>
-          <summary>
-            <span>Model</span>
-            <em>
-              {provider} · {modelLabel(duck.model, duck.reasoning, model?.name)}
-            </em>
-          </summary>
-          <div className="field-grid model-fields">
-            <div className="field">
-              <span>Provider</span>
-              <Select
-                label="Provider"
-                value={duck.provider}
-                options={[
-                  { value: "claude", label: "Claude" },
-                  { value: "codex", label: "Codex" },
-                ]}
-                onChange={(value) =>
-                  onChange({
-                    provider: duckSchema.shape.provider.parse(value),
-                    model: "",
-                    reasoning: "",
-                  })
-                }
-              />
-            </div>
-            <div className="field">
-              <span>Model</span>
-              <Select
-                label="Model"
-                disabled={!catalog || !!catalog.error}
-                value={model?.id ?? duck.model}
-                options={[
-                  { value: "", label: "Account default" },
-                  ...(duck.model && !model
-                    ? [{ value: duck.model, label: `${duck.model} (saved)` }]
-                    : []),
-                  ...(catalog?.models.map((item) => ({ value: item.id, label: item.name })) ?? []),
-                ]}
-                onChange={(value) => onChange({ model: value, reasoning: "" })}
-              />
-            </div>
-            <div className="field">
-              <span>Reasoning</span>
-              <Select
-                label="Reasoning"
-                disabled={!model?.reasoning.length}
-                value={duck.reasoning ?? ""}
-                options={[
-                  {
-                    value: "",
-                    label: model?.defaultReasoning
-                      ? `Default (${model.defaultReasoning})`
-                      : "Default",
-                  },
-                  ...(duck.reasoning && !model?.reasoning.includes(duck.reasoning)
-                    ? [{ value: duck.reasoning, label: `${duck.reasoning} (saved)` }]
-                    : []),
-                  // The default level already has its own entry, unless this duck picked it.
-                  ...(model?.reasoning
-                    .filter((level) => level !== model.defaultReasoning || level === duck.reasoning)
-                    .map((level) => ({
-                      value: level,
-                      label: level.charAt(0).toUpperCase() + level.slice(1),
-                    })) ?? []),
-                ]}
-                onChange={(value) => onChange({ reasoning: value })}
-              />
-            </div>
-          </div>
-          <p className="field-hint">
-            {model?.description ? `${model.description} ` : ""}Higher reasoning is slower and more
-            thorough.
-          </p>
-        </details>
+          <small>
+            What this duck cares about, how it talks, and when it should stay quiet.
+            {long && (
+              <button type="button" className="text-button" onClick={() => setExpanded(!expanded)}>
+                {expanded ? "Show less" : "Show all"}
+              </button>
+            )}
+          </small>
+        </div>
         <div className="field">
           <span>Outfit</span>
           <div className="outfit-options" role="group" aria-label={`${duck.name} outfit`}>
@@ -182,14 +184,18 @@ export function DuckEditor({
             )}
           </div>
           {open &&
-            (roomId ? (
+            (!roomId ? (
+              <small>Save the conversation once to draw a custom outfit.</small>
+            ) : drawing ? (
               <OutfitGenerator
                 roomId={roomId}
                 duck={duck}
                 onUse={(avatar) => onChange({ avatar })}
               />
             ) : (
-              <small>Save the conversation once to draw a custom outfit.</small>
+              <button type="button" className="text-button" onClick={() => setDrawing(true)}>
+                <Sparkles size={14} /> Draw a custom outfit…
+              </button>
             ))}
         </div>
         <div className="duck-editor-footer">

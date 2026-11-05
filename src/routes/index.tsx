@@ -13,7 +13,7 @@ import { PondDialog } from "../components/pond-dialog";
 import { RoomNotes } from "../components/room-notes";
 import { Sidebar } from "../components/sidebar";
 import { Transcript } from "../components/transcript";
-import { ConversationMessages, clock, useNow } from "../components/chat-message";
+import { ConversationMessages, clock, listNames, useNow } from "../components/chat-message";
 import { loadPonds, moveToPond, savePond } from "../server/ponds.functions";
 import type { Pond } from "../lib/pond";
 import {
@@ -73,23 +73,31 @@ function resolveTarget(stored: string | undefined, ducks: Duck[]): Target {
 }
 
 /**
- * The composer's line while a turn runs: what phase it's in, who is working, and for how long,
- * e.g. "Mediator is choosing who answers  0:42" or "Skeptic and Explorer are replying  1:10".
+ * The composer's line while a turn runs: the phase, who is working, and how long the turn has
+ * taken, e.g. "Mediator is choosing who answers  0:42" or "Skeptic and Explorer are replying  1:10".
  */
-function WorkingLine({ thinking }: { thinking: Room["messages"] }) {
+function WorkingLine({ messages }: { messages: Room["messages"] }) {
   const now = useNow();
-  const started = Math.min(...thinking.map((message) => Date.parse(message.createdAt)));
+  const asked = messages.findLastIndex((message) => !message.duckId);
+  const turn = messages.slice(asked + 1);
+  const thinking = turn.filter((message) => message.status === "thinking");
+  const started = Date.parse((messages[asked] ?? thinking[0]).createdAt);
   const host = thinking.find((message) => message.duckId === "mediator");
   const summary = thinking.find((message) => message.duckId === "guide");
   const ducks = thinking.filter((message) => message !== host && message !== summary);
   const names = ducks.map((message) => message.speaker);
+  const replied = turn.some(
+    (message) => message.status === "complete" && message.duckId !== "mediator",
+  );
   const phase = summary
     ? "Mediator is summing up"
     : host && !ducks.length
-      ? "Mediator is choosing who answers"
+      ? replied
+        ? "Mediator is weighing the replies"
+        : "Mediator is choosing who answers"
       : names.length === 1
         ? `${names[0]} is ${ducks[0].tools?.at(-1) ?? "thinking"}`
-        : `${names.slice(0, -1).join(", ")} and ${names.at(-1)} are replying`;
+        : `${listNames(names)} are replying`;
   // The timer sits apart from the phase so a narrow screen trims the words, never the time.
   return (
     <>
@@ -248,6 +256,14 @@ function Home() {
   const roomApprovals = approvals
     .filter((item) => item.roomId === selected)
     .map((item) => item.approval);
+
+  // Escape closes the phone drawer, like any other overlay.
+  useEffect(() => {
+    if (!sidebar) return;
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setSidebar(false);
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [sidebar]);
 
   // The tab title tells a hidden tab's owner that a duck is waiting on them or replies finished.
   const [ready, setReady] = useState(false);
@@ -534,8 +550,8 @@ function Home() {
   ) : roomApprovals.length ? (
     `${roomApprovals[0].duck} is waiting for your answer above.`
   ) : busy ? (
-    thinking.length ? (
-      <WorkingLine thinking={thinking} />
+    room && thinking.length ? (
+      <WorkingLine messages={room.messages} />
     ) : (
       "Working…"
     )
@@ -544,7 +560,7 @@ function Home() {
   ) : target === "everyone" ? (
     "Every duck answers without seeing the others, then Mediator sums up."
   ) : (
-    `Only ${targetDuck?.name} replies. Type @ to bring in another duck too.`
+    `Only ${targetDuck?.name} replies.`
   );
   const offline = (["claude", "codex"] as const)
     .filter(
@@ -558,7 +574,7 @@ function Home() {
       ? "Ask the group…"
       : target === "everyone"
         ? "Ask every duck separately…"
-        : `Message ${targetDuck?.name ?? "a duck"}…`;
+        : `Message ${targetDuck?.name ?? "a duck"}… (type @ to add another duck)`;
 
   return (
     <div className="app-shell">

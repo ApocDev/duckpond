@@ -39,18 +39,34 @@ export function AddDucks({
     ["reuse", "Reuse"],
     ["write", "Write your own"],
   ];
+  const order: [Method, string][] = hasContext
+    ? [["suggest", "Suggest"], ...tabs]
+    : [tabs[1], tabs[0], tabs[2], ["suggest", "Suggest"]];
   return (
     <section className="add-ducks" aria-label="Add a duck">
       <div className="add-ducks-heading">
-        <div className="segmented" role="tablist" aria-label="How to add a duck">
-          {(hasContext
-            ? [["suggest", "Suggest"] as const, ...tabs]
-            : [tabs[1], tabs[0], tabs[2], ["suggest", "Suggest"] as const]
-          ).map(([value, label]) => (
+        <div
+          className="segmented"
+          role="tablist"
+          aria-label="How to add a duck"
+          onKeyDown={(event) => {
+            // Left and right arrows move between tabs, as in any tab list.
+            const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+            if (!step) return;
+            event.preventDefault();
+            const index = order.findIndex(([value]) => value === method);
+            const [next] = order[(index + step + order.length) % order.length];
+            setMethod(next);
+            event.currentTarget.querySelector<HTMLElement>(`[data-tab="${next}"]`)?.focus();
+          }}
+        >
+          {order.map(([value, label]) => (
             <button
               key={value}
               type="button"
               role="tab"
+              data-tab={value}
+              tabIndex={method === value ? 0 : -1}
               aria-selected={method === value}
               onClick={() => setMethod(value)}
             >

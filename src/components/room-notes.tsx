@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import Markdown from "react-markdown";
 import { ListChecks, NotebookPen } from "lucide-react";
 import { useDismiss } from "./use-dismiss";
 
@@ -30,8 +29,9 @@ export function RoomNotes({
     setOpen(false);
     setDraft(null);
   });
+  const changed = draft !== null && draft !== notes;
   async function save() {
-    if (draft === null) return;
+    if (!changed) return;
     setSaving(true);
     setError("");
     try {
@@ -51,9 +51,8 @@ export function RoomNotes({
         aria-label="Shared notes"
         aria-expanded={open}
         onClick={() => {
-          // An empty conversation opens straight into editing. Closing keeps unsaved edits.
-          if (!open && !notes && !disabled && !canSummarize && draft === null) setDraft("");
-          if (open && (draft === null || draft === notes)) setDraft(null);
+          // Closing keeps unsaved edits for when the panel opens again.
+          if (open && !changed) setDraft(null);
           setOpen(!open);
         }}
       >
@@ -62,83 +61,64 @@ export function RoomNotes({
         {notes && <i className="notes-dot" aria-label="has notes" />}
       </button>
       {open && (
-        <div className="popover notes-popover">
+        <div className="popover notes-popover" role="dialog" aria-label="Shared notes">
           <div className="popover-heading">
             <strong>Shared notes</strong>
-            {draft === null && (
-              <button
-                type="button"
-                className="text-button"
-                disabled={disabled}
-                onClick={() => setDraft(notes)}
-              >
-                Edit
-              </button>
-            )}
           </div>
           <p className="popover-hint">Every duck reads these before it replies.</p>
-          {draft === null ? (
-            <>
-              <div className="shared-notes">
-                {notes ? <Markdown>{notes}</Markdown> : <p className="muted">No notes yet.</p>}
-              </div>
-              <div className="notes-summary">
-                <button
-                  type="button"
-                  className="secondary-button compact"
-                  disabled={!canSummarize}
-                  onClick={() => {
-                    setOpen(false);
-                    onSummarize();
-                  }}
-                >
-                  <ListChecks size={15} /> Summarize so far
-                </button>
-                <small>
-                  Mediator posts a recap of decisions and open questions in the conversation. Its
-                  Add to notes button keeps it here.
-                </small>
-              </div>
-            </>
-          ) : (
-            <>
-              <textarea
-                className="notes-editor"
-                autoFocus
-                rows={8}
-                maxLength={20000}
-                value={draft}
-                placeholder="Goals, constraints, decisions to keep in mind…"
-                onChange={(event) => setDraft(event.target.value)}
-              />
-              {error && (
-                <p className="field-error" role="alert">
-                  {error}
-                </p>
-              )}
-              <div className="popover-actions">
-                <button
-                  type="button"
-                  className="text-button"
-                  disabled={saving}
-                  onClick={() => {
-                    setDraft(null);
-                    if (!notes) setOpen(false);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="primary-button compact"
-                  disabled={saving || disabled}
-                  onClick={() => void save()}
-                >
-                  {saving ? "Saving…" : "Save notes"}
-                </button>
-              </div>
-            </>
+          <textarea
+            className="notes-editor"
+            autoFocus
+            rows={8}
+            maxLength={20000}
+            aria-label="Shared notes"
+            value={draft ?? notes}
+            readOnly={disabled}
+            placeholder="Goals, constraints, decisions to keep in mind…"
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          {error && (
+            <p className="field-error" role="alert">
+              {error}
+            </p>
           )}
+          <div className="popover-actions">
+            {changed && <span className="footer-note">Unsaved changes</span>}
+            <span className="spacer" />
+            <button
+              type="button"
+              className="text-button"
+              disabled={saving || !changed}
+              onClick={() => setDraft(null)}
+            >
+              Undo changes
+            </button>
+            <button
+              type="button"
+              className="primary-button compact"
+              disabled={saving || disabled || !changed}
+              onClick={() => void save()}
+            >
+              {saving ? "Saving…" : "Save notes"}
+            </button>
+          </div>
+          <div className="notes-summary">
+            <button
+              type="button"
+              className="secondary-button compact"
+              disabled={!canSummarize}
+              onClick={() => {
+                setOpen(false);
+                onSummarize();
+              }}
+            >
+              <ListChecks size={15} /> Summarize so far
+            </button>
+            <small>
+              Mediator posts a recap of decisions and open questions in the conversation. Its Add to
+              notes button copies it here.
+            </small>
+          </div>
         </div>
       )}
     </div>

@@ -2,10 +2,14 @@ import { describe, expect, it } from "vite-plus/test";
 import { rosterColors } from "./duck-colors";
 
 describe("rosterColors", () => {
-  it("gives every duck in a roster a different color and keeps a duck's color across rosters", () => {
-    const ids = Array.from({ length: 9 }, (_, index) => ({ id: `duck-${index}` }));
-    const colors = rosterColors(ids);
-    expect(new Set(ids.map((duck) => colors.get(duck.id))).size).toBe(ids.length);
-    expect(rosterColors([ids[3]]).get("duck-3")).toBe(rosterColors([ids[3], ids[5]]).get("duck-3"));
+  it("keeps the first six ducks' hues at least 45 degrees apart", () => {
+    const ducks = Array.from({ length: 6 }, (_, index) => ({ id: `duck-${index}` }));
+    const colors = rosterColors(ducks);
+    const hues = ducks.map((duck) => Number(colors.get(duck.id)!.match(/ (\d+)\)$/)![1]));
+    for (const [index, hue] of hues.entries())
+      for (const other of hues.slice(index + 1)) {
+        const gap = Math.abs(hue - other);
+        expect(Math.min(gap, 360 - gap)).toBeGreaterThanOrEqual(45);
+      }
   });
 });

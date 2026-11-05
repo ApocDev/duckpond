@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCw, X } from "lucide-react";
+import { ChevronDown, Plus, RefreshCw } from "lucide-react";
 import { guide, type Duck, type Room } from "../lib/room";
 import type { Pond } from "../lib/pond";
 import { modelLabel, type ModelCatalog } from "../lib/models";
@@ -172,14 +172,14 @@ export function DuckSettings({
             disabled={readOnly}
             onClick={() => setAdding(!adding)}
           >
-            {adding ? <X size={15} /> : <Plus size={15} />} {adding ? "Done" : "Add a duck"}
+            <Plus size={15} /> Add a duck
+            <ChevronDown size={14} className="disclosure" aria-hidden />
           </button>
         </div>
         <p className="host-line">
           <DuckAvatar avatar="wizard" small color={hostColor} />
           <span>
-            Plus <strong>Mediator</strong>, who hosts every conversation and picks who answers ·{" "}
-            {modelLabel(guide.model, guide.reasoning)}
+            Plus <strong>Mediator</strong>, the host · {modelLabel(guide.model, guide.reasoning)}
           </span>
         </p>
         {adding && (

@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, Split } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Check, ChevronDown, Users } from "lucide-react";
 import { duckAvatar, type Duck, type Message } from "../lib/room";
 import { hostColor, rosterColors } from "../lib/duck-colors";
 import { DuckAvatar } from "./duck-avatar";
@@ -15,6 +15,8 @@ type Choice = {
   value: Target;
   name: string;
   avatar?: NonNullable<Duck["avatar"]>;
+  /** Several small avatars instead of one, for "Each separately". */
+  stack?: NonNullable<Duck["avatar"]>[];
   color: string;
   /** One line shown in the pickers and as a tooltip. */
   detail: string;
@@ -55,6 +57,7 @@ export function DuckBar({
   const everyone: Choice = {
     value: "everyone",
     name: "Each separately",
+    stack: ducks.slice(0, 3).map(duckAvatar),
     color: "var(--text-2)",
     detail: "Every duck answers without seeing the others, then Mediator sums up.",
     busy: false,
@@ -67,8 +70,8 @@ export function DuckBar({
     detail: duck.instructions.split(/(?<=[.!?])\s/)[0],
     busy: busy.has(duck.id),
   }));
-  const choices = [mediator, ...(ducks.length > 1 ? [everyone] : []), ...duckChoices];
-  const current = choices.find((choice) => choice.value === target) ?? mediator;
+  const modes = [mediator, ...(ducks.length > 1 ? [everyone] : [])];
+  const current = [...modes, ...duckChoices].find((choice) => choice.value === target) ?? mediator;
   const direct = duckChoices.find((choice) => choice.value === target);
   return (
     <div className="duck-bar" role="group" aria-label="Send to">
@@ -82,7 +85,7 @@ export function DuckBar({
           <Picker
             className="mode"
             pressed={!!direct}
-            choices={duckChoices}
+            groups={[{ choices: duckChoices }]}
             current={direct}
             label="One duck"
             trigger={
@@ -105,7 +108,10 @@ export function DuckBar({
         className="target-picker-button"
         wrapperClassName="target-picker"
         pressed
-        choices={choices}
+        groups={[
+          { label: "How to ask", choices: modes },
+          { label: "One duck", choices: duckChoices },
+        ]}
         current={current}
         label="Send to"
         trigger={
@@ -123,12 +129,8 @@ export function DuckBar({
         title="See and edit the ducks in this conversation"
         onClick={onEdit}
       >
-        <span className="roster-stack" aria-hidden>
-          {duckChoices.slice(0, 3).map((choice) => (
-            <DuckAvatar key={choice.value} avatar={choice.avatar!} small />
-          ))}
-        </span>
-        <span className="ducks-label">{editLabel}</span>
+        <Users size={15} aria-hidden />
+        <span>{editLabel}</span>
       </button>
     </div>
   );
@@ -160,18 +162,23 @@ function ModeButton({
 function ChoiceIcon({ choice }: { choice: Choice }) {
   if (choice.avatar) return <DuckAvatar avatar={choice.avatar} small color={choice.color} />;
   return (
-    <span className="mode-icon" aria-hidden>
-      <Split size={14} />
+    <span className="roster-stack" aria-hidden>
+      {choice.stack?.map((avatar, index) => (
+        <DuckAvatar key={index} avatar={avatar} small />
+      ))}
     </span>
   );
 }
 
-/** A button that opens a list of choices above it, each with its avatar and one-line detail. */
+/**
+ * A button that opens a list of choices above it, each with its avatar and a short description.
+ * Arrow keys move through the list; Escape or a pick returns focus to the button.
+ */
 function Picker({
   className,
   wrapperClassName = "picker",
   pressed,
-  choices,
+  groups,
   current,
   label,
   trigger,
@@ -180,7 +187,7 @@ function Picker({
   className: string;
   wrapperClassName?: string;
   pressed: boolean;
-  choices: Choice[];
+  groups: { label?: string; choices: Choice[] }[];
   current?: Choice;
   label: string;
   trigger: ReactNode;
@@ -188,10 +195,46 @@ function Picker({
 }) {
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  function close() {
+    setOpen(false);
+    button.current?.focus();
+  }
   useDismiss(wrapper, open, () => setOpen(false));
+  useEffect(() => {
+    if (!open) return;
+    const list = wrapper.current?.querySelector<HTMLElement>("[role=listbox]");
+    (
+      list?.querySelector<HTMLElement>('[aria-selected="true"]') ??
+      list?.querySelector<HTMLElement>("[role=option]")
+    )?.focus();
+  }, [open]);
+  function move(event: KeyboardEvent<HTMLDivElement>) {
+    const options = [...event.currentTarget.querySelectorAll<HTMLElement>("[role=option]")];
+    const index = options.findIndex((option) => option === document.activeElement);
+    const next =
+      event.key === "ArrowDown"
+        ? index + 1
+        : event.key === "ArrowUp"
+          ? index - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? options.length - 1
+              : undefined;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }
+    if (next === undefined) return;
+    event.preventDefault();
+    options[(next + options.length) % options.length]?.focus();
+  }
   return (
     <div className={wrapperClassName} ref={wrapper}>
       <button
+        ref={button}
         type="button"
         className={`${className} ${current?.busy ? "busy" : ""}`}
         aria-pressed={pressed}
@@ -204,26 +247,30 @@ function Picker({
         <ChevronDown size={14} aria-hidden />
       </button>
       {open && (
-        <div className="popover picker-list" role="listbox" aria-label={label}>
-          {choices.map((choice) => (
-            <button
-              key={choice.value}
-              type="button"
-              role="option"
-              aria-selected={choice.value === current?.value}
-              title={`${choice.name}: ${choice.detail}`}
-              onClick={() => {
-                onPick(choice.value);
-                setOpen(false);
-              }}
-            >
-              <ChoiceIcon choice={choice} />
-              <span>
-                <strong>{choice.name}</strong>
-                <small>{choice.detail}</small>
-              </span>
-              {choice.value === current?.value && <Check size={16} aria-hidden />}
-            </button>
+        <div className="popover picker-list" role="listbox" aria-label={label} onKeyDown={move}>
+          {groups.map((group) => (
+            <div key={group.label ?? "choices"} role="group" aria-label={group.label}>
+              {group.label && <p className="picker-group">{group.label}</p>}
+              {group.choices.map((choice) => (
+                <button
+                  key={choice.value}
+                  type="button"
+                  role="option"
+                  aria-selected={choice.value === current?.value}
+                  onClick={() => {
+                    onPick(choice.value);
+                    close();
+                  }}
+                >
+                  <ChoiceIcon choice={choice} />
+                  <span>
+                    <strong>{choice.name}</strong>
+                    <small>{choice.detail}</small>
+                  </span>
+                  {choice.value === current?.value && <Check size={16} aria-hidden />}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}

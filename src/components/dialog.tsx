@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 /**
@@ -24,6 +24,7 @@ export function Dialog({
   children: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const id = useId();
   useEffect(() => {
     dialog.current?.showModal();
     // Focus the dialog itself so the close button doesn't open with a focus ring.
@@ -33,6 +34,8 @@ export function Dialog({
     <dialog
       ref={dialog}
       tabIndex={-1}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={description ? `${id}-description` : undefined}
       className={`dialog ${wide ? "wide" : ""}`}
       onCancel={(event) => {
         event.preventDefault();
@@ -41,8 +44,8 @@ export function Dialog({
     >
       <header className="dialog-header">
         <div>
-          <h2>{title}</h2>
-          {description && <p>{description}</p>}
+          <h2 id={`${id}-title`}>{title}</h2>
+          {description && <p id={`${id}-description`}>{description}</p>}
         </div>
         <button
           type="button"

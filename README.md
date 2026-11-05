@@ -51,7 +51,7 @@ tailscale serve --https=3998 off
 
 ### Sending a message
 
-The **To** row above the message box picks who answers: **Mediator**, **Each separately**, or one duck from the **One duck** picker. It remembers your choice per conversation until you change it. On phones it shrinks to one button that opens the full list.
+The **To** row above the message box picks who answers: **Mediator**, **Each separately**, or one duck from the **One duck** picker. It remembers your choice per conversation until you change it. In narrow windows and on phones it shrinks to one button that opens the full list.
 
 - **Mediator** (the default when a conversation has more than one duck, and always available) reads your message, answers clarifications itself, or brings in the ducks who can help. They can push back on each other, and Mediator then reports the recommendation, remaining disagreements, and at most one question for you.
 - **Each separately** sends your message to every duck at once. Nobody sees the others' answers while writing, then Mediator sums up.
@@ -60,7 +60,7 @@ The **To** row above the message box picks who answers: **Mediator**, **Each sep
 
 Click the conversation's title to rename it.
 
-While ducks work, each running reply shows what it's doing and for how long, such as "reading docs/plan.md · 1:42". After a minute without new text or steps it says "no update for 1:10" instead. The line under the message box names the phase, such as "Mediator is choosing who answers", next to the elapsed time. Finished replies keep a collapsible list of the steps they took. A failed or stopped reply offers **Ask <duck> again**, which selects that duck and puts your last message back in the box.
+While ducks work, each running reply shows what it's doing and for how long, such as "reading docs/plan.md · 1:42". After a minute without new text or steps it says "no update for 1:10" instead. A running reply round names who is still working. The line under the message box names the phase, such as "Mediator is choosing who answers" or "Mediator is weighing the replies", next to the time since you sent the message. Finished replies keep a collapsible list of the steps they took. A failed or stopped reply offers **Ask <duck> again**, which selects that duck and puts your last message back in the box.
 
 You can switch conversations and ponds while a turn runs, and send in another conversation. In the sidebar, a yellow dot marks conversations that are still replying, and **needs you** marks one where a duck is waiting for your answer. A hidden tab's title changes to "Waiting for you" or "Replies ready". Notes stay editable during a turn. Ducks are view-only until the replies finish or you press Stop.
 
@@ -68,13 +68,13 @@ A duck that has nothing relevant to add replies `PASS`. The transcript shows it 
 
 ### Shared notes
 
-**Notes** in the header holds text every duck in the conversation reads before it replies. Edit it right there. Closing the panel keeps unsaved edits for when you reopen it.
+**Notes** in the header holds text every duck in the conversation reads before it replies. The panel opens straight into the text; **Save notes** saves it. Closing the panel keeps unsaved edits for when you reopen it.
 
 **Summarize so far** in the Notes panel asks Mediator to recap where things landed, what's still disagreed, and the one question worth answering next. The recap appears in the conversation without changing who you're talking to. Every Mediator report, including recaps, has **Add to notes**, which appends it to the notes.
 
 ### Ducks
 
-**Ducks** at the end of the To row opens the conversation's duck list. It says whether the list matches the pond's defaults. Mediator hosts every conversation and isn't part of the list. Click a duck to edit its name, perspective, model, and outfit, or to remove it. **Save for this conversation** changes only this conversation; earlier messages stay as they are. **Save as pond defaults too** also makes the list the pond's starting ducks. Closing with unsaved changes asks before discarding them. While replies run, the list is view-only.
+**Ducks** at the end of the To row opens the conversation's duck list. It says whether the list matches the pond's defaults. Mediator hosts every conversation and isn't part of the list. Click a duck to edit its name, model, perspective, and outfit, or to remove it. Long perspectives start capped; **Show all** expands them. **Save for this conversation** changes only this conversation; earlier messages stay as they are. **Save as pond defaults too** also makes the list the pond's starting ducks. Closing with unsaved changes asks before discarding them. While replies run, the list is view-only.
 
 **Add a duck** at the top of the list has four options:
 
@@ -85,7 +85,7 @@ A duck that has nothing relevant to add replies `PASS`. The transcript shows it 
 
 Suggestions use GPT-5.6-Sol with Medium reasoning in one read-only Codex call. They never change the conversation. Requests can be cancelled and time out after two minutes (three for workspace inspection). Added ducks start with the first duck's provider and model.
 
-**Draw outfit** in a duck's editor generates a custom duck picture with Codex image generation. It needs the conversation to be saved once. You can close the dialog while it draws.
+**Draw a custom outfit…** in a duck's editor opens a generator that makes a custom duck picture with Codex image generation. It needs the conversation to be saved once. You can close the dialog while it draws.
 
 Personas define a priority, temperament, limits, and what would change their mind. Example personas live in `design/personas/game-room.json`.
 

@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Mic, Square } from "lucide-react";
 import { duckAvatar, type Duck } from "../lib/room";
 import { insertMention, mentionAt, mentionHandle } from "../lib/mentions";
+import { rosterColors } from "../lib/duck-colors";
 import { DuckAvatar } from "./duck-avatar";
 import { useDictation } from "./use-dictation";
 
@@ -24,6 +25,7 @@ export function MentionInput({
   onDictatingChange: (active: boolean) => void;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
+  const colors = useMemo(() => rosterColors(ducks), [ducks]);
   const dictation = useDictation(value, onChange, onDictatingChange);
   useLayoutEffect(() => {
     const element = input.current;
@@ -98,12 +100,11 @@ export function MentionInput({
                 tabIndex={-1}
                 onClick={() => choose(duck)}
               >
-                <DuckAvatar avatar={duckAvatar(duck)} />
+                <DuckAvatar avatar={duckAvatar(duck)} color={colors.get(duck.id)} />
                 <span>
-                  {duck.name}
+                  <strong style={{ color: colors.get(duck.id) }}>{duck.name}</strong>
                   <small>
-                    @{mentionHandle(duck, ducks)} ·{" "}
-                    {duck.provider === "claude" ? "Claude" : "Codex"}
+                    @{mentionHandle(duck, ducks)} · {duck.instructions.split(/(?<=[.!?])\s/)[0]}
                   </small>
                 </span>
               </button>
