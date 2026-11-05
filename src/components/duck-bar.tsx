@@ -38,54 +38,57 @@ export function DuckBar({
     const chip = row.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
     const box = row.current;
     if (!chip || !box) return;
-    if (chip.offsetLeft < box.scrollLeft) box.scrollLeft = chip.offsetLeft - 8;
-    else if (chip.offsetLeft + chip.offsetWidth > box.scrollLeft + box.clientWidth)
-      box.scrollLeft = chip.offsetLeft + chip.offsetWidth - box.clientWidth + 8;
+    const left = chip.getBoundingClientRect().left - box.getBoundingClientRect().left;
+    const right = left + chip.offsetWidth;
+    if (left < 0) box.scrollLeft += left - 8;
+    else if (right > box.clientWidth - 28) box.scrollLeft += right - box.clientWidth + 36;
   }, [target]);
   return (
     <div className="duck-bar" role="group" aria-label="Send to">
       <span className="duck-bar-label">To</span>
-      <div className="duck-bar-chips" ref={row}>
-        {ducks.length > 1 && (
-          <>
+      <div className="duck-bar-scroll">
+        <div className="duck-bar-chips" ref={row}>
+          {ducks.length > 1 && (
+            <>
+              <Chip
+                name="Mediator"
+                avatar="wizard"
+                color={hostColor}
+                detail="Brings in the ducks who can help and reports back"
+                selected={target === "mediator"}
+                busy={busy.has("mediator") || busy.has("guide")}
+                onSelect={() => onTarget("mediator")}
+              />
+              <button
+                type="button"
+                className="duck-chip everyone"
+                aria-pressed={target === "everyone"}
+                title="Every duck answers on its own without seeing the others, then Mediator sums up. Applies to one message."
+                onClick={() => onTarget("everyone")}
+              >
+                <span className="stack" aria-hidden>
+                  {ducks.slice(0, 3).map((duck) => (
+                    <DuckAvatar key={duck.id} avatar={duckAvatar(duck)} small />
+                  ))}
+                </span>
+                <span>Each separately</span>
+              </button>
+              <span className="duck-bar-divider" aria-hidden />
+            </>
+          )}
+          {ducks.map((duck) => (
             <Chip
-              name="Mediator"
-              avatar="wizard"
-              color={hostColor}
-              detail="Brings in the ducks who can help and reports back"
-              selected={target === "mediator"}
-              busy={busy.has("mediator") || busy.has("guide")}
-              onSelect={() => onTarget("mediator")}
+              key={duck.id}
+              name={duck.name}
+              avatar={duckAvatar(duck)}
+              color={colors.get(duck.id)!}
+              detail={`${duck.provider === "claude" ? "Claude" : "Codex"} · ${modelLabel(duck.model, duck.reasoning)}`}
+              selected={target === duck.id}
+              busy={busy.has(duck.id)}
+              onSelect={() => onTarget(duck.id)}
             />
-            <button
-              type="button"
-              className="duck-chip everyone"
-              aria-pressed={target === "everyone"}
-              title="Every duck answers on its own without seeing the others, then Mediator sums up. Applies to one message."
-              onClick={() => onTarget("everyone")}
-            >
-              <span className="stack" aria-hidden>
-                {ducks.slice(0, 3).map((duck) => (
-                  <DuckAvatar key={duck.id} avatar={duckAvatar(duck)} small />
-                ))}
-              </span>
-              <span>Each separately</span>
-            </button>
-            <span className="duck-bar-divider" aria-hidden />
-          </>
-        )}
-        {ducks.map((duck) => (
-          <Chip
-            key={duck.id}
-            name={duck.name}
-            avatar={duckAvatar(duck)}
-            color={colors.get(duck.id)!}
-            detail={`${duck.provider === "claude" ? "Claude" : "Codex"} · ${modelLabel(duck.model, duck.reasoning)}`}
-            selected={target === duck.id}
-            busy={busy.has(duck.id)}
-            onSelect={() => onTarget(duck.id)}
-          />
-        ))}
+          ))}
+        </div>
       </div>
       <button
         type="button"

@@ -154,6 +154,12 @@ textarea:focus {
 .primary-button:hover:not(:disabled) {
   background: var(--accent-hover);
 }
+/* A dimmed yellow reads as olive; disabled actions use a neutral surface instead. */
+.primary-button:disabled {
+  opacity: 1;
+  background: var(--surface-raised);
+  color: var(--text-3);
+}
 .primary-button.danger {
   background: var(--danger);
   color: #2a0905;
@@ -902,17 +908,29 @@ textarea:focus {
   color: var(--text-3);
   flex-shrink: 0;
 }
-/* One line that scrolls sideways; the edges fade so it's clear there's more. */
-.duck-bar-chips {
+/* One line that scrolls sideways; the right edge fades so it's clear there's more. */
+.duck-bar-scroll {
+  position: relative;
   flex: 1;
   min-width: 0;
+}
+.duck-bar-scroll::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--bg));
+}
+.duck-bar-chips {
   display: flex;
   align-items: center;
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 2px 12px 2px 2px;
-  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  padding: 2px 28px 2px 2px;
 }
 .duck-bar-divider {
   flex-shrink: 0;
@@ -1795,5 +1813,14 @@ details[open] > summary::before {
   }
   .header-menu {
     width: min(280px, calc(100vw - 24px));
+  }
+  /* The header needs its width for the title; Notes keeps its icon, dot, and label for screen readers. */
+  .room-notes .secondary-button {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+  .room-notes .secondary-button span {
+    display: none;
   }
 }
