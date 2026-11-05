@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { loadContext } from "../server/rooms.functions";
 
+/** Per-duck context window usage for one conversation, refreshed while open. */
 export function AgentContext({ roomId }: { roomId: string }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Awaited<ReturnType<typeof loadContext>>>([]);
@@ -31,12 +32,16 @@ export function AgentContext({ roomId }: { roomId: string }) {
   }, [roomId, open]);
   return (
     <details className="agent-context" onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary>Agent context</summary>
-      <p>
-        Last reported input, separate from total token usage. Compaction clears the estimate until
-        the next report.
+      <summary>Context usage</summary>
+      <p className="field-hint">
+        How much of each duck's context window its last turn used. Compaction resets the estimate
+        until the next turn.
       </p>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
       {rows.map(({ id, name, context }) => (
         <p key={id}>
           <strong>{name}</strong>:{" "}

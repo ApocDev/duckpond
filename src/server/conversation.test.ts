@@ -12,17 +12,15 @@ function room(): Room {
     ducks: structuredClone(defaults),
     messages: [],
     notes: "Keep it small",
-    observe: false,
     updatedAt: new Date().toISOString(),
   };
 }
 const emit = () => {};
 const persist = () => {};
 describe("conversation rounds", () => {
-  it("lets the guide see the conversation and follow-up answers without triggering mentions or observers", async () => {
+  it("lets the guide see the conversation and follow-up answers without triggering mentions", async () => {
     const value = room();
     value.workspace = "/project/game";
-    value.observe = true;
     value.messages.push(
       {
         id: "user",
@@ -247,12 +245,11 @@ describe("conversation rounds", () => {
     expect(called).toEqual(["explorer"]);
     expect(value.messages.at(-1)).toMatchObject({ text: "A partial thought", status: "stopped" });
   });
-  it("removes quiet observers instead of publishing PASS as a contribution", async () => {
+  it("records a PASS as an empty passed reply instead of publishing it", async () => {
     const value = room();
-    value.observe = true;
     await runConversation(
       value,
-      "A thought",
+      "@explorer @skeptic a thought",
       "conversation",
       "explorer",
       new AbortController().signal,
@@ -264,7 +261,11 @@ describe("conversation rounds", () => {
         persist,
       },
     );
-    expect(value.messages.map((message) => message.text)).toEqual(["A thought", "A question"]);
+    expect(value.messages.map(({ text, status }) => [text, status])).toEqual([
+      ["@explorer @skeptic a thought", "complete"],
+      ["A question", "complete"],
+      ["", "passed"],
+    ]);
   });
   it("keeps the other duck's response when one provider fails", async () => {
     const value = room();
@@ -399,10 +400,10 @@ it.each(["conversation", "review", "discussion"] as const)(
       },
     );
     expect(
-      value.messages.some(
-        (message) => message.duckId === "skeptic" || message.duckId === "simplifier",
-      ),
-    ).toBe(false);
+      value.messages
+        .filter((message) => message.duckId === "skeptic" || message.duckId === "simplifier")
+        .every((message) => message.status === "passed" && !message.text),
+    ).toBe(true);
     expect(value.messages.find((message) => message.duckId === "explorer")?.text).toContain(
       "Passing assets",
     );
@@ -462,7 +463,9 @@ it("keeps an assigned question open when its recipient passes", async () => {
       },
     },
   );
-  expect(value.messages.filter((message) => message.duckId === "skeptic")).toHaveLength(1);
+  expect(
+    value.messages.filter((message) => message.duckId === "skeptic").map((item) => item.status),
+  ).toEqual(["complete", "passed"]);
   expect(value.discussions![0].requests[0].status).toBe("deferred");
   expect(value.messages.at(-1)?.text).toContain("Still open:");
 });

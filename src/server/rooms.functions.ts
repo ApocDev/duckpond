@@ -128,9 +128,8 @@ export const updateRoom = createServerFn({ method: "POST" })
   .validator(
     z.object({
       id: z.string().uuid(),
-      ducks: ducksSchema,
-      notes: z.string().max(20000),
-      observe: z.boolean(),
+      ducks: ducksSchema.optional(),
+      notes: z.string().max(20000).optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -139,7 +138,7 @@ export const updateRoom = createServerFn({ method: "POST" })
       throw new Error("Stop the current replies before changing the room.");
     const room = getRoom(data.id);
     await Promise.all(
-      data.ducks.map(async (duck) => {
+      (data.ducks ?? []).map(async (duck) => {
         const previous = room.ducks.find((item) => item.id === duck.id);
         if (
           previous?.provider === duck.provider &&
@@ -154,7 +153,12 @@ export const updateRoom = createServerFn({ method: "POST" })
     // Discovery can take time; a conversation may have started while it was running.
     if (activeTurns.has(data.id))
       throw new Error("Stop the current replies before changing the room.");
-    return saveRoom({ ...getRoom(data.id), ...data });
+    const current = getRoom(data.id);
+    return saveRoom({
+      ...current,
+      ducks: data.ducks ?? current.ducks,
+      notes: data.notes ?? current.notes,
+    });
   });
 export const stopRoom = createServerFn({ method: "POST" })
   .validator(z.string().uuid())
@@ -197,7 +201,7 @@ export const loadContext = createServerFn({ method: "GET" })
     return [
       ...room.ducks,
       { id: "mediator", name: "Mediator" },
-      { id: "guide", name: "Guide" },
+      { id: "guide", name: "Mediator (summaries)" },
     ].map((duck) => {
       const session = z
         .object({ context: contextStatusSchema.optional() })

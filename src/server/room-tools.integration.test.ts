@@ -71,7 +71,6 @@ it.skipIf(process.env.DUCKPOND_DISCUSSION_INTEGRATION !== "1")(
       messages: [],
       notes:
         "Keep this discussion to the first prototype. Answer the peer question before finishing. Do not research or access files; use only room tools.",
-      observe: false,
       updatedAt: "",
       ducks: [
         {
@@ -149,7 +148,6 @@ it.skipIf(process.env.DUCKPOND_ACTION_INTEGRATION !== "1")(
       messages: [],
       notes:
         "Use Explorer to inspect the file. No opinion panel is needed. Do not change files or use the network.",
-      observe: false,
       updatedAt: "",
       ducks: [
         {

@@ -19,9 +19,10 @@ export const duckSchema = z.object({
   instructions: z.string().trim().min(1).max(4000),
 });
 export type Duck = z.infer<typeof duckSchema>;
+/** Writes round summaries and catch-ups. It shares Mediator's name and outfit so the room has one host. */
 export const guide: Duck = {
   id: "guide",
-  name: "Guide",
+  name: "Mediator",
   provider: "codex",
   model: "gpt-5.6-luna",
   reasoning: "medium",
@@ -85,7 +86,9 @@ export const messageSchema = z.object({
   avatar: outfitSchema.optional(),
   text: z.string(),
   tools: z.array(z.string()).optional(),
-  status: z.enum(["thinking", "complete", "stopped", "error"]),
+  // "passed" keeps a visible record of a duck that was asked and had nothing to add.
+  status: z.enum(["thinking", "complete", "passed", "stopped", "error"]),
+  // "observer" only appears in transcripts saved before observers were removed.
   phase: z.enum(["conversation", "review", "discussion", "observer", "guide"]),
   createdAt: z.string(),
 });
@@ -132,7 +135,6 @@ export const roomSchema = z.object({
   ducks: ducksSchema,
   messages: z.array(messageSchema),
   notes: z.string().max(20000),
-  observe: z.boolean(),
   discussions: z.array(discussionSchema).optional(),
   actions: z.array(actionSchema).optional(),
   updatedAt: z.string(),
@@ -147,7 +149,6 @@ export function isUntouchedRoom(room: Room) {
     room.title === "New conversation" &&
     !room.messages.length &&
     !room.notes &&
-    !room.observe &&
     !room.discussions?.length &&
     !room.actions?.length &&
     JSON.stringify(room.ducks) === JSON.stringify(defaults)
@@ -240,9 +241,6 @@ export function makePrompt(
     phase === "discussion"
       ? "Answer the specific invitation: give an opening idea, challenge the named claim, or respond to an objection. Contribute what your perspective adds. Do not repeat the shared proposal or turn an exploratory question into a smallest-first implementation plan. If there is no new contribution, PASS is valid when allowed."
       : "",
-    phase === "observer"
-      ? "You are observing. Respond ONLY if you have a consequential point or question that hasn't been covered. Otherwise reply exactly PASS. Don't join just to agree."
-      : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -269,4 +267,13 @@ export function visibleMessages(messages: Message[], phase: Message["phase"]) {
       message.status === "stopped" ||
       ((phase === "guide" || phase === "discussion") && message.status === "error"),
   );
+}
+
+/** A conversation title from its first message, cut at a word boundary. */
+export function shortTitle(text: string, limit = 60) {
+  const line = text.trim().split("\n")[0];
+  if (line.length <= limit) return line;
+  const cut = line.slice(0, limit);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > limit / 2 ? cut.slice(0, space) : cut).replace(/[\s,.;:]+$/, "")}…`;
 }

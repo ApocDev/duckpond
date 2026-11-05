@@ -19,7 +19,6 @@ it.skipIf(process.env.DUCKPOND_BEHAVIOR_INTEGRATION !== "1")(
       messages: [],
       notes:
         "Discuss only. No research, file access, external tools, or implementation. Use only room coordination tools. Keep each contribution to one short paragraph.",
-      observe: false,
       updatedAt: "",
       ducks: defaults.map((duck) => ({
         ...duck,

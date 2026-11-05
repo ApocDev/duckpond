@@ -1,24 +1,46 @@
 import type { Duck } from "./room";
 
-// Readable on the dark pond background; ordered so neighbors in a roster contrast.
+// Distinct on the dark pond background at similar perceived lightness.
 const palette = [
-  "#ff9a7a",
+  "#ff9e80",
   "#7cc8ff",
   "#b9e07a",
   "#e8a0f0",
   "#ffc46b",
   "#6fe0bf",
   "#ff8fb3",
-  "#a9a6ff",
+  "#f2e27a",
+  "#8fd3e8",
 ];
-const hostColor = "#c4b5fd";
+export const hostColor = "#c4b5fd";
 
-/** A duck's name color: its roster position, a fixed color for Guide and Mediator, else a hash. */
-export function duckColor(ducks: Pick<Duck, "id">[], id: string) {
-  if (id === "guide" || id === "mediator") return hostColor;
-  const index = ducks.findIndex((duck) => duck.id === id);
-  if (index >= 0) return palette[index % palette.length];
-  let hash = 0;
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return palette[Math.abs(hash) % palette.length];
+function hash(id: string) {
+  let value = 0;
+  for (const char of id) value = (value * 31 + char.charCodeAt(0)) | 0;
+  return Math.abs(value);
+}
+
+/**
+ * Name colors for a roster. Each duck keeps the color its id hashes to, so it looks the same in
+ * every conversation; a collision within the roster moves to the next free color.
+ */
+export function rosterColors(ducks: Pick<Duck, "id">[]) {
+  const colors = new Map<string, string>([
+    ["mediator", hostColor],
+    ["guide", hostColor],
+  ]);
+  const taken = new Set<number>();
+  for (const duck of ducks) {
+    let slot = hash(duck.id) % palette.length;
+    for (let step = 0; step < palette.length && taken.has(slot); step++)
+      slot = (slot + 1) % palette.length;
+    taken.add(slot);
+    colors.set(duck.id, palette[slot]);
+  }
+  return colors;
+}
+
+/** Color for one speaker, including ducks no longer in the roster. */
+export function speakerColor(colors: Map<string, string>, id: string) {
+  return colors.get(id) ?? palette[hash(id) % palette.length];
 }

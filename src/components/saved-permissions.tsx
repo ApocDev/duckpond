@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { savedPermissions, revokePermission } from "../server/rooms.functions";
 
+/** Commands a duck may run without asking again, with a way to revoke each one. */
 export function SavedPermissions() {
   const [permissions, setPermissions] = useState<Awaited<ReturnType<typeof savedPermissions>>>([]);
   const [error, setError] = useState("");
@@ -23,29 +24,36 @@ export function SavedPermissions() {
     }
   }
   return (
-    <details className="saved-permissions">
-      <summary>Saved command permissions ({permissions.length})</summary>
-      <p>
-        Permissions apply to all ducks using that provider in the listed project. Revoking affects
-        future requests, not commands already running.
+    <section className="settings-section">
+      <h3>Always-allowed commands</h3>
+      <p className="field-hint">
+        Saved when you choose "Always allow in this project" on an approval. They apply to every
+        duck on that provider in that folder. Revoking affects future requests only.
       </p>
-      {error && <p role="alert">{error}</p>}
-      {!permissions.length && <p>No commands are always allowed.</p>}
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
+      {!permissions.length && <p className="muted">None yet.</p>}
       {permissions.map((permission) => (
         <div className="saved-permission" key={permission.id}>
-          <strong>{permission.provider === "codex" ? "Codex" : "Claude"}</strong>
-          <code>{permission.command}</code>
-          <small>{permission.cwd}</small>
+          <div>
+            <code>{permission.command}</code>
+            <small>
+              {permission.provider === "codex" ? "Codex" : "Claude"} · {permission.cwd}
+            </small>
+          </div>
           <button
             type="button"
             className="text-button"
             disabled={!!busy}
             onClick={() => revoke(permission.id)}
           >
-            {busy === permission.id ? "Revoking..." : "Revoke"}
+            {busy === permission.id ? "Revoking…" : "Revoke"}
           </button>
         </div>
       ))}
-    </details>
+    </section>
   );
 }

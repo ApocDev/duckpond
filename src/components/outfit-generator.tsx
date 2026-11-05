@@ -64,8 +64,8 @@ export function OutfitGenerator({
   }
   return (
     <div className="outfit-generator">
-      <label>
-        Describe an outfit
+      <label className="field">
+        <span>Draw a custom outfit</span>
         <input
           aria-label={`${duck.name} outfit description`}
           maxLength={1000}
@@ -74,23 +74,29 @@ export function OutfitGenerator({
           placeholder="Leave blank to match this duck's perspective"
         />
       </label>
-      <button
-        type="button"
-        className="suggest-duck-button"
-        disabled={starting || active}
-        onClick={() => void generate()}
-      >
-        {starting ? "Starting..." : active ? "Generating outfit..." : "Generate outfit"}
-      </button>
-      <p className="mention-handle">
-        Uses Codex image generation. You can close settings while it runs.
-      </p>
-      {error && <p role="alert">{error}</p>}
+      <div className="row">
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={starting || active}
+          onClick={() => void generate()}
+        >
+          {starting ? "Starting…" : active ? "Drawing…" : "Draw outfit"}
+        </button>
+        <span className="field-hint">
+          Uses Codex image generation. You can close this while it runs.
+        </span>
+      </div>
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
       {jobs
         .slice(-1)
         .filter((job) => job.status === "error")
         .map((job) => (
-          <p key={job.id} role="alert">
+          <p key={job.id} className="field-error" role="alert">
             {job.error}
           </p>
         ))}
@@ -105,7 +111,7 @@ export function OutfitGenerator({
                 <span>{job.description || "Based on this duck's perspective"}</span>
                 <button
                   type="button"
-                  className="suggest-duck-button"
+                  className="secondary-button"
                   aria-pressed={duck.avatar === avatar}
                   onClick={() => onUse(avatar)}
                 >
@@ -116,7 +122,7 @@ export function OutfitGenerator({
           })}
       </div>
       {jobs.some((job) => job.status === "complete") && (
-        <p className="mention-handle">Choose an outfit, then Save room to keep it.</p>
+        <p className="field-hint">Pick one, then Save to keep it.</p>
       )}
     </div>
   );

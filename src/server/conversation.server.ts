@@ -1,5 +1,6 @@
 import {
   makePrompt,
+  shortTitle,
   visibleMessages,
   selectDucks,
   duckAvatar,
@@ -59,7 +60,7 @@ export async function runConversation(
     phase: "conversation",
     createdAt: new Date().toISOString(),
   });
-  if (room.messages.length === 1) room.title = text.slice(0, 65);
+  if (room.messages.length === 1) room.title = shortTitle(text);
   persist(room);
   emitRoom();
   const initial = structuredClone(room.messages);
@@ -115,7 +116,7 @@ export async function runConversation(
         signal,
         (delta) => {
           message.text += delta;
-          if (streamText && phase !== "observer" && !"PASS".startsWith(message.text.trim()))
+          if (streamText && !"PASS".startsWith(message.text.trim()))
             emit({ type: "message", message: { ...message } });
         },
         (event) => {
@@ -156,7 +157,7 @@ export async function runConversation(
     const passed = message.status === "complete" && message.text.trim() === "PASS";
     if (passed) {
       message.text = "";
-      if (!requests.length) room.messages = room.messages.filter((item) => item.id !== message.id);
+      if (!requests.length) message.status = "passed";
       if (discussion && !discussion.state.passedDucks.includes(duck.id))
         discussion.state.passedDucks.push(duck.id);
     }
@@ -177,13 +178,5 @@ export async function runConversation(
   } else {
     const selected = selectDucks(room.ducks, text, target);
     await Promise.all(selected.map((duck) => speak(duck, initial, "conversation")));
-    if (room.observe && !signal.aborted) {
-      const history = structuredClone(room.messages);
-      await Promise.all(
-        room.ducks
-          .filter((duck) => !selected.some((item) => item.id === duck.id))
-          .map((duck) => speak(duck, history, "observer")),
-      );
-    }
   }
 }
