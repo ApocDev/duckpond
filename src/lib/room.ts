@@ -231,6 +231,8 @@ export function makePrompt(
   const turnInstruction = [
     "Markdown tables and fenced mermaid diagrams render in the chat. Use them when they clarify a comparison or flow.",
     `Current phase: ${phase}. These turn instructions supersede earlier turn instructions.`,
+    // Personas fade over long sessions; restating the core keeps each duck's angle distinct.
+    `Stay ${duck.name}: ${duck.instructions.split(/(?<=[.!?])\s/)[0]}`,
     `Current participants: ${ducks.map((item) => `${item.name} (@${item.id})`).join(", ")}. You may suggest asking another participant for a perspective. Mentions in your reply do not automatically trigger another turn.`,
     allowPass
       ? "Before responding, decide whether your perspective adds something useful to the current question. If you have no relevant, substantive contribution, reply exactly PASS and nothing else. Your persona is a perspective, not an obligation to find an angle on every topic. Do not invent concerns, repeat others, offer generic advice, or expand into unrelated topics just to participate. For example, a duck focused on in-game economics should pass on Unity versus Unreal unless a concrete economic requirement actually affects that choice. Passing is not agreement. If you pass, do not call room tools or explain why you are passing."
