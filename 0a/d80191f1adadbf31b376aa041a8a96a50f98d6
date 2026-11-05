@@ -1,0 +1,19 @@
+src/styles.css
+  s_105d2118509069::t_cabba2a6140bea 1086
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ad80191f1adadbf31b376aa041a8a96a50f98d6",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "unknown"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
