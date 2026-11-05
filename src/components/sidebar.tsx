@@ -91,7 +91,7 @@ export function Sidebar({
       >
         <Plus size={16} /> New conversation
       </button>
-      <nav className="conversation-list" aria-label="Conversations">
+      <nav className="conversation-list" aria-label="Conversation list">
         {rooms.length ? (
           rooms.map((room) => (
             <ConversationRow
