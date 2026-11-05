@@ -92,7 +92,7 @@ export function AddDucks({
               onAdd([fromPersona({ name: `Duck ${ducks.length + 1}`, instructions: "" }, ducks)])
             }
           >
-            <Plus size={15} /> Add a duck to write
+            <Plus size={15} /> Add blank duck
           </button>
         </div>
       )}
@@ -337,6 +337,7 @@ function Describe({
   );
 }
 
+/** Copies ducks from other conversations and ponds. Each persona shows once, with where it's from. */
 function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void }) {
   const [groups, setGroups] = useState<DuckGroup[]>();
   const [selected, setSelected] = useState<string[]>([]);
@@ -351,26 +352,33 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
       disposed = true;
     };
   }, []);
+  const persona = (duck: Duck) => `${duck.name}\n${duck.instructions}`;
+  const here = new Set(ducks.map(persona));
+  // One entry per persona, keyed by name and perspective, listing every place it appears.
+  const unique = new Map<string, { duck: Duck; sources: string[] }>();
+  for (const group of groups ?? [])
+    for (const duck of group.ducks) {
+      const entry = unique.get(persona(duck));
+      if (entry) entry.sources.push(group.title);
+      else unique.set(persona(duck), { duck, sources: [group.title] });
+    }
+  const available = [...unique.entries()].filter(([key]) => !here.has(key));
+  const present = unique.size - available.length;
   const query = search.trim().toLowerCase();
-  const matching = (groups ?? [])
-    .map((group) => ({
-      ...group,
-      ducks: group.title.toLowerCase().includes(query)
-        ? group.ducks
-        : group.ducks.filter((duck) => duck.name.toLowerCase().includes(query)),
-    }))
-    .filter((group) => group.ducks.length);
-  // Picks come from every group, so narrowing the search never drops a selection.
-  const picked = (groups ?? []).flatMap((group) =>
-    group.ducks.filter((duck) => selected.includes(`${group.id}/${duck.id}`)),
+  const matching = available.filter(
+    ([, { duck, sources }]) =>
+      !query ||
+      duck.name.toLowerCase().includes(query) ||
+      sources.some((source) => source.toLowerCase().includes(query)),
   );
-  const here = new Set(ducks.map((duck) => `${duck.name}\n${duck.instructions}`));
+  // Picks come from the whole list, so narrowing the search never drops a selection.
+  const picked = available.filter(([key]) => selected.includes(key)).map(([, { duck }]) => duck);
   return (
     <div className="add-ducks-body">
       <input
         className="search"
         value={search}
-        placeholder="Search ducks or conversations"
+        placeholder="Search ducks or where they're from"
         onChange={(event) => setSearch(event.target.value)}
       />
       {error && <p className="field-error">{error}</p>}
@@ -378,85 +386,59 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
         <p className="field-hint">Loading…</p>
       ) : !matching.length ? (
         <p className="field-hint">
-          {groups.length ? "No matching ducks." : "Ducks from other conversations appear here."}
+          {available.length
+            ? "No matching ducks."
+            : unique.size
+              ? "Every duck from your other conversations is already here."
+              : "Ducks from other conversations appear here."}
         </p>
       ) : (
         <div className="choice-list">
-          {matching.map((group) => {
-            const keys = group.ducks
-              .filter((duck) => !here.has(`${duck.name}\n${duck.instructions}`))
-              .map((duck) => `${group.id}/${duck.id}`);
-            const all = keys.every((key) => selected.includes(key));
-            return (
-              <div className="choice-group" key={group.id}>
-                <div className="choice-group-heading">
-                  <span>{group.title}</span>
-                  {!!keys.length && (
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() =>
-                        setSelected((current) =>
-                          all
-                            ? current.filter((key) => !keys.includes(key))
-                            : [...new Set([...current, ...keys])],
-                        )
-                      }
-                    >
-                      {all ? "Clear" : "Select all"}
-                    </button>
-                  )}
-                </div>
-                {group.ducks.map((duck) => {
-                  const key = `${group.id}/${duck.id}`;
-                  const present = here.has(`${duck.name}\n${duck.instructions}`);
-                  return (
-                    <label className={`choice ${present ? "present" : ""}`} key={key}>
-                      <input
-                        type="checkbox"
-                        disabled={present}
-                        checked={present || selected.includes(key)}
-                        onChange={(event) =>
-                          setSelected((current) =>
-                            event.target.checked
-                              ? [...current, key]
-                              : current.filter((item) => item !== key),
-                          )
-                        }
-                      />
-                      <DuckAvatar avatar={duckAvatar(duck)} small />
-                      <span>
-                        <strong>
-                          {duck.name}
-                          {present && <em className="tag">already here</em>}
-                        </strong>
-                        <small>
-                          {duck.provider === "claude" ? "Claude" : "Codex"} ·{" "}
-                          {modelLabel(duck.model, duck.reasoning)}
-                        </small>
-                        <small className="preview">
-                          {duck.instructions.split(/(?<=[.!?])\s/)[0]}
-                        </small>
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            );
-          })}
+          {matching.map(([key, { duck, sources }]) => (
+            <label className="choice" key={key}>
+              <input
+                type="checkbox"
+                checked={selected.includes(key)}
+                onChange={(event) =>
+                  setSelected((current) =>
+                    event.target.checked
+                      ? [...current, key]
+                      : current.filter((item) => item !== key),
+                  )
+                }
+              />
+              <DuckAvatar avatar={duckAvatar(duck)} small />
+              <span>
+                <strong>{duck.name}</strong>
+                <small className="preview">{duck.instructions.split(/(?<=[.!?])\s/)[0]}</small>
+                <small>
+                  {modelLabel(duck.model, duck.reasoning)} · from {sources[0]}
+                  {sources.length > 1 ? ` and ${sources.length - 1} more` : ""}
+                </small>
+              </span>
+            </label>
+          ))}
         </div>
       )}
-      <button
-        type="button"
-        className="secondary-button sticky-action"
-        disabled={!picked.length}
-        onClick={() => {
-          onAdd(combineDucks([...ducks, ...picked]).slice(ducks.length));
-          setSelected([]);
-        }}
-      >
-        <Plus size={15} /> Add {picked.length || ""} selected
-      </button>
+      {!!present && !!groups && (
+        <p className="field-hint">
+          {present} {present === 1 ? "duck is" : "ducks are"} already here and not listed.
+        </p>
+      )}
+      <div className="sticky-action">
+        <span>{picked.length ? `${picked.length} selected` : "Pick ducks to copy"}</span>
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={!picked.length}
+          onClick={() => {
+            onAdd(combineDucks([...ducks, ...picked]).slice(ducks.length));
+            setSelected([]);
+          }}
+        >
+          <Plus size={15} /> Add {picked.length || ""} selected
+        </button>
+      </div>
     </div>
   );
 }

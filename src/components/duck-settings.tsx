@@ -42,7 +42,6 @@ export function DuckSettings({
   const [confirming, setConfirming] = useState(false);
   const [pondName, setPondName] = useState(scope.pond?.name ?? "");
   const [removed, setRemoved] = useState<{ duck: Duck; index: number }>();
-  const [pondDefaults, setPondDefaults] = useState(false);
   const { catalogs, loading, refresh } = useModelCatalogs();
   const colors = useMemo(() => rosterColors(draft), [draft]);
   const roomId = scope.kind === "conversation" ? scope.roomId : undefined;
@@ -50,6 +49,10 @@ export function DuckSettings({
   const dirty =
     JSON.stringify(draft) !== JSON.stringify(ducks) ||
     (scope.kind === "pond" && pondName !== scope.pond.name);
+  // Whether this conversation's ducks match what its pond starts new conversations with.
+  const pondDucks = scope.kind === "conversation" ? scope.pond?.ducks : undefined;
+  const savedDiffers = !!pondDucks && personas(ducks) !== personas(pondDucks);
+  const draftDiffers = !!pondDucks && personas(draft) !== personas(pondDucks);
   function close() {
     if (dirty && !saving) setConfirming(true);
     else onClose();
@@ -58,17 +61,13 @@ export function DuckSettings({
     <Dialog
       title={scope.kind === "pond" ? `${scope.pond.name} settings` : "Ducks in this conversation"}
       description={
-        scope.kind === "pond" ? (
-          <>
-            <span className="tag">Defaults for {scope.pond.name}</span> New conversations in this
-            pond start with these ducks. Existing conversations keep their own.
-          </>
-        ) : (
-          <>
-            <span className="tag">This conversation only</span> New conversations keep starting with
-            the {scope.pond ? `${scope.pond.name} ` : ""}defaults.
-          </>
-        )
+        scope.kind === "pond"
+          ? "New conversations in this pond start with these ducks. Existing conversations keep their own."
+          : !scope.pond
+            ? "Changes here affect only this conversation."
+            : savedDiffers
+              ? `These ducks differ from the ${scope.pond.name} defaults. Changes here affect only this conversation.`
+              : `Same as the ${scope.pond.name} defaults. Changes here affect only this conversation.`
       }
       busy={saving}
       wide
@@ -88,33 +87,40 @@ export function DuckSettings({
         ) : (
           <>
             {readOnly ? (
-              <span className="footer-note">Stop the replies to change ducks.</span>
+              <span className="footer-note">View only until the replies finish.</span>
             ) : (
-              scope.kind === "conversation" &&
-              scope.pond && (
-                <label className="check-field">
-                  <input
-                    type="checkbox"
-                    checked={pondDefaults}
-                    onChange={(event) => setPondDefaults(event.target.checked)}
-                  />
-                  Also make these the {scope.pond.name} defaults
-                </label>
-              )
+              dirty && <span className="footer-note">Unsaved changes</span>
             )}
-            {dirty && !readOnly && <span className="footer-note">Unsaved changes</span>}
             <span className="spacer" />
             <button type="button" className="text-button" disabled={saving} onClick={close}>
-              Cancel
+              {readOnly ? "Close" : "Cancel"}
             </button>
-            <button
-              type="submit"
-              form="duck-settings"
-              className="primary-button"
-              disabled={saving || readOnly || !(dirty || pondDefaults)}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
+            {!readOnly && scope.kind === "conversation" && scope.pond && (
+              <button
+                type="submit"
+                form="duck-settings"
+                value="defaults"
+                className="secondary-button"
+                title={`Saves these ducks here and makes them the starting ducks for new ${scope.pond.name} conversations`}
+                disabled={saving || !draftDiffers}
+              >
+                Save as pond defaults too
+              </button>
+            )}
+            {!readOnly && (
+              <button
+                type="submit"
+                form="duck-settings"
+                className="primary-button"
+                disabled={saving || !dirty}
+              >
+                {saving
+                  ? "Saving…"
+                  : scope.kind === "pond"
+                    ? "Save pond defaults"
+                    : "Save for this conversation"}
+              </button>
+            )}
           </>
         )
       }
@@ -125,6 +131,10 @@ export function DuckSettings({
         onSubmit={(event) => {
           event.preventDefault();
           if (readOnly) return;
+          const submitter =
+            event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
+          const pondDefaults =
+            submitter instanceof HTMLButtonElement && submitter.value === "defaults";
           void onSave({
             ducks: draft,
             ...(scope.kind === "pond" ? { pondName } : { pondDefaults }),
@@ -159,11 +169,19 @@ export function DuckSettings({
             type="button"
             className="secondary-button compact"
             aria-expanded={adding}
+            disabled={readOnly}
             onClick={() => setAdding(!adding)}
           >
-            {adding ? <X size={15} /> : <Plus size={15} />} {adding ? "Close" : "Add a duck"}
+            {adding ? <X size={15} /> : <Plus size={15} />} {adding ? "Done" : "Add a duck"}
           </button>
         </div>
+        <p className="host-line">
+          <DuckAvatar avatar="wizard" small color={hostColor} />
+          <span>
+            Plus <strong>Mediator</strong>, who hosts every conversation and picks who answers ·{" "}
+            {modelLabel(guide.model, guide.reasoning)}
+          </span>
+        </p>
         {adding && (
           <AddDucks
             ducks={draft}
@@ -184,7 +202,15 @@ export function DuckSettings({
           .filter((catalog) => catalog.error)
           .map((catalog) => (
             <p key={catalog.provider} className="banner error" role="status">
-              {catalog.error}
+              <span>{catalog.error}</span>
+              <button
+                type="button"
+                className="text-button"
+                disabled={loading}
+                onClick={() => void refresh(true)}
+              >
+                <RefreshCw size={13} /> {loading ? "Retrying…" : "Retry"}
+              </button>
             </p>
           ))}
         {removed && (
@@ -203,17 +229,6 @@ export function DuckSettings({
           </p>
         )}
         <div className="duck-list">
-          <div className="host-row">
-            <DuckAvatar avatar="wizard" />
-            <span>
-              <strong style={{ color: hostColor }}>Mediator</strong>
-              <small>
-                Hosts every conversation and picks who answers ·{" "}
-                {modelLabel(guide.model, guide.reasoning)}
-              </small>
-            </span>
-            <span className="tag">Always here</span>
-          </div>
           {draft.map((duck, index) => (
             <DuckEditor
               key={duck.id}
@@ -223,6 +238,7 @@ export function DuckSettings({
               catalog={catalogs[duck.provider]}
               open={open === duck.id}
               roomId={roomId}
+              readOnly={readOnly}
               canRemove={draft.length > 1}
               onToggle={() => setOpen(open === duck.id ? undefined : duck.id)}
               onChange={(update) =>
@@ -237,18 +253,23 @@ export function DuckSettings({
             />
           ))}
         </div>
-        <button
-          type="button"
-          className="text-button quiet-action"
-          disabled={loading}
-          onClick={() => void refresh(true)}
-        >
-          <RefreshCw size={13} />{" "}
-          {loading ? "Loading models…" : "Missing a model? Refresh the list"}
-        </button>
         {roomId && <AgentContext roomId={roomId} />}
       </form>
     </Dialog>
+  );
+}
+
+/** Compares rosters by what each duck is, ignoring ids. */
+function personas(ducks: Duck[]) {
+  return JSON.stringify(
+    ducks.map(({ name, instructions, provider, model, reasoning, avatar }) => [
+      name,
+      instructions,
+      provider,
+      model,
+      reasoning,
+      avatar,
+    ]),
   );
 }
 
@@ -264,7 +285,7 @@ function useModelCatalogs() {
           (): ModelCatalog => ({
             provider,
             models: [],
-            error: `Couldn't reach ${provider === "claude" ? "Claude" : "Codex"}. Try refreshing models.`,
+            error: `Couldn't load ${provider === "claude" ? "Claude" : "Codex"} models.`,
           }),
         );
         setCatalogs((current) => ({ ...current, [provider]: catalog }));

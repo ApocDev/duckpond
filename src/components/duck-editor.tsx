@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ComponentProps } from "react";
+import { useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { avatarSchema, duckAvatar, duckSchema, type Duck } from "../lib/room";
 import { findModel, modelLabel, type ModelCatalog } from "../lib/models";
@@ -15,6 +15,7 @@ export function DuckEditor({
   catalog,
   open,
   roomId,
+  readOnly,
   canRemove,
   onToggle,
   onChange,
@@ -27,12 +28,16 @@ export function DuckEditor({
   open: boolean;
   /** Outfit generation needs a saved conversation. */
   roomId?: string;
+  /** Lets you read the duck but not change it, while replies run. */
+  readOnly: boolean;
   canRemove: boolean;
   onToggle: () => void;
   onChange: (update: Partial<Duck>) => void;
   onRemove: () => void;
 }) {
   const model = findModel(catalog?.models ?? [], duck.model);
+  // A duck added without a perspective starts with its model settings showing.
+  const [newDuck] = useState(() => !duck.instructions);
   const provider = duck.provider === "claude" ? "Claude" : "Codex";
   return (
     <section className={`duck-editor ${open ? "open" : ""}`} onInvalid={() => !open && onToggle()}>
@@ -55,7 +60,12 @@ export function DuckEditor({
         </span>
         <ChevronDown size={16} />
       </button>
-      <div className="duck-editor-fields" id={`edit-${duck.id}`} hidden={!open}>
+      <fieldset
+        className="duck-editor-fields"
+        id={`edit-${duck.id}`}
+        hidden={!open}
+        disabled={readOnly}
+      >
         <label className="field">
           <span>Name</span>
           <input
@@ -76,70 +86,81 @@ export function DuckEditor({
           />
           <small>What this duck cares about, how it talks, and when it should stay quiet.</small>
         </label>
-        <div className="field-grid model-fields">
-          <div className="field">
-            <span>Provider</span>
-            <Select
-              label="Provider"
-              value={duck.provider}
-              options={[
-                { value: "claude", label: "Claude" },
-                { value: "codex", label: "Codex" },
-              ]}
-              onChange={(value) =>
-                onChange({
-                  provider: duckSchema.shape.provider.parse(value),
-                  model: "",
-                  reasoning: "",
-                })
-              }
-            />
-          </div>
-          <div className="field">
+        <details className="model-details" open={newDuck}>
+          <summary>
             <span>Model</span>
-            <Select
-              label="Model"
-              disabled={!catalog || !!catalog.error}
-              value={model?.id ?? duck.model}
-              options={[
-                { value: "", label: "Account default" },
-                ...(duck.model && !model
-                  ? [{ value: duck.model, label: `${duck.model} (saved)` }]
-                  : []),
-                ...(catalog?.models.map((item) => ({ value: item.id, label: item.name })) ?? []),
-              ]}
-              onChange={(value) => onChange({ model: value, reasoning: "" })}
-            />
+            <em>
+              {provider} · {modelLabel(duck.model, duck.reasoning, model?.name)}
+            </em>
+          </summary>
+          <div className="field-grid model-fields">
+            <div className="field">
+              <span>Provider</span>
+              <Select
+                label="Provider"
+                value={duck.provider}
+                options={[
+                  { value: "claude", label: "Claude" },
+                  { value: "codex", label: "Codex" },
+                ]}
+                onChange={(value) =>
+                  onChange({
+                    provider: duckSchema.shape.provider.parse(value),
+                    model: "",
+                    reasoning: "",
+                  })
+                }
+              />
+            </div>
+            <div className="field">
+              <span>Model</span>
+              <Select
+                label="Model"
+                disabled={!catalog || !!catalog.error}
+                value={model?.id ?? duck.model}
+                options={[
+                  { value: "", label: "Account default" },
+                  ...(duck.model && !model
+                    ? [{ value: duck.model, label: `${duck.model} (saved)` }]
+                    : []),
+                  ...(catalog?.models.map((item) => ({ value: item.id, label: item.name })) ?? []),
+                ]}
+                onChange={(value) => onChange({ model: value, reasoning: "" })}
+              />
+            </div>
+            <div className="field">
+              <span>Reasoning</span>
+              <Select
+                label="Reasoning"
+                disabled={!model?.reasoning.length}
+                value={duck.reasoning ?? ""}
+                options={[
+                  {
+                    value: "",
+                    label: model?.defaultReasoning
+                      ? `Default (${model.defaultReasoning})`
+                      : "Default",
+                  },
+                  ...(duck.reasoning && !model?.reasoning.includes(duck.reasoning)
+                    ? [{ value: duck.reasoning, label: `${duck.reasoning} (saved)` }]
+                    : []),
+                  // The default level already has its own entry, unless this duck picked it.
+                  ...(model?.reasoning
+                    .filter((level) => level !== model.defaultReasoning || level === duck.reasoning)
+                    .map((level) => ({
+                      value: level,
+                      label: level.charAt(0).toUpperCase() + level.slice(1),
+                    })) ?? []),
+                ]}
+                onChange={(value) => onChange({ reasoning: value })}
+              />
+            </div>
           </div>
-          <div className="field">
-            <span>Reasoning</span>
-            <Select
-              label="Reasoning"
-              disabled={!model?.reasoning.length}
-              value={duck.reasoning ?? ""}
-              options={[
-                {
-                  value: "",
-                  label: model?.defaultReasoning
-                    ? `Default (${model.defaultReasoning})`
-                    : "Default",
-                },
-                ...(duck.reasoning && !model?.reasoning.includes(duck.reasoning)
-                  ? [{ value: duck.reasoning, label: `${duck.reasoning} (saved)` }]
-                  : []),
-                ...(model?.reasoning.map((level) => ({
-                  value: level,
-                  label: level.charAt(0).toUpperCase() + level.slice(1),
-                })) ?? []),
-              ]}
-              onChange={(value) => onChange({ reasoning: value })}
-            />
-          </div>
-        </div>
-        <p className="field-hint">
-          {model?.description ? `${model.description} ` : ""}Higher reasoning is slower and more
-          thorough.
-        </p>
+          <p className="field-hint">
+            {model?.description ? `${model.description} ` : ""}Higher reasoning is slower and more
+            thorough.
+          </p>
+        </details>
         <div className="field">
           <span>Outfit</span>
           <div className="outfit-options" role="group" aria-label={`${duck.name} outfit`}>
@@ -182,7 +203,7 @@ export function DuckEditor({
             <Trash2 size={14} /> Remove {duck.name}
           </button>
         </div>
-      </div>
+      </fieldset>
     </section>
   );
 }

@@ -1,17 +1,24 @@
 import { useRef, useState } from "react";
 import Markdown from "react-markdown";
-import { NotebookPen } from "lucide-react";
+import { ListChecks, NotebookPen } from "lucide-react";
 import { useDismiss } from "./use-dismiss";
 
-/** Header button for the conversation's shared notes, which every duck reads each turn. */
+/**
+ * Header button for the conversation's shared notes, which every duck reads each turn. It also
+ * holds Summarize: Mediator posts a recap you can add here with one click.
+ */
 export function RoomNotes({
   notes,
   disabled,
   onSave,
+  canSummarize,
+  onSummarize,
 }: {
   notes: string;
   disabled: boolean;
   onSave: (notes: string) => Promise<void>;
+  canSummarize: boolean;
+  onSummarize: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
@@ -44,9 +51,9 @@ export function RoomNotes({
         aria-label="Shared notes"
         aria-expanded={open}
         onClick={() => {
-          // With nothing to read yet, open straight into editing.
-          if (!open && !notes && !disabled) setDraft("");
-          if (open) setDraft(null);
+          // An empty conversation opens straight into editing. Closing keeps unsaved edits.
+          if (!open && !notes && !disabled && !canSummarize && draft === null) setDraft("");
+          if (open && (draft === null || draft === notes)) setDraft(null);
           setOpen(!open);
         }}
       >
@@ -71,9 +78,28 @@ export function RoomNotes({
           </div>
           <p className="popover-hint">Every duck reads these before it replies.</p>
           {draft === null ? (
-            <div className="shared-notes">
-              {notes ? <Markdown>{notes}</Markdown> : <p className="muted">No notes yet.</p>}
-            </div>
+            <>
+              <div className="shared-notes">
+                {notes ? <Markdown>{notes}</Markdown> : <p className="muted">No notes yet.</p>}
+              </div>
+              <div className="notes-summary">
+                <button
+                  type="button"
+                  className="secondary-button compact"
+                  disabled={!canSummarize}
+                  onClick={() => {
+                    setOpen(false);
+                    onSummarize();
+                  }}
+                >
+                  <ListChecks size={15} /> Summarize so far
+                </button>
+                <small>
+                  Mediator posts a recap of decisions and open questions in the conversation. Its
+                  Add to notes button keeps it here.
+                </small>
+              </div>
+            </>
           ) : (
             <>
               <textarea

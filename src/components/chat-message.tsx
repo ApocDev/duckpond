@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, memo, useState } from "react";
 import { MessageMarkdown } from "./message-markdown";
-import { ChevronDown, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, NotebookPen, RotateCcw } from "lucide-react";
 import { duckAvatar, type Duck, type Message } from "../lib/room";
 import { groupMessages } from "../lib/message-groups";
 import { mentionHandle } from "../lib/mentions";
@@ -12,16 +12,24 @@ const DuckNames = createContext<Record<string, string>>({});
 const DuckColors = createContext(new Map<string, string>());
 /** Re-asks one duck after its reply failed; the host decides how. */
 const Retry = createContext<((duckId: string) => void) | undefined>(undefined);
+/** The conversation's notes, so Mediator's reports can be added to them. */
+const Notes = createContext<{ notes: string; add?: (text: string) => Promise<void> }>({
+  notes: "",
+});
 
 /** The transcript: your messages, single replies, and grouped reply rounds. */
 export const ConversationMessages = memo(function ConversationMessages({
   messages,
   ducks,
+  notes,
   onRetry,
+  onAddToNotes,
 }: {
   messages: Message[];
   ducks: Duck[];
+  notes: string;
   onRetry?: (duckId: string) => void;
+  onAddToNotes: (text: string) => Promise<void>;
 }) {
   const entries = messages
     .filter((message) => message.duckId)
@@ -31,20 +39,23 @@ export const ConversationMessages = memo(function ConversationMessages({
   const signature = JSON.stringify(Object.fromEntries(entries));
   const names = useMemo<Record<string, string>>(() => JSON.parse(signature), [signature]);
   const colors = useMemo(() => rosterColors(ducks), [ducks]);
+  const notesValue = useMemo(() => ({ notes, add: onAddToNotes }), [notes, onAddToNotes]);
   return (
-    <Retry.Provider value={onRetry}>
-      <DuckColors.Provider value={colors}>
-        <DuckNames.Provider value={names}>
-          {groupMessages(messages).map((group) =>
-            group.kind === "message" ? (
-              <ChatMessage key={group.id} message={group.message} />
-            ) : (
-              <ReplyRound key={group.id} messages={group.messages} />
-            ),
-          )}
-        </DuckNames.Provider>
-      </DuckColors.Provider>
-    </Retry.Provider>
+    <Notes.Provider value={notesValue}>
+      <Retry.Provider value={onRetry}>
+        <DuckColors.Provider value={colors}>
+          <DuckNames.Provider value={names}>
+            {groupMessages(messages).map((group) =>
+              group.kind === "message" ? (
+                <ChatMessage key={group.id} message={group.message} />
+              ) : (
+                <ReplyRound key={group.id} messages={group.messages} />
+              ),
+            )}
+          </DuckNames.Provider>
+        </DuckColors.Provider>
+      </Retry.Provider>
+    </Notes.Provider>
   );
 });
 
@@ -277,9 +288,45 @@ const ChatMessage = memo(function ChatMessage({ message }: { message: Message })
     >
       <MessageHeading message={message} color={speakerColor(colors, message.duckId)} />
       <MessageText message={message} />
+      {message.phase === "guide" && message.status === "complete" && !!message.text && (
+        <AddToNotes text={message.text} />
+      )}
     </article>
   );
 });
+
+/** Copies a Mediator report into the shared notes, so later turns keep its decisions. */
+function AddToNotes({ text }: { text: string }) {
+  const { notes, add } = useContext(Notes);
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (!add) return null;
+  if (notes.includes(text.trim()))
+    return (
+      <p className="message-action done">
+        <Check size={14} /> In notes
+      </p>
+    );
+  return (
+    <p className="message-action">
+      <button
+        type="button"
+        className="text-button"
+        disabled={saving}
+        onClick={() => {
+          setSaving(true);
+          setFailed(false);
+          add(text.trim())
+            .catch(() => setFailed(true))
+            .finally(() => setSaving(false));
+        }}
+      >
+        <NotebookPen size={14} /> {saving ? "Adding…" : "Add to notes"}
+      </button>
+      {failed && <span className="message-meta error">Couldn't save. Try again.</span>}
+    </p>
+  );
+}
 
 function MessageText({ message }: { message: Message }) {
   const names = useContext(DuckNames);

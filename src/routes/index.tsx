@@ -3,7 +3,7 @@ import { createFileRoute, replaceEqualDeep } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ListChecks, Menu, Pencil, Square, X } from "lucide-react";
+import { ArrowUp, Menu, Pencil, Square, X } from "lucide-react";
 import { AppSettings } from "../components/app-settings";
 import { DeleteDialog, MoveDialog, RenameDialog } from "../components/conversation-dialogs";
 import { DuckBar, type Target } from "../components/duck-bar";
@@ -74,7 +74,7 @@ function resolveTarget(stored: string | undefined, ducks: Duck[]): Target {
 
 /**
  * The composer's line while a turn runs: what phase it's in, who is working, and for how long,
- * e.g. "Mediator is choosing who answers · 0:42" or "Skeptic and Explorer are replying · 1:10".
+ * e.g. "Mediator is choosing who answers  0:42" or "Skeptic and Explorer are replying  1:10".
  */
 function WorkingLine({ thinking }: { thinking: Room["messages"] }) {
   const now = useNow();
@@ -90,10 +90,14 @@ function WorkingLine({ thinking }: { thinking: Room["messages"] }) {
       : names.length === 1
         ? `${names[0]} is ${ducks[0].tools?.at(-1) ?? "thinking"}`
         : `${names.slice(0, -1).join(", ")} and ${names.at(-1)} are replying`;
+  // The timer sits apart from the phase so a narrow screen trims the words, never the time.
   return (
-    <span title={names.join(", ") || undefined}>
-      {phase} · {clock(Math.floor((now - started) / 1000))}
-    </span>
+    <>
+      <span className="phase" title={names.join(", ") || undefined}>
+        {phase}
+      </span>
+      <span className="elapsed">{clock(Math.floor((now - started) / 1000))}</span>
+    </>
   );
 }
 
@@ -140,8 +144,11 @@ function Home() {
   const [status, setStatus] = useState<Awaited<ReturnType<typeof connections>>>([]);
   const [remoteActive, setRemoteActive] = useState(initial.active);
   const [needsSync, setNeedsSync] = useState(false);
-  const [approvals, setApprovals] = useState<Approval[]>(
-    initial.active.flatMap((item) => item.approvals),
+  // Every pending approval, tagged with its conversation. Only the open one shows its cards.
+  const [approvals, setApprovals] = useState<{ roomId: string; approval: Approval }[]>(
+    initial.active.flatMap((item) =>
+      item.approvals.map((approval) => ({ roomId: item.roomId, approval })),
+    ),
   );
   // The conversation whose reply stream this tab is reading, if any.
   const [streaming, setStreaming] = useState<string | null>(null);
@@ -203,9 +210,12 @@ function Home() {
       const event = part.data;
       if (event.type === "room") receiveRoom(event.room);
       if (event.type === "error") setError(event.message);
-      if (event.type === "approval") setApprovals((current) => [...current, event.approval]);
+      if (event.type === "approval" && streamingRef.current) {
+        const roomId = streamingRef.current;
+        setApprovals((current) => [...current, { roomId, approval: event.approval }]);
+      }
       if (event.type === "resolved")
-        setApprovals((current) => current.filter((item) => item.id !== event.id));
+        setApprovals((current) => current.filter((item) => item.approval.id !== event.id));
       if (event.type === "message")
         setRooms((current) =>
           current.map((item) =>
@@ -234,6 +244,33 @@ function Home() {
     ...(localBusy && streaming ? [streaming] : []),
   ]);
   const busy = needsSync || (!!selected && working.has(selected));
+  const waiting = new Set(approvals.map((item) => item.roomId));
+  const roomApprovals = approvals
+    .filter((item) => item.roomId === selected)
+    .map((item) => item.approval);
+
+  // The tab title tells a hidden tab's owner that a duck is waiting on them or replies finished.
+  const [ready, setReady] = useState(false);
+  const workingKey = [...working].sort().join();
+  const previousWorking = useRef(workingKey);
+  useEffect(() => {
+    const now = new Set(workingKey.split(",").filter(Boolean));
+    const finished = previousWorking.current.split(",").some((id) => id && !now.has(id));
+    previousWorking.current = workingKey;
+    if (finished && document.visibilityState === "hidden") setReady(true);
+  }, [workingKey]);
+  useEffect(() => {
+    const clear = () => document.visibilityState === "visible" && setReady(false);
+    document.addEventListener("visibilitychange", clear);
+    return () => document.removeEventListener("visibilitychange", clear);
+  }, []);
+  useEffect(() => {
+    document.title = waiting.size
+      ? "Waiting for you · Duckpond"
+      : ready
+        ? "Replies ready · Duckpond"
+        : "Duckpond";
+  }, [waiting.size, ready]);
   /** Only the busy conversation's composer and roster lock; navigation never does. */
   const composerLocked = busy || saving || dictating;
 
@@ -251,7 +288,9 @@ function Home() {
         setPonds((current) => replaceEqualDeep(current, value.ponds));
         setRemoteActive(value.active);
         setApprovals(
-          value.active.filter((item) => item.roomId === selected).flatMap((item) => item.approvals),
+          value.active.flatMap((item) =>
+            item.approvals.map((approval) => ({ roomId: item.roomId, approval })),
+          ),
         );
         const pending = submission.current;
         if (pending) {
@@ -442,9 +481,6 @@ function Home() {
       submission.current = { roomId: active.id, messageId, text, restoreDraft: kind !== "summary" };
       if (kind !== "summary") {
         setDrafts((current) => ({ ...current, [key]: "", [active.id]: "" }));
-        // "Each separately" applies to one message; the next goes back to Mediator.
-        if (target === "everyone")
-          setTargets((current) => ({ ...current, [key]: "mediator", [active.id]: "mediator" }));
         const focused = document.activeElement;
         if (focused instanceof HTMLElement && focused.closest(".composer")) focused.blur();
       }
@@ -495,8 +531,8 @@ function Home() {
   }
   const statusLine = needsSync ? (
     "Reconnecting…"
-  ) : approvals.length ? (
-    `${approvals[0].duck} is waiting for your answer above.`
+  ) : roomApprovals.length ? (
+    `${roomApprovals[0].duck} is waiting for your answer above.`
   ) : busy ? (
     thinking.length ? (
       <WorkingLine thinking={thinking} />
@@ -506,10 +542,17 @@ function Home() {
   ) : target === "mediator" ? (
     "Mediator brings in the ducks who can help, lets them push back, and reports back."
   ) : target === "everyone" ? (
-    "Every duck answers on its own, then Mediator sums up. Just for this message."
+    "Every duck answers without seeing the others, then Mediator sums up."
   ) : (
     `Only ${targetDuck?.name} replies. Type @ to bring in another duck too.`
   );
+  const offline = (["claude", "codex"] as const)
+    .filter(
+      (provider) =>
+        ducks.some((duck) => duck.provider === provider) &&
+        status.some((item) => item.provider === provider && !item.connected),
+    )
+    .map((provider) => (provider === "claude" ? "Claude" : "Codex"));
   const placeholder =
     target === "mediator"
       ? "Ask the group…"
@@ -525,6 +568,7 @@ function Home() {
         rooms={pondRooms}
         selected={selected}
         working={working}
+        waiting={waiting}
         locked={saving || dictating || !preferencesLoaded}
         status={status}
         open={sidebar}
@@ -576,24 +620,13 @@ function Home() {
               {pond?.name ?? "General"} · {ducks.length} {ducks.length === 1 ? "duck" : "ducks"}
             </span>
           </div>
-          {!!room?.messages.length && (
-            <button
-              type="button"
-              className="header-action"
-              aria-label="Summarize"
-              disabled={composerLocked}
-              title="Mediator recaps where the conversation landed, what's still disagreed, and the one question worth answering next. Doesn't change who you're talking to."
-              onClick={() => void send("summary")}
-            >
-              <ListChecks size={16} />
-              <span>Summarize</span>
-            </button>
-          )}
           <RoomNotes
             key={room?.id ?? newKey}
             notes={room?.notes ?? ""}
             disabled={saving || dictating}
             onSave={saveNotes}
+            canSummarize={!!room?.messages.length && !composerLocked}
+            onSummarize={() => void send("summary")}
           />
         </header>
         <Transcript key={selected} messages={room?.messages}>
@@ -602,7 +635,11 @@ function Home() {
               <ConversationMessages
                 messages={room.messages}
                 ducks={room.ducks}
+                notes={room.notes}
                 onRetry={busy ? undefined : retry}
+                onAddToNotes={(text) =>
+                  saveNotes(room.notes.trim() ? `${room.notes.trim()}\n\n${text}` : text)
+                }
               />
             </div>
           ) : (
@@ -623,8 +660,17 @@ function Home() {
                 </li>
               </ul>
               <p className="muted">
-                A duck with nothing useful to add says so instead of padding its reply.
+                This conversation gets its own copy of the {pond ? pond.name : "starting"} ducks, so
+                changing them under Ducks leaves other conversations alone. A duck with nothing
+                useful to add says so instead of padding its reply.
               </p>
+              {!!offline.length && (
+                <p className="banner error" role="status">
+                  {offline.join(" and ")} {offline.length === 1 ? "isn't" : "aren't"} signed in, so
+                  ducks that use {offline.length === 1 ? "it" : "them"} can't reply. Open Settings
+                  to see how to sign in.
+                </p>
+              )}
               <div className="suggestions">
                 {prompts.map((prompt) => (
                   <button key={prompt} type="button" onClick={() => setInput(prompt)}>
@@ -644,7 +690,7 @@ function Home() {
               </button>
             </div>
           )}
-          {approvals.map((approval) => (
+          {roomApprovals.map((approval) => (
             <ApprovalCard key={approval.id} approval={approval} />
           ))}
           <DuckBar

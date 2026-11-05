@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { MoreHorizontal, Plus, Search, Settings } from "lucide-react";
+import { MoreHorizontal, Plus, Search, Settings, Settings2 } from "lucide-react";
 import type { Room } from "../lib/room";
 import type { connections } from "../server/rooms.functions";
 import { Select } from "./select";
@@ -7,7 +7,6 @@ import { useDismiss } from "./use-dismiss";
 
 type Connection = Awaited<ReturnType<typeof connections>>[number];
 const newPond = "__new";
-const pondSettings = "__settings";
 
 /** Pond picker, conversation list, and provider status. */
 export function Sidebar({
@@ -16,6 +15,7 @@ export function Sidebar({
   rooms,
   selected,
   working,
+  waiting,
   locked,
   status,
   open,
@@ -35,6 +35,8 @@ export function Sidebar({
   selected: string | null;
   /** Conversations with a turn running; they get a "replying" dot. */
   working: Set<string>;
+  /** Conversations where a duck is waiting for your answer; they get a "needs you" tag. */
+  waiting: Set<string>;
   /** Switching is blocked only while a save or dictation runs. */
   locked: boolean;
   status: Connection[];
@@ -74,30 +76,27 @@ export function Sidebar({
               label: item.error ? `${item.name} (unavailable)` : item.name,
               detail: item.workspace,
             })),
-            ...(pond && !pond.error
-              ? [
-                  {
-                    value: pondSettings,
-                    label: `${pond.name} settings…`,
-                    detail: "Name and default ducks",
-                    separated: true,
-                  },
-                ]
-              : []),
-            { value: newPond, label: "New pond…", separated: !pond || !!pond.error },
+            { value: newPond, label: "New pond…", separated: true },
           ]}
-          onChange={(value) =>
-            value === newPond
-              ? onNewPond()
-              : value === pondSettings
-                ? onPondSettings()
-                : onPond(value || null)
-          }
+          onChange={(value) => (value === newPond ? onNewPond() : onPond(value || null))}
         />
-        <small className="pond-path" title={pond?.workspace}>
-          {/* bdi keeps the path's own order while the ellipsis trims its start. */}
-          <bdi>{pond ? pond.workspace : "No project folder"}</bdi>
-        </small>
+        <div className="pond-meta">
+          <small className="pond-path" title={pond?.workspace}>
+            {/* bdi keeps the path's own order while the ellipsis trims its start. */}
+            <bdi>{pond ? pond.workspace : "No project folder"}</bdi>
+          </small>
+          {pond && !pond.error && (
+            <button
+              type="button"
+              className="text-button"
+              disabled={locked}
+              title={`${pond.name}: name and the ducks new conversations start with`}
+              onClick={onPondSettings}
+            >
+              <Settings2 size={13} /> Pond settings
+            </button>
+          )}
+        </div>
         {pond?.error && <p className="field-error">{pond.error}</p>}
       </div>
       <button
@@ -127,6 +126,7 @@ export function Sidebar({
               room={room}
               selected={room.id === selected}
               working={working.has(room.id)}
+              waiting={waiting.has(room.id)}
               locked={locked}
               onSelect={() => onSelect(room.id)}
               onRename={() => onRename(room)}
@@ -172,6 +172,7 @@ function ConversationRow({
   room,
   selected,
   working,
+  waiting,
   locked,
   onSelect,
   onRename,
@@ -181,6 +182,7 @@ function ConversationRow({
   room: Room;
   selected: boolean;
   working: boolean;
+  waiting: boolean;
   locked: boolean;
   onSelect: () => void;
   onRename: () => void;
@@ -201,7 +203,13 @@ function ConversationRow({
         onClick={onSelect}
       >
         <span>{room.title}</span>
-        {working && <i className="working-dot" aria-label="replying" title="Replying" />}
+        {waiting ? (
+          <em className="waiting-tag" title="A duck is waiting for your answer">
+            needs you
+          </em>
+        ) : (
+          working && <i className="working-dot" aria-label="replying" title="Replying" />
+        )}
       </button>
       <button
         type="button"
