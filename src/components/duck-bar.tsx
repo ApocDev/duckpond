@@ -109,7 +109,7 @@ export function DuckBar({
         wrapperClassName="target-picker"
         pressed
         groups={[
-          { label: "How to ask", choices: modes },
+          { label: "Group", choices: modes },
           { label: "One duck", choices: duckChoices },
         ]}
         current={current}

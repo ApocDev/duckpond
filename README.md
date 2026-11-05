@@ -55,7 +55,7 @@ The **To** row above the message box picks who answers: **Mediator**, **Each sep
 
 - **Mediator** (the default when a conversation has more than one duck, and always available) reads your message, answers clarifications itself, or brings in the ducks who can help. They can push back on each other, and Mediator then reports the recommendation, remaining disagreements, and at most one question for you.
 - **Each separately** sends your message to every duck at once. Nobody sees the others' answers while writing, then Mediator sums up.
-- **A duck** gets your message directly. Type `@` to bring another duck into the same message; the selected duck still replies.
+- **A duck** gets your message directly. Type `@` to bring another duck into the same message; the selected duck still replies, and the line under the box lists everyone who will.
 - **Stop** cancels the turn's provider calls and pending approvals. Completed and partial messages stay saved.
 
 Click the conversation's title to rename it.
@@ -74,7 +74,7 @@ A duck that has nothing relevant to add replies `PASS`. The transcript shows it 
 
 ### Ducks
 
-**Ducks** at the end of the To row opens the conversation's duck list. It says whether the list matches the pond's defaults. Mediator hosts every conversation and isn't part of the list. Click a duck to edit its name, model, perspective, and outfit, or to remove it. Long perspectives start capped; **Show all** expands them. **Save for this conversation** changes only this conversation; earlier messages stay as they are. **Save as pond defaults too** also makes the list the pond's starting ducks. Closing with unsaved changes asks before discarding them. While replies run, the list is view-only.
+**Ducks** at the end of the To row opens the conversation's duck list. It says whether the list matches the pond's defaults. Mediator hosts every conversation and isn't part of the list. Click a duck to edit its name, model, perspective, and outfit, or to remove it. Long perspectives start capped; **Show all** expands them. **Save** changes only this conversation; earlier messages stay as they are. Check **Also start new <pond> conversations with these ducks** to save the list as the pond's starting ducks too. Closing with unsaved changes asks before discarding them. While replies run, the list is view-only.
 
 **Add a duck** at the top of the list has four options:
 

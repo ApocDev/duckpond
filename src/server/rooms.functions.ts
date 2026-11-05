@@ -35,7 +35,7 @@ export const loadRooms = createServerFn({ method: "GET" })
             ? { ...message, status: "stopped" as const }
             : message.status === "thinking" &&
                 (data?.streamText !== true || "PASS".startsWith(message.text.trim()))
-              ? { ...message, text: "" }
+              ? { ...message, text: "", written: message.text.length }
               : message,
         ),
       };

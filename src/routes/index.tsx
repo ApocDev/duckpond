@@ -29,6 +29,7 @@ import {
   defaults,
   ducksSchema,
   isUntouchedRoom,
+  selectDucks,
   type Approval,
   type Duck,
   type Mode,
@@ -545,6 +546,10 @@ function Home() {
       document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(),
     );
   }
+  // Who a direct message reaches: the selected duck plus anyone mentioned in the draft.
+  const replying = targetDuck
+    ? selectDucks(ducks, input, targetDuck.id).map((duck) => duck.name)
+    : [];
   const statusLine = needsSync ? (
     "Reconnecting…"
   ) : roomApprovals.length ? (
@@ -556,11 +561,11 @@ function Home() {
       "Working…"
     )
   ) : target === "mediator" ? (
-    "Mediator brings in the ducks who can help, lets them push back, and reports back."
+    "Mediator picks who answers, lets them push back, and reports back."
   ) : target === "everyone" ? (
     "Every duck answers without seeing the others, then Mediator sums up."
   ) : (
-    `Only ${targetDuck?.name} replies.`
+    `${replying.length > 1 ? `${listNames(replying)} reply` : `Only ${targetDuck?.name} replies`}. Type @ to add a duck.`
   );
   const offline = (["claude", "codex"] as const)
     .filter(
@@ -574,7 +579,7 @@ function Home() {
       ? "Ask the group…"
       : target === "everyone"
         ? "Ask every duck separately…"
-        : `Message ${targetDuck?.name ?? "a duck"}… (type @ to add another duck)`;
+        : `Message ${targetDuck?.name ?? "a duck"}…`;
 
   return (
     <div className="app-shell">
@@ -633,7 +638,8 @@ function Home() {
               <h1>New conversation</h1>
             )}
             <span>
-              {pond?.name ?? "General"} · {ducks.length} {ducks.length === 1 ? "duck" : "ducks"}
+              {pond?.name ?? "General"} · {ducks.length} {ducks.length === 1 ? "duck" : "ducks"} +
+              Mediator
             </span>
           </div>
           <RoomNotes
@@ -672,7 +678,7 @@ function Home() {
                   each other, then Mediator sums up. Good for a blind second opinion.
                 </li>
                 <li>
-                  <strong>A single duck</strong> answers alone. Type @ to bring in another.
+                  <strong>One duck</strong> answers alone. Type @ to bring in another.
                 </li>
               </ul>
               <p className="muted">
@@ -713,7 +719,7 @@ function Home() {
             ducks={ducks}
             target={target}
             thinking={thinking}
-            editLabel={busy ? "Ducks (view)" : "Ducks"}
+            editLabel="Ducks"
             onTarget={(value) => setTargets((current) => ({ ...current, [key]: value }))}
             onEdit={() => setDialog({ kind: "ducks" })}
           />

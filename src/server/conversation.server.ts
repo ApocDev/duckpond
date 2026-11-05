@@ -47,8 +47,13 @@ export async function runConversation(
   function emitRoom() {
     const snapshot = structuredClone(room);
     for (const message of snapshot.messages)
-      if (message.status === "thinking" && (!streamText || "PASS".startsWith(message.text.trim())))
+      if (
+        message.status === "thinking" &&
+        (!streamText || "PASS".startsWith(message.text.trim()))
+      ) {
+        message.written = message.text.length;
         message.text = "";
+      }
     emit({ type: "room", room: snapshot });
   }
 
@@ -109,6 +114,8 @@ export async function runConversation(
       };
       const { system } = makePrompt(duck, [], phase, "");
       const roomTools = discussion?.participantTools(duck, message) ?? inactiveParticipantTools;
+      // With text hidden, a progress count every few seconds still shows the duck is writing.
+      let progressAt = Date.now();
       await run(
         duck,
         `${system}\n\n${participantInstructions}`,
@@ -118,6 +125,13 @@ export async function runConversation(
           message.text += delta;
           if (streamText && !"PASS".startsWith(message.text.trim()))
             emit({ type: "message", message: { ...message } });
+          else if (!streamText && Date.now() - progressAt > 5000) {
+            progressAt = Date.now();
+            emit({
+              type: "message",
+              message: { ...message, text: "", written: message.text.length },
+            });
+          }
         },
         (event) => {
           if (event.type === "activity") {

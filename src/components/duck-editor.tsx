@@ -118,24 +118,18 @@ export function DuckEditor({
             <Select
               label="Reasoning"
               disabled={!model?.reasoning.length}
-              value={duck.reasoning ?? ""}
+              value={duck.reasoning === model?.defaultReasoning ? "" : (duck.reasoning ?? "")}
               options={[
-                {
-                  value: "",
-                  label: model?.defaultReasoning
-                    ? `Default (${model.defaultReasoning})`
-                    : "Default",
-                },
+                // Levels in the model's order; the default level stands for "follow the model".
+                ...(model?.reasoning.length
+                  ? model.reasoning.map((level) => ({
+                      value: level === model.defaultReasoning ? "" : level,
+                      label: `${level.charAt(0).toUpperCase()}${level.slice(1)}${level === model.defaultReasoning ? " (default)" : ""}`,
+                    }))
+                  : [{ value: "", label: "Default" }]),
                 ...(duck.reasoning && !model?.reasoning.includes(duck.reasoning)
                   ? [{ value: duck.reasoning, label: `${duck.reasoning} (saved)` }]
                   : []),
-                // The default level already has its own entry, unless this duck picked it.
-                ...(model?.reasoning
-                  .filter((level) => level !== model.defaultReasoning || level === duck.reasoning)
-                  .map((level) => ({
-                    value: level,
-                    label: level.charAt(0).toUpperCase() + level.slice(1),
-                  })) ?? []),
               ]}
               onChange={(value) => onChange({ reasoning: value })}
             />

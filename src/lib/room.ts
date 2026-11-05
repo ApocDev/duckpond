@@ -86,6 +86,8 @@ export const messageSchema = z.object({
   avatar: outfitSchema.optional(),
   text: z.string(),
   tools: z.array(z.string()).optional(),
+  // Characters written so far, sent in place of the text while a reply's text stays hidden.
+  written: z.number().int().nonnegative().optional(),
   // "passed" keeps a visible record of a duck that was asked and had nothing to add.
   status: z.enum(["thinking", "complete", "passed", "stopped", "error"]),
   // "observer" only appears in transcripts saved before observers were removed.

@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useRef, memo, useState } from "react";
 import { MessageMarkdown } from "./message-markdown";
-import { Check, ChevronDown, NotebookPen, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, Plus, RotateCcw } from "lucide-react";
 import { duckAvatar, type Duck, type Message } from "../lib/room";
 import { groupMessages } from "../lib/message-groups";
 import { mentionHandle } from "../lib/mentions";
-import { rosterColors, speakerColor } from "../lib/duck-colors";
+import { hostColor, rosterColors, speakerColor } from "../lib/duck-colors";
 import { modelLabel } from "../lib/models";
 import { DuckAvatar } from "./duck-avatar";
 
@@ -100,7 +100,7 @@ function ReplyRound({ messages }: { messages: Message[] }) {
                 unique(passed).length,
               )
             : working.length
-              ? `${listNames(working.map((message) => message.speaker))} ${working.length === 1 ? "is" : "are"} still working`
+              ? `${listNames(working.map((message) => message.speaker))} ${working.length === 1 ? "is" : "are"} still working · ${spoke.length + passed.length} of ${messages.length} replied`
               : `${unfinished} ${unfinished === 1 ? "reply" : "replies"} didn't finish`}
         </span>
         {settled && (
@@ -175,7 +175,7 @@ function HandoffLine({ message }: { message: Message }) {
   return (
     <div data-scroll-anchor className={`handoff-line ${open ? "open" : ""}`}>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <DuckAvatar avatar="wizard" small />
+        <DuckAvatar avatar="wizard" small color={hostColor} />
         <span>
           <strong>Mediator {who ? `asked ${who}` : "noted"}:</strong> {summary}
         </span>
@@ -187,9 +187,14 @@ function HandoffLine({ message }: { message: Message }) {
 }
 
 function PassedLine({ message }: { message: Message }) {
+  const color = speakerColor(useContext(DuckColors), message.duckId!);
   return (
     <p data-scroll-anchor className="passed-line">
-      <DuckAvatar avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })} small />
+      <DuckAvatar
+        avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })}
+        small
+        color={color}
+      />
       {message.speaker} had nothing to add
     </p>
   );
@@ -248,9 +253,13 @@ function MessageHeading({ message, color }: { message: Message; color: string })
  */
 function LiveStatus({ message }: { message: Message }) {
   const now = useNow();
-  const last = useRef({ text: message.text.length, tools: message.tools?.length ?? 0, at: 0 });
+  const last = useRef({
+    text: message.written ?? message.text.length,
+    tools: message.tools?.length ?? 0,
+    at: 0,
+  });
   const writing = useRef(false);
-  const text = message.text.length;
+  const text = message.written ?? message.text.length;
   const tools = message.tools?.length ?? 0;
   if (text !== last.current.text || tools !== last.current.tools || !last.current.at) {
     if (tools !== last.current.tools) writing.current = false;
@@ -330,7 +339,7 @@ function AddToNotes({ text }: { text: string }) {
             .finally(() => setSaving(false));
         }}
       >
-        <NotebookPen size={14} /> {saving ? "Adding…" : "Add to notes"}
+        <Plus size={14} /> {saving ? "Adding…" : "Add to notes"}
       </button>
       {failed && <span className="message-meta error">Couldn't save. Try again.</span>}
     </p>
@@ -361,7 +370,9 @@ function MessageText({ message }: { message: Message }) {
       ) : (
         <span className="thinking-text">
           {message.status === "thinking"
-            ? "Working on it. The reply appears here when it's ready."
+            ? message.written
+              ? "Writing the reply. It appears here when it's done."
+              : "Working on it. The reply appears here when it's ready."
             : "No reply."}
         </span>
       )}

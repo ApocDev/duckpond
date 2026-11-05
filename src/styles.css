@@ -154,12 +154,12 @@ textarea:focus {
 .primary-button:hover:not(:disabled) {
   background: var(--accent-hover);
 }
-/* A dimmed yellow reads as olive; a disabled action is an empty outline instead. */
+/* A dimmed yellow reads as olive; a disabled action is a flat, faded fill instead. */
 .primary-button:disabled {
-  opacity: 1;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  opacity: 0.55;
+  background: var(--surface-raised);
   color: var(--text-3);
+  cursor: not-allowed;
 }
 .primary-button.danger {
   background: var(--danger);
@@ -683,7 +683,7 @@ textarea:focus {
   padding-left: 0;
 }
 .message-text {
-  font-size: var(--text-md);
+  font-size: 16px;
   line-height: 1.65;
   color: var(--text);
   overflow-wrap: anywhere;
@@ -1118,7 +1118,7 @@ textarea:focus {
 }
 .picker-list button > svg {
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--text-2);
 }
 .target-picker {
   display: none;
@@ -1562,8 +1562,8 @@ fieldset.duck-editor-fields {
   border-color: var(--line-strong);
 }
 .outfit-options button[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--text-2);
+  background: var(--surface-overlay);
 }
 .outfit-generator {
   display: flex;
@@ -1888,7 +1888,7 @@ fieldset.duck-editor-fields {
 }
 .select-option svg {
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--text-2);
 }
 .select-option[aria-disabled="true"] {
   opacity: 0.45;
@@ -1978,6 +1978,17 @@ details[open] > summary::before {
 }
 
 /* ---------- Settings extras ---------- */
+.check-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.check-field input {
+  accent-color: var(--text-2);
+}
 .choice small.preview {
   margin-top: 2px;
   color: var(--text-2);
@@ -2082,18 +2093,32 @@ details[open] > summary::before {
     right: 0;
     width: auto;
   }
+  /* On phones a duck row keeps to one line of description so the whole roster fits. */
+  .target-picker [aria-label="One duck"] small {
+    -webkit-line-clamp: 1;
+  }
+  .target-picker-button,
+  .ducks-button,
+  .message-action .text-button {
+    min-height: 44px;
+  }
+  .duck-editor-toggle strong small {
+    display: block;
+    margin-left: 0;
+  }
   .target-picker-button {
     height: 36px;
   }
   .ducks-button {
     min-height: 36px;
   }
-  /* Footer actions stack full width, the main one on top, so none can run off the screen. */
+  /* Footer actions share full-width rows, so none can run off the screen. */
   .dialog-footer {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .dialog-footer .footer-note {
+  .dialog-footer .footer-note,
+  .dialog-footer .check-field {
     flex-basis: 100%;
   }
   .dialog-footer .spacer {
@@ -2102,10 +2127,6 @@ details[open] > summary::before {
   .dialog-footer button {
     flex: 1 1 0;
     white-space: normal;
-  }
-  .dialog-footer .primary-button {
-    flex-basis: 100%;
-    order: -1;
   }
   .composer-status .phase {
     display: -webkit-box;
@@ -2121,7 +2142,7 @@ details[open] > summary::before {
     width: auto;
   }
   .title-button svg {
-    display: none;
+    opacity: 0.5;
   }
 }
 @media (max-width: 650px), (pointer: coarse) {

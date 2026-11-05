@@ -214,7 +214,9 @@ function Suggest({
               : "Thinking of ducks…"
             : result
               ? "Suggest more"
-              : "Suggest ducks"}
+              : workspace
+                ? "Suggest from the pond's files"
+                : "Suggest from this conversation"}
         </button>
         {suggestion.running && (
           <button type="button" className="text-button" onClick={suggestion.cancel}>

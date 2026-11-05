@@ -1,9 +1,9 @@
 import type { Duck } from "./room";
 
-// Hues in the order ducks receive them. Any first six sit at least 45° apart, so a typical
-// roster never shows two similar colors. Yellow (reserved for actions and live status) and
-// Mediator's violet are left out.
-const hues = [150, 25, 245, 75, 330, 195, 115, 355, 220, 50];
+// Hues in the order ducks receive them. Any first six sit at least 40° apart, so a typical
+// roster never shows two similar colors. Yellow and amber (reserved for actions and live
+// status) and Mediator's violet are left out.
+const hues = [135, 20, 225, 330, 180, 265, 355, 155, 245, 40];
 const palette = hues.map((hue) => `oklch(80% 0.13 ${hue})`);
 export const hostColor = "#c4b5fd";
 
