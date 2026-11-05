@@ -1,0 +1,45 @@
+README.md
+  s_105d2118509069::t_4b37695716f0eb 54,63,71,77,88
+src/components/add-ducks.tsx
+  s_105d2118509069::t_09b0771e831242 42-44,48-63,68-69
+src/components/chat-message.tsx
+  s_105d2118509069::t_93f29a732f5462 65-68,102-104,131-139,146
+src/components/dialog.tsx
+  s_105d2118509069::t_aaa255a3a38870 1,27,37-38,47-48
+src/components/duck-bar.tsx
+  s_105d2118509069::t_6cc8b9558608a0 1-2,18-19,60,73-74,88,111-114,132-133,165-168,173-176,181,190,198-202,204-233,237,250-273
+src/components/duck-editor.tsx
+  s_105d2118509069::t_7eee7918c35f37 2,39-42,53,81-149,151,157-165,187-189,196-198
+src/components/duck-settings.tsx
+  s_105d2118509069::t_735a6ba540d58d 2,175-176,182
+src/components/mention-input.tsx
+  s_105d2118509069::t_7dba067e6096d7 1,5,28,103,105,107
+src/components/room-notes.tsx
+  s_105d2118509069::t_3430a9df1461fb 32,34,54-55,64,69-83,85-121
+src/components/sidebar.tsx
+  s_105d2118509069::t_5c4441b8e57e78 86
+src/lib/duck-colors.test.ts
+  s_105d2118509069::t_e5113179988605 5-13
+src/lib/duck-colors.ts
+  s_105d2118509069::t_8901ef55881621 3-7,16,18,21
+src/routes/index.tsx
+  s_105d2118509069::t_510323d45a6efa 16,76-77,79,81-84,89-91,95-97,100,260-267,553-554,563,577
+src/styles.css
+  s_105d2118509069::t_86f28f3baeb68c 157,160-161,218-219,335-336,338,537,560,1081,1084,1096-1099,1101,1103-1117,1134-1137,1141,1143-1148,1493-1496,1498-1499,1501-1502,1504-1505,1507-1510,2068-2069,2076-2081,2090-2108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b4025fc9f3027f3c3155f94d562b88d6f656ba5",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
