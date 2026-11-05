@@ -1083,7 +1083,7 @@ textarea:focus {
   background: var(--surface-raised);
   outline: none;
 }
-.picker-list button > span:not(.mode-icon) {
+.picker-list button > span:not(.roster-stack) {
   flex: 1;
   min-width: 0;
 }
