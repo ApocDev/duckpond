@@ -13,11 +13,13 @@ import { DuckEditor } from "./duck-editor";
 
 /**
  * Edits a roster: one conversation's ducks, or a pond's name and the ducks new conversations
- * start with. Changes apply on Save; closing with unsaved changes asks first.
+ * start with. Changes apply on Save; closing with unsaved changes asks first. While replies run,
+ * a conversation's ducks are view-only.
  */
 export function DuckSettings({
   scope,
   ducks,
+  readOnly = false,
   saving,
   error,
   onSave,
@@ -27,9 +29,11 @@ export function DuckSettings({
     | { kind: "conversation"; roomId?: string; pond?: Pond; room?: Room }
     | { kind: "pond"; pond: Pond };
   ducks: Duck[];
+  readOnly?: boolean;
   saving: boolean;
   error: string;
-  onSave: (value: { ducks: Duck[]; pondName?: string }) => Promise<void>;
+  /** `pondDefaults` also saves the roster as the pond's starting ducks. */
+  onSave: (value: { ducks: Duck[]; pondName?: string; pondDefaults?: boolean }) => Promise<void>;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState(() => structuredClone(ducks));
@@ -38,6 +42,7 @@ export function DuckSettings({
   const [confirming, setConfirming] = useState(false);
   const [pondName, setPondName] = useState(scope.pond?.name ?? "");
   const [removed, setRemoved] = useState<{ duck: Duck; index: number }>();
+  const [pondDefaults, setPondDefaults] = useState(false);
   const { catalogs, loading, refresh } = useModelCatalogs();
   const colors = useMemo(() => rosterColors(draft), [draft]);
   const roomId = scope.kind === "conversation" ? scope.roomId : undefined;
@@ -53,9 +58,17 @@ export function DuckSettings({
     <Dialog
       title={scope.kind === "pond" ? `${scope.pond.name} settings` : "Ducks in this conversation"}
       description={
-        scope.kind === "pond"
-          ? "New conversations in this pond start with these ducks. Existing conversations keep their own."
-          : "Changes affect only this conversation. To change what new conversations start with, use pond settings."
+        scope.kind === "pond" ? (
+          <>
+            <span className="tag">Defaults for {scope.pond.name}</span> New conversations in this
+            pond start with these ducks. Existing conversations keep their own.
+          </>
+        ) : (
+          <>
+            <span className="tag">This conversation only</span> New conversations keep starting with
+            the {scope.pond ? `${scope.pond.name} ` : ""}defaults.
+          </>
+        )
       }
       busy={saving}
       wide
@@ -74,7 +87,22 @@ export function DuckSettings({
           </>
         ) : (
           <>
-            {dirty && <span className="footer-note">Unsaved changes</span>}
+            {readOnly ? (
+              <span className="footer-note">Stop the replies to change ducks.</span>
+            ) : (
+              scope.kind === "conversation" &&
+              scope.pond && (
+                <label className="check-field">
+                  <input
+                    type="checkbox"
+                    checked={pondDefaults}
+                    onChange={(event) => setPondDefaults(event.target.checked)}
+                  />
+                  Also make these the {scope.pond.name} defaults
+                </label>
+              )
+            )}
+            {dirty && !readOnly && <span className="footer-note">Unsaved changes</span>}
             <span className="spacer" />
             <button type="button" className="text-button" disabled={saving} onClick={close}>
               Cancel
@@ -83,7 +111,7 @@ export function DuckSettings({
               type="submit"
               form="duck-settings"
               className="primary-button"
-              disabled={saving || !dirty}
+              disabled={saving || readOnly || !(dirty || pondDefaults)}
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -96,7 +124,11 @@ export function DuckSettings({
         className="duck-settings"
         onSubmit={(event) => {
           event.preventDefault();
-          void onSave({ ducks: draft, ...(scope.kind === "pond" ? { pondName } : {}) });
+          if (readOnly) return;
+          void onSave({
+            ducks: draft,
+            ...(scope.kind === "pond" ? { pondName } : { pondDefaults }),
+          });
         }}
       >
         {error && (
@@ -123,24 +155,14 @@ export function DuckSettings({
           <h3>
             {draft.length} {draft.length === 1 ? "duck" : "ducks"}
           </h3>
-          <div className="row">
-            <button
-              type="button"
-              className="text-button"
-              disabled={loading}
-              onClick={() => void refresh(true)}
-            >
-              <RefreshCw size={13} /> {loading ? "Loading models…" : "Refresh models"}
-            </button>
-            <button
-              type="button"
-              className="secondary-button compact"
-              aria-expanded={adding}
-              onClick={() => setAdding(!adding)}
-            >
-              {adding ? <X size={15} /> : <Plus size={15} />} {adding ? "Close" : "Add a duck"}
-            </button>
-          </div>
+          <button
+            type="button"
+            className="secondary-button compact"
+            aria-expanded={adding}
+            onClick={() => setAdding(!adding)}
+          >
+            {adding ? <X size={15} /> : <Plus size={15} />} {adding ? "Close" : "Add a duck"}
+          </button>
         </div>
         {adding && (
           <AddDucks
@@ -215,6 +237,15 @@ export function DuckSettings({
             />
           ))}
         </div>
+        <button
+          type="button"
+          className="text-button quiet-action"
+          disabled={loading}
+          onClick={() => void refresh(true)}
+        >
+          <RefreshCw size={13} />{" "}
+          {loading ? "Loading models…" : "Missing a model? Refresh the list"}
+        </button>
         {roomId && <AgentContext roomId={roomId} />}
       </form>
     </Dialog>

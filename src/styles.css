@@ -13,7 +13,7 @@
   --surface-raised: #1a2d33;
   --surface-overlay: #1e343a;
   --line: #213539;
-  --line-strong: #30494f;
+  --line-strong: #3a565d;
 
   --text: #e4ecee;
   --text-2: #b4c5c9;
@@ -311,11 +311,6 @@ textarea:focus {
   font-size: var(--text-xs);
   color: var(--text-3);
 }
-.header-menu {
-  right: 0;
-  top: calc(100% + 6px);
-  width: 260px;
-}
 .menu .danger {
   color: var(--danger);
 }
@@ -395,9 +390,15 @@ textarea:focus {
   color: var(--text-3);
   padding: 0 2px;
 }
-.pond-picker .row {
-  flex-wrap: nowrap;
-  gap: 6px;
+.pond-path {
+  padding: 0 2px;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
 }
 .new-conversation {
   width: 100%;
@@ -415,20 +416,33 @@ textarea:focus {
   align-items: center;
   border-radius: var(--radius-sm);
 }
-.conversation-row:hover,
-.conversation-row:has([aria-current="page"]) {
+.conversation-row:hover {
   background: var(--surface);
+}
+.conversation-row:has([aria-current="page"]) {
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 .conversation-link {
   flex: 1;
   min-width: 0;
   padding: 8px 4px 8px 10px;
   text-align: left;
+  display: flex;
+  align-items: baseline;
   font-size: var(--text-sm);
+  line-height: 1.35;
   color: var(--text-2);
-  white-space: nowrap;
+}
+.conversation-link > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+.conversation-link .working-dot {
+  flex-shrink: 0;
 }
 .conversation-link[aria-current="page"] {
   color: var(--text);
@@ -523,9 +537,48 @@ textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.conversation-title span {
+.conversation-title > span {
   font-size: var(--text-xs);
   color: var(--text-3);
+}
+/* Click the title to rename; the pencil shows on hover and focus. */
+.title-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.title-button svg {
+  flex-shrink: 0;
+  color: var(--text-3);
+  opacity: 0;
+}
+.title-button:hover svg,
+.title-button:focus-visible svg {
+  opacity: 1;
+}
+.title-button:hover h1 {
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 4px;
+}
+.header-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-2);
+}
+.header-action:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
 }
 .room-notes {
   position: relative;
@@ -630,10 +683,13 @@ textarea:focus {
   font-weight: 600;
 }
 .message-meta {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--text-3);
 }
-.message-meta.live {
+.message-meta.quiet {
+  color: var(--text-2);
+}
+.message-meta.live:not(.quiet) {
   color: var(--accent);
 }
 .message-meta.error {
@@ -679,9 +735,18 @@ textarea:focus {
 .message-text h1,
 .message-text h2,
 .message-text h3 {
-  font-size: var(--text-md);
   font-weight: 650;
-  margin: 16px 0 6px;
+  line-height: 1.35;
+  margin: 18px 0 6px;
+}
+.message-text h1 {
+  font-size: 19px;
+}
+.message-text h2 {
+  font-size: var(--text-lg);
+}
+.message-text h3 {
+  font-size: var(--text-md);
 }
 .message-text a {
   color: var(--accent);
@@ -821,6 +886,52 @@ textarea:focus {
   padding-left: 14px;
   border-left: 2px solid var(--line-strong);
 }
+.handoff-line > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+.handoff-line > button:hover {
+  background: var(--surface);
+  color: var(--text-2);
+}
+.handoff-line > button > span {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.handoff-line strong {
+  font-weight: 600;
+  color: var(--host);
+}
+.handoff-line .duck-avatar {
+  width: 20px;
+  height: 20px;
+}
+.handoff-line > button svg {
+  flex-shrink: 0;
+}
+.handoff-line.open > button svg {
+  transform: rotate(180deg);
+}
+.handoff-line.open > .message-text {
+  margin: 6px 0 0 34px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--text-sm);
+}
+.retry {
+  font-size: var(--text-sm);
+}
 
 /* Empty conversation */
 .welcome {
@@ -897,6 +1008,7 @@ textarea:focus {
   gap: 8px;
 }
 .duck-bar {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -908,36 +1020,15 @@ textarea:focus {
   color: var(--text-3);
   flex-shrink: 0;
 }
-/* One line that scrolls sideways; the right edge fades so it's clear there's more. */
-.duck-bar-scroll {
-  position: relative;
+/* Every choice stays visible; extra ducks wrap to a second line instead of scrolling. */
+.duck-bar-chips {
   flex: 1;
   min-width: 0;
-}
-.duck-bar-scroll::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 28px;
-  pointer-events: none;
-  background: linear-gradient(to right, transparent, var(--bg));
-}
-.duck-bar-chips {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 2px 28px 2px 2px;
-}
-.duck-bar-divider {
-  flex-shrink: 0;
-  width: 1px;
-  height: 20px;
-  margin: 0 4px;
-  background: var(--line-strong);
+  padding: 2px;
 }
 .duck-chip {
   display: inline-flex;
@@ -949,23 +1040,8 @@ textarea:focus {
   border-radius: 999px;
   border: 1px solid var(--line-strong);
   font-size: var(--text-sm);
-  color: color-mix(in oklch, var(--duck, var(--text-2)) 70%, var(--text-2));
+  color: var(--text-2);
   white-space: nowrap;
-}
-.duck-chip.everyone {
-  --duck: var(--text-2);
-  padding-left: 6px;
-}
-.duck-chip .stack {
-  display: flex;
-}
-.duck-chip .stack .duck-avatar {
-  width: 22px;
-  height: 22px;
-  margin-right: -9px;
-}
-.duck-chip .stack + span {
-  margin-left: 9px;
 }
 .duck-chip .duck-avatar {
   width: 26px;
@@ -973,20 +1049,107 @@ textarea:focus {
   border-radius: 50%;
 }
 .duck-chip:hover {
-  border-color: var(--duck);
+  border-color: var(--text-3);
   color: var(--text);
 }
-.duck-chip[aria-pressed="true"] {
-  border-color: var(--duck);
-  background: color-mix(in oklch, var(--duck) 18%, transparent);
+/* Selected looks the same for everyone; the duck's color stays on its avatar ring. */
+.duck-chip[aria-pressed="true"],
+.duck-chip.current {
+  border-color: var(--text-2);
+  background: var(--surface-raised);
   color: var(--text);
   font-weight: 600;
-  box-shadow: inset 0 0 0 1px var(--duck);
 }
-.duck-chip.busy .duck-avatar {
+.duck-chip.busy .duck-avatar,
+.duck-chip.busy .group-icon {
   box-shadow:
     0 0 0 2px var(--bg),
     0 0 0 4px var(--accent);
+}
+.once {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-overlay);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.group-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-overlay);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-2);
+}
+.ducks-button {
+  flex-shrink: 0;
+}
+.target-picker {
+  display: none;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.target-picker > .duck-chip {
+  max-width: 100%;
+}
+.target-picker > .duck-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.target-sheet {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: min(360px, calc(100vw - 20px));
+  max-height: 60dvh;
+  overflow-y: auto;
+  padding: 4px;
+}
+.target-sheet button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.target-sheet button:hover,
+.target-sheet button[aria-selected="true"] {
+  background: var(--surface-raised);
+}
+.target-sheet button > span:not(.group-icon) {
+  flex: 1;
+  min-width: 0;
+}
+.target-sheet strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.target-sheet small {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+.target-sheet button > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.duck-avatar.ringed {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--duck);
 }
 .composer {
   display: flex;
@@ -1811,9 +1974,6 @@ details[open] > summary::before {
     grid-template-columns: repeat(2, 1fr);
     width: 100%;
   }
-  .header-menu {
-    width: min(280px, calc(100vw - 24px));
-  }
   /* The header needs its width for the title; Notes keeps its icon, dot, and label for screen readers. */
   .room-notes .secondary-button {
     width: 44px;
@@ -1821,6 +1981,121 @@ details[open] > summary::before {
     padding: 0;
   }
   .room-notes .secondary-button span {
+    display: none;
+  }
+}
+
+/* ---------- Settings extras ---------- */
+.dialog p .tag {
+  margin-right: 4px;
+  vertical-align: 1px;
+}
+.check-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.quiet-action {
+  align-self: flex-start;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+.choice.present {
+  opacity: 0.6;
+}
+.choice strong .tag {
+  margin-left: 8px;
+  font-style: normal;
+  font-weight: 500;
+}
+.choice small.preview {
+  margin-top: 2px;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.sticky-action {
+  position: sticky;
+  bottom: 8px;
+  z-index: 1;
+  background: var(--surface-overlay);
+  box-shadow: 0 0 0 8px var(--surface);
+}
+/* Opacity would let the list show through a disabled sticky button. */
+.sticky-action:disabled {
+  opacity: 1;
+  color: var(--text-3);
+}
+.model-fields + .field-hint {
+  margin-top: -6px;
+}
+
+@media (min-width: 651px) {
+  .target-picker {
+    display: none;
+  }
+}
+@media (max-width: 650px) {
+  .duck-bar {
+    align-items: center;
+  }
+  .duck-bar-label {
+    padding-top: 0;
+  }
+  .duck-bar-chips {
+    display: none;
+  }
+  .target-picker {
+    display: block;
+    position: static;
+  }
+  .target-sheet {
+    right: 0;
+    width: auto;
+  }
+  .ducks-button span {
+    display: none;
+  }
+  .ducks-button {
+    width: 40px;
+    min-height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .composer-status {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .host-row {
+    flex-wrap: wrap;
+  }
+  .host-row .tag {
+    order: 3;
+    margin-left: 50px;
+  }
+  .notes-popover {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 64px;
+    width: auto;
+  }
+  .header-action span {
+    display: none;
+  }
+  .header-action {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .title-button svg {
     display: none;
   }
 }

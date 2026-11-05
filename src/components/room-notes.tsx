@@ -18,7 +18,11 @@ export function RoomNotes({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const wrapper = useRef<HTMLDivElement>(null);
-  useDismiss(wrapper, open && draft === null, () => setOpen(false));
+  // An outside click or Escape closes the popover unless it holds unsaved edits.
+  useDismiss(wrapper, open && (draft === null || draft === notes), () => {
+    setOpen(false);
+    setDraft(null);
+  });
   async function save() {
     if (draft === null) return;
     setSaving(true);

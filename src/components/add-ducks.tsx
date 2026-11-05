@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Lightbulb, Plus } from "lucide-react";
 import { combineDucks, duckAvatar, type Duck, type DuckGroup } from "../lib/room";
+import { modelLabel } from "../lib/models";
 import type { DuckSuggestion } from "../lib/suggestions";
 import { reusableDucks, suggestDuck } from "../server/rooms.functions";
 import { DuckAvatar } from "./duck-avatar";
 
-type Method = "suggest" | "describe" | "reuse" | "blank";
+type Method = "suggest" | "describe" | "reuse" | "write";
 type Persona = Pick<Duck, "name" | "instructions">;
 
 /**
  * Ways to add ducks to a roster draft: AI suggestions from the conversation or workspace, a
- * persona written from a description, copies of ducks from other conversations, or a blank duck.
+ * persona written from a description, copies of ducks from other conversations, or one you write
+ * yourself. Without a conversation to read, Suggest moves to the end and Reuse opens first.
  */
 export function AddDucks({
   ducks,
@@ -31,18 +33,19 @@ export function AddDucks({
   hasContext: boolean;
   onAdd: (ducks: Duck[]) => void;
 }) {
-  const [method, setMethod] = useState<Method>(hasContext ? "suggest" : "describe");
+  const [method, setMethod] = useState<Method>(hasContext ? "suggest" : "reuse");
+  const tabs: [Method, string][] = [
+    ["describe", "Describe"],
+    ["reuse", "Reuse"],
+    ["write", "Write your own"],
+  ];
   return (
     <section className="add-ducks" aria-label="Add a duck">
       <div className="add-ducks-heading">
         <div className="segmented" role="tablist" aria-label="How to add a duck">
-          {(
-            [
-              ["suggest", "Suggest"],
-              ["describe", "Describe"],
-              ["reuse", "Reuse"],
-              ["blank", "Blank"],
-            ] as const
+          {(hasContext
+            ? [["suggest", "Suggest"] as const, ...tabs]
+            : [tabs[1], tabs[0], tabs[2], ["suggest", "Suggest"] as const]
           ).map(([value, label]) => (
             <button
               key={value}
@@ -77,26 +80,19 @@ export function AddDucks({
         />
       )}
       {method === "reuse" && <Reuse ducks={ducks} onAdd={onAdd} />}
-      {method === "blank" && (
+      {method === "write" && (
         <div className="add-ducks-body">
-          <p className="field-hint">Start from an empty persona and write it yourself.</p>
+          <p className="field-hint">
+            Adds a duck with an empty perspective. Describe what it cares about before you save.
+          </p>
           <button
             type="button"
             className="secondary-button"
             onClick={() =>
-              onAdd([
-                fromPersona(
-                  {
-                    name: `Duck ${ducks.length + 1}`,
-                    instructions:
-                      "Offer a useful perspective. Ask helpful questions and challenge assumptions when there is a concrete reason.",
-                  },
-                  ducks,
-                ),
-              ])
+              onAdd([fromPersona({ name: `Duck ${ducks.length + 1}`, instructions: "" }, ducks)])
             }
           >
-            <Plus size={15} /> Add a blank duck
+            <Plus size={15} /> Add a duck to write
           </button>
         </div>
       )}
@@ -364,9 +360,11 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
         : group.ducks.filter((duck) => duck.name.toLowerCase().includes(query)),
     }))
     .filter((group) => group.ducks.length);
-  const picked = matching.flatMap((group) =>
+  // Picks come from every group, so narrowing the search never drops a selection.
+  const picked = (groups ?? []).flatMap((group) =>
     group.ducks.filter((duck) => selected.includes(`${group.id}/${duck.id}`)),
   );
+  const here = new Set(ducks.map((duck) => `${duck.name}\n${duck.instructions}`));
   return (
     <div className="add-ducks-body">
       <input
@@ -385,33 +383,39 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
       ) : (
         <div className="choice-list">
           {matching.map((group) => {
-            const keys = group.ducks.map((duck) => `${group.id}/${duck.id}`);
+            const keys = group.ducks
+              .filter((duck) => !here.has(`${duck.name}\n${duck.instructions}`))
+              .map((duck) => `${group.id}/${duck.id}`);
             const all = keys.every((key) => selected.includes(key));
             return (
               <div className="choice-group" key={group.id}>
                 <div className="choice-group-heading">
                   <span>{group.title}</span>
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={() =>
-                      setSelected((current) =>
-                        all
-                          ? current.filter((key) => !keys.includes(key))
-                          : [...new Set([...current, ...keys])],
-                      )
-                    }
-                  >
-                    {all ? "Clear" : "Select all"}
-                  </button>
+                  {!!keys.length && (
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() =>
+                        setSelected((current) =>
+                          all
+                            ? current.filter((key) => !keys.includes(key))
+                            : [...new Set([...current, ...keys])],
+                        )
+                      }
+                    >
+                      {all ? "Clear" : "Select all"}
+                    </button>
+                  )}
                 </div>
                 {group.ducks.map((duck) => {
                   const key = `${group.id}/${duck.id}`;
+                  const present = here.has(`${duck.name}\n${duck.instructions}`);
                   return (
-                    <label className="choice" key={key}>
+                    <label className={`choice ${present ? "present" : ""}`} key={key}>
                       <input
                         type="checkbox"
-                        checked={selected.includes(key)}
+                        disabled={present}
+                        checked={present || selected.includes(key)}
                         onChange={(event) =>
                           setSelected((current) =>
                             event.target.checked
@@ -422,10 +426,16 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
                       />
                       <DuckAvatar avatar={duckAvatar(duck)} small />
                       <span>
-                        <strong>{duck.name}</strong>
+                        <strong>
+                          {duck.name}
+                          {present && <em className="tag">already here</em>}
+                        </strong>
                         <small>
                           {duck.provider === "claude" ? "Claude" : "Codex"} ·{" "}
-                          {duck.model || "default model"}
+                          {modelLabel(duck.model, duck.reasoning)}
+                        </small>
+                        <small className="preview">
+                          {duck.instructions.split(/(?<=[.!?])\s/)[0]}
                         </small>
                       </span>
                     </label>
@@ -438,7 +448,7 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
       )}
       <button
         type="button"
-        className="secondary-button"
+        className="secondary-button sticky-action"
         disabled={!picked.length}
         onClick={() => {
           onAdd(combineDucks([...ducks, ...picked]).slice(ducks.length));

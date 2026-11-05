@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, memo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, memo, useState } from "react";
 import { MessageMarkdown } from "./message-markdown";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, RotateCcw } from "lucide-react";
 import { duckAvatar, type Duck, type Message } from "../lib/room";
 import { groupMessages } from "../lib/message-groups";
 import { mentionHandle } from "../lib/mentions";
@@ -10,14 +10,18 @@ import { DuckAvatar } from "./duck-avatar";
 
 const DuckNames = createContext<Record<string, string>>({});
 const DuckColors = createContext(new Map<string, string>());
+/** Re-asks one duck after its reply failed; the host decides how. */
+const Retry = createContext<((duckId: string) => void) | undefined>(undefined);
 
 /** The transcript: your messages, single replies, and grouped reply rounds. */
 export const ConversationMessages = memo(function ConversationMessages({
   messages,
   ducks,
+  onRetry,
 }: {
   messages: Message[];
   ducks: Duck[];
+  onRetry?: (duckId: string) => void;
 }) {
   const entries = messages
     .filter((message) => message.duckId)
@@ -28,17 +32,19 @@ export const ConversationMessages = memo(function ConversationMessages({
   const names = useMemo<Record<string, string>>(() => JSON.parse(signature), [signature]);
   const colors = useMemo(() => rosterColors(ducks), [ducks]);
   return (
-    <DuckColors.Provider value={colors}>
-      <DuckNames.Provider value={names}>
-        {groupMessages(messages).map((group) =>
-          group.kind === "message" ? (
-            <ChatMessage key={group.id} message={group.message} />
-          ) : (
-            <ReplyRound key={group.id} messages={group.messages} />
-          ),
-        )}
-      </DuckNames.Provider>
-    </DuckColors.Provider>
+    <Retry.Provider value={onRetry}>
+      <DuckColors.Provider value={colors}>
+        <DuckNames.Provider value={names}>
+          {groupMessages(messages).map((group) =>
+            group.kind === "message" ? (
+              <ChatMessage key={group.id} message={group.message} />
+            ) : (
+              <ReplyRound key={group.id} messages={group.messages} />
+            ),
+          )}
+        </DuckNames.Provider>
+      </DuckColors.Provider>
+    </Retry.Provider>
   );
 });
 
@@ -51,6 +57,7 @@ function ReplyRound({ messages }: { messages: Message[] }) {
   const settled = spoke.length + passed.length === messages.length;
   const open = !settled || expanded;
   const speakers = unique(spoke).filter((message) => !isHost(message));
+  const colors = useContext(DuckColors);
   return (
     <section className={`reply-round ${open ? "open" : ""}`} aria-label="Duck replies">
       <button
@@ -61,12 +68,13 @@ function ReplyRound({ messages }: { messages: Message[] }) {
         onClick={() => setExpanded(!expanded)}
       >
         <span className="round-avatars">
-          {unique(messages)
+          {unique(messages.filter((message) => !isHost(message)))
             .slice(0, 4)
             .map((message) => (
               <DuckAvatar
                 key={message.duckId}
                 avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })}
+                color={speakerColor(colors, message.duckId!)}
               />
             ))}
         </span>
@@ -107,21 +115,25 @@ function unique(messages: Message[]) {
 function roundSummary(phase: Message["phase"], names: string[], passes: number) {
   const passNote = passes ? ` · ${passes} passed` : "";
   if (!names.length)
-    return passes ? `Nobody had anything to add${passNote}` : "Mediator handled it";
+    return passes ? `Nobody had anything to add${passNote}` : "Mediator answered directly";
   if (phase === "review")
-    return `${names.length} independent ${names.length === 1 ? "reply" : "replies"}${passNote}`;
+    return `${names.length} independent ${names.length === 1 ? "answer" : "answers"}${passNote}`;
   const who =
     names.length <= 2
       ? names.join(" and ")
       : names.length === 3
         ? `${names[0]}, ${names[1]} and ${names[2]}`
         : `${names[0]}, ${names[1]} and ${names.length - 2} others`;
-  return `${who} ${phase === "discussion" ? "weighed in" : "replied"}${passNote}`;
+  return phase === "discussion"
+    ? `Mediator consulted ${who}${passNote}`
+    : `${who} replied${passNote}`;
 }
 
 const RoundReply = memo(function RoundReply({ message }: { message: Message }) {
   const color = speakerColor(useContext(DuckColors), message.duckId!);
   if (message.status === "passed") return <PassedLine message={message} />;
+  if (message.duckId === "mediator" && message.status === "complete")
+    return <HandoffLine message={message} />;
   return (
     <article data-scroll-anchor className="round-reply" style={{ borderColor: color }}>
       <MessageHeading message={message} color={color} />
@@ -129,6 +141,30 @@ const RoundReply = memo(function RoundReply({ message }: { message: Message }) {
     </article>
   );
 });
+
+/**
+ * Mediator's instructions to a duck, folded to one line: they explain the process, not the
+ * answer, so they stay out of the way until asked for.
+ */
+function HandoffLine({ message }: { message: Message }) {
+  const names = useContext(DuckNames);
+  const [open, setOpen] = useState(false);
+  const [, handle, rest] = message.text.match(/^@([\w-]+):?\s*([\s\S]*)$/) ?? [];
+  const who = handle ? (names[handle] ?? handle) : undefined;
+  const summary = (rest ?? message.text).split(/(?<=[.!?])\s|\n/)[0];
+  return (
+    <div data-scroll-anchor className={`handoff-line ${open ? "open" : ""}`}>
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <DuckAvatar avatar="wizard" small />
+        <span>
+          <strong>Mediator {who ? `asked ${who}` : "noted"}:</strong> {summary}
+        </span>
+        <ChevronDown size={14} aria-hidden />
+      </button>
+      {open && <MessageText message={message} />}
+    </div>
+  );
+}
 
 function PassedLine({ message }: { message: Message }) {
   return (
@@ -140,17 +176,36 @@ function PassedLine({ message }: { message: Message }) {
 }
 
 function MessageHeading({ message, color }: { message: Message; color: string }) {
+  const retry = useContext(Retry);
   return (
     <div className="message-heading">
-      <DuckAvatar avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })} small />
-      <strong style={{ color }}>{message.speaker}</strong>
+      <DuckAvatar
+        avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })}
+        small
+        color={color}
+      />
+      <strong
+        style={{ color }}
+        title={message.model ? modelLabel(message.model, message.reasoning) : undefined}
+      >
+        {message.speaker}
+      </strong>
       {message.phase === "review" && <span className="message-meta">answered independently</span>}
-      {message.phase === "guide" && message.model && (
-        <span className="message-meta">{modelLabel(message.model, message.reasoning)}</span>
-      )}
       {message.status === "thinking" && <LiveStatus message={message} />}
       {message.status === "stopped" && <span className="message-meta">stopped</span>}
       {message.status === "error" && <span className="message-meta error">failed</span>}
+      {(message.status === "error" || message.status === "stopped") &&
+        retry &&
+        message.duckId &&
+        !isHost(message) && (
+          <button
+            type="button"
+            className="text-button retry"
+            onClick={() => retry(message.duckId!)}
+          >
+            <RotateCcw size={13} /> Ask {message.speaker} again
+          </button>
+        )}
       {message.status !== "thinking" && !!message.tools?.length && (
         <details className="tool-log">
           <summary>
@@ -167,19 +222,37 @@ function MessageHeading({ message, color }: { message: Message; color: string })
   );
 }
 
-/** "reading docs/plan.md · 1:42" while a reply runs; updates once a second. */
+/**
+ * "reading docs/plan.md · 1:42" while a reply runs. Shows whichever changed last, new text or a
+ * new step, and says "no update for 1:10" once a minute passes without either.
+ */
 function LiveStatus({ message }: { message: Message }) {
   const now = useNow();
-  const seconds = Math.max(0, Math.floor((now - Date.parse(message.createdAt)) / 1000));
-  const step = message.text.trim() ? "writing" : (message.tools?.at(-1) ?? "thinking");
+  const last = useRef({ text: message.text.length, tools: message.tools?.length ?? 0, at: 0 });
+  const writing = useRef(false);
+  const text = message.text.length;
+  const tools = message.tools?.length ?? 0;
+  if (text !== last.current.text || tools !== last.current.tools || !last.current.at) {
+    if (tools !== last.current.tools) writing.current = false;
+    else if (text !== last.current.text) writing.current = true;
+    last.current = { text, tools, at: Date.now() };
+  }
+  const quiet = Math.floor((now - last.current.at) / 1000);
+  const step = writing.current ? "writing" : (message.tools?.at(-1) ?? "thinking");
   return (
-    <span className="message-meta live">
-      {step} · {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
+    <span className={`message-meta live ${quiet >= 60 ? "quiet" : ""}`}>
+      {quiet >= 60 ? `no update for ${clock(quiet)}` : step} ·{" "}
+      {clock(Math.floor((now - Date.parse(message.createdAt)) / 1000))}
     </span>
   );
 }
 
-function useNow() {
+export function clock(seconds: number) {
+  const value = Math.max(0, seconds);
+  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
+}
+
+export function useNow() {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);

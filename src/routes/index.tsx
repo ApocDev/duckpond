@@ -3,14 +3,9 @@ import { createFileRoute, replaceEqualDeep } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Menu, Square, X } from "lucide-react";
+import { ArrowUp, ListChecks, Menu, Pencil, Square, X } from "lucide-react";
 import { AppSettings } from "../components/app-settings";
-import {
-  ConversationMenu,
-  DeleteDialog,
-  MoveDialog,
-  RenameDialog,
-} from "../components/conversation-dialogs";
+import { DeleteDialog, MoveDialog, RenameDialog } from "../components/conversation-dialogs";
 import { DuckBar, type Target } from "../components/duck-bar";
 import { DuckSettings } from "../components/duck-settings";
 import { MentionInput } from "../components/mention-input";
@@ -18,7 +13,7 @@ import { PondDialog } from "../components/pond-dialog";
 import { RoomNotes } from "../components/room-notes";
 import { Sidebar } from "../components/sidebar";
 import { Transcript } from "../components/transcript";
-import { ConversationMessages } from "../components/chat-message";
+import { ConversationMessages, clock, useNow } from "../components/chat-message";
 import { loadPonds, moveToPond, savePond } from "../server/ponds.functions";
 import type { Pond } from "../lib/pond";
 import {
@@ -72,17 +67,34 @@ function without<T>(record: Record<string, T>, key: string) {
 
 /** Mediator for groups; the only duck when there is just one. */
 function resolveTarget(stored: string | undefined, ducks: Duck[]): Target {
-  if ((stored === "mediator" || stored === "everyone") && ducks.length > 1) return stored;
+  if (stored === "mediator" || (stored === "everyone" && ducks.length > 1)) return stored;
   if (stored && ducks.some((duck) => duck.id === stored)) return stored;
   return ducks.length > 1 ? "mediator" : ducks[0].id;
 }
 
-/** "Skeptic reading docs/a.md · Explorer thinking · 2 more" for the composer status line. */
-function workingLine(thinking: Room["messages"]) {
-  const named = thinking
-    .slice(0, 2)
-    .map((message) => `${message.speaker} ${message.tools?.at(-1) ?? "thinking"}`);
-  return [...named, ...(thinking.length > 2 ? [`${thinking.length - 2} more`] : [])].join(" · ");
+/**
+ * The composer's line while a turn runs: what phase it's in, who is working, and for how long,
+ * e.g. "Mediator is choosing who answers · 0:42" or "Skeptic and Explorer are replying · 1:10".
+ */
+function WorkingLine({ thinking }: { thinking: Room["messages"] }) {
+  const now = useNow();
+  const started = Math.min(...thinking.map((message) => Date.parse(message.createdAt)));
+  const host = thinking.find((message) => message.duckId === "mediator");
+  const summary = thinking.find((message) => message.duckId === "guide");
+  const ducks = thinking.filter((message) => message !== host && message !== summary);
+  const names = ducks.map((message) => message.speaker);
+  const phase = summary
+    ? "Mediator is summing up"
+    : host && !ducks.length
+      ? "Mediator is choosing who answers"
+      : names.length === 1
+        ? `${names[0]} is ${ducks[0].tools?.at(-1) ?? "thinking"}`
+        : `${names.slice(0, -1).join(", ")} and ${names.at(-1)} are replying`;
+  return (
+    <span title={names.join(", ") || undefined}>
+      {phase} · {clock(Math.floor((now - started) / 1000))}
+    </span>
+  );
 }
 
 function Home() {
@@ -373,7 +385,7 @@ function Home() {
       setDialog({ kind: "pond-defaults", pond: fresh });
     }, "Couldn't read the pond.");
   }
-  async function saveDucks(value: { ducks: Duck[]; pondName?: string }) {
+  async function saveDucks(value: { ducks: Duck[]; pondName?: string; pondDefaults?: boolean }) {
     await guard(async () => {
       if (dialog?.kind === "pond-defaults") {
         await savePond({
@@ -389,6 +401,10 @@ function Home() {
       } else {
         const active = await ensureRoom(value.ducks);
         receiveRoom(await updateRoom({ data: { id: active.id, ducks: value.ducks } }));
+        if (value.pondDefaults && pond) {
+          await savePond({ data: { ...pond, ducks: value.ducks } });
+          setPonds(await loadPonds());
+        }
       }
       setDialog(null);
     }, "Couldn't save the ducks.");
@@ -407,11 +423,17 @@ function Home() {
           : target === "mediator"
             ? "discussion"
             : "conversation";
-    if (!text || composerLocked || localBusy) return;
+    if (!text || composerLocked) return;
     setError("");
     setSaving(true);
     let activeRoomId = selected;
     try {
+      // This tab reads one reply stream at a time. Another conversation's turn keeps running on
+      // the server; drop its stream and let polling follow it.
+      if (localBusy) {
+        await chat.stop();
+        setNeedsSync(true);
+      }
       const active = await ensureRoom();
       activeRoomId = active.id;
       streamingRef.current = active.id;
@@ -462,22 +484,32 @@ function Home() {
   }
 
   const thinking = room?.messages.filter((message) => message.status === "thinking") ?? [];
-  const elsewhere = localBusy && streaming !== selected;
-  const statusLine = needsSync
-    ? "Reconnecting…"
-    : approvals.length
-      ? `${approvals[0].duck} is waiting for your answer above.`
-      : busy
-        ? thinking.length
-          ? workingLine(thinking)
-          : "Working…"
-        : elsewhere
-          ? "Another conversation is still replying. You can send here once it finishes."
-          : target === "mediator"
-            ? "Mediator brings in the ducks who can help, lets them push back, and reports back."
-            : target === "everyone"
-              ? "Every duck answers on its own, then Mediator sums up. Just for this message."
-              : `Only ${targetDuck?.name} replies. Type @ to bring in another duck too.`;
+  /** "Ask again" after a failed reply: talk to that duck directly and offer the last question. */
+  function retry(duckId: string) {
+    const question = room?.messages.findLast((message) => !message.duckId)?.text ?? "";
+    setTargets((current) => ({ ...current, [key]: duckId }));
+    if (!input.trim()) setInput(question);
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(),
+    );
+  }
+  const statusLine = needsSync ? (
+    "Reconnecting…"
+  ) : approvals.length ? (
+    `${approvals[0].duck} is waiting for your answer above.`
+  ) : busy ? (
+    thinking.length ? (
+      <WorkingLine thinking={thinking} />
+    ) : (
+      "Working…"
+    )
+  ) : target === "mediator" ? (
+    "Mediator brings in the ducks who can help, lets them push back, and reports back."
+  ) : target === "everyone" ? (
+    "Every duck answers on its own, then Mediator sums up. Just for this message."
+  ) : (
+    `Only ${targetDuck?.name} replies. Type @ to bring in another duck too.`
+  );
   const placeholder =
     target === "mediator"
       ? "Ask the group…"
@@ -527,32 +559,51 @@ function Home() {
             <Menu size={20} />
           </button>
           <div className="conversation-title">
-            <h1 title={room?.title}>{room?.title ?? "New conversation"}</h1>
+            {room ? (
+              <button
+                type="button"
+                className="title-button"
+                title={`${room.title} (click to rename)`}
+                onClick={() => setDialog({ kind: "rename", room })}
+              >
+                <h1>{room.title}</h1>
+                <Pencil size={13} aria-hidden />
+              </button>
+            ) : (
+              <h1>New conversation</h1>
+            )}
             <span>
               {pond?.name ?? "General"} · {ducks.length} {ducks.length === 1 ? "duck" : "ducks"}
             </span>
           </div>
+          {!!room?.messages.length && (
+            <button
+              type="button"
+              className="header-action"
+              aria-label="Summarize"
+              disabled={composerLocked}
+              title="Mediator recaps where the conversation landed, what's still disagreed, and the one question worth answering next. Doesn't change who you're talking to."
+              onClick={() => void send("summary")}
+            >
+              <ListChecks size={16} />
+              <span>Summarize</span>
+            </button>
+          )}
           <RoomNotes
             key={room?.id ?? newKey}
             notes={room?.notes ?? ""}
-            disabled={composerLocked}
+            disabled={saving || dictating}
             onSave={saveNotes}
           />
-          {room && (
-            <ConversationMenu
-              canSummarize={!composerLocked && !localBusy && room.messages.length > 0}
-              locked={composerLocked}
-              onSummarize={() => void send("summary")}
-              onRename={() => setDialog({ kind: "rename", room })}
-              onMove={() => setDialog({ kind: "move", room })}
-              onDelete={() => setDialog({ kind: "delete", room })}
-            />
-          )}
         </header>
         <Transcript key={selected} messages={room?.messages}>
           {room?.messages.length ? (
             <div className="messages">
-              <ConversationMessages messages={room.messages} ducks={room.ducks} />
+              <ConversationMessages
+                messages={room.messages}
+                ducks={room.ducks}
+                onRetry={busy ? undefined : retry}
+              />
             </div>
           ) : (
             <div className="welcome">
@@ -600,7 +651,7 @@ function Home() {
             ducks={ducks}
             target={target}
             thinking={thinking}
-            editDisabled={composerLocked}
+            editLabel={busy ? "Ducks (view)" : "Ducks"}
             onTarget={(value) => setTargets((current) => ({ ...current, [key]: value }))}
             onEdit={() => setDialog({ kind: "ducks" })}
           />
@@ -616,6 +667,7 @@ function Home() {
               value={input}
               onChange={setInput}
               ducks={ducks}
+              exclude={targetDuck?.id}
               placeholder={placeholder}
               onSend={() => void send("message")}
               onDictatingChange={setDictating}
@@ -634,7 +686,7 @@ function Home() {
             ) : (
               <button
                 className="send-button"
-                disabled={!input.trim() || saving || dictating || localBusy}
+                disabled={!input.trim() || saving || dictating}
                 type="submit"
                 aria-label="Send"
               >
@@ -652,6 +704,7 @@ function Home() {
           key={room?.id ?? newKey}
           scope={{ kind: "conversation", roomId: room?.id, pond, room }}
           ducks={ducks}
+          readOnly={busy}
           saving={saving}
           error={error}
           onSave={saveDucks}

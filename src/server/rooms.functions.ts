@@ -135,8 +135,16 @@ export const updateRoom = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     requireAllowedRequest(getRequest());
+    // Notes and the title can change mid-turn: the running turn holds the live room object and
+    // saves it as it goes, so edit that object and later speakers read the new notes.
+    const live = liveRooms.get(data.id);
+    if (live && !data.ducks) {
+      if (data.notes !== undefined) live.room.notes = data.notes;
+      if (data.title !== undefined) live.room.title = data.title;
+      return saveRoom(live.room);
+    }
     if (activeTurns.has(data.id))
-      throw new Error("Stop the current replies before changing the room.");
+      throw new Error("Stop the current replies before changing the ducks.");
     const room = getRoom(data.id);
     await Promise.all(
       (data.ducks ?? []).map(async (duck) => {
@@ -153,7 +161,7 @@ export const updateRoom = createServerFn({ method: "POST" })
     );
     // Discovery can take time; a conversation may have started while it was running.
     if (activeTurns.has(data.id))
-      throw new Error("Stop the current replies before changing the room.");
+      throw new Error("Stop the current replies before changing the ducks.");
     const current = getRoom(data.id);
     return saveRoom({
       ...current,

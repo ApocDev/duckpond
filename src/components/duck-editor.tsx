@@ -56,17 +56,27 @@ export function DuckEditor({
         <ChevronDown size={16} />
       </button>
       <div className="duck-editor-fields" id={`edit-${duck.id}`} hidden={!open}>
-        <div className="field-grid">
-          <label className="field wide">
-            <span>Name</span>
-            <input
-              required
-              maxLength={32}
-              value={duck.name}
-              onChange={(event) => onChange({ name: event.target.value })}
-            />
-            <small>Mention as @{mentionHandle(duck, ducks)}</small>
-          </label>
+        <label className="field">
+          <span>Name</span>
+          <input
+            required
+            maxLength={32}
+            value={duck.name}
+            onChange={(event) => onChange({ name: event.target.value })}
+          />
+          <small>Mention as @{mentionHandle(duck, ducks)}</small>
+        </label>
+        <label className="field">
+          <span>Perspective</span>
+          <GrowingTextarea
+            required
+            maxLength={4000}
+            value={duck.instructions}
+            onChange={(instructions) => onChange({ instructions })}
+          />
+          <small>What this duck cares about, how it talks, and when it should stay quiet.</small>
+        </label>
+        <div className="field-grid model-fields">
           <div className="field">
             <span>Provider</span>
             <Select
@@ -126,17 +136,10 @@ export function DuckEditor({
             />
           </div>
         </div>
-        {model?.description && <p className="field-hint">{model.description}</p>}
-        <label className="field">
-          <span>Perspective</span>
-          <GrowingTextarea
-            required
-            maxLength={4000}
-            value={duck.instructions}
-            onChange={(instructions) => onChange({ instructions })}
-          />
-          <small>What this duck cares about, how it talks, and when it should stay quiet.</small>
-        </label>
+        <p className="field-hint">
+          {model?.description ? `${model.description} ` : ""}Higher reasoning is slower and more
+          thorough.
+        </p>
         <div className="field">
           <span>Outfit</span>
           <div className="outfit-options" role="group" aria-label={`${duck.name} outfit`}>

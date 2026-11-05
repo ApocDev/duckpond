@@ -10,6 +10,7 @@ export function MentionInput({
   onChange,
   ducks,
   placeholder,
+  exclude,
   onSend,
   onDictatingChange,
 }: {
@@ -17,6 +18,8 @@ export function MentionInput({
   onChange: (value: string) => void;
   ducks: Duck[];
   placeholder: string;
+  /** A duck already receiving the message, so mentioning it would add nothing. */
+  exclude?: string;
   onSend: () => void;
   onDictatingChange: (active: boolean) => void;
 }) {
@@ -46,8 +49,12 @@ export function MentionInput({
   const [active, setActive] = useState(0);
   const range = dismissed ? null : mentionAt(value, caret);
   const options = range
-    ? ducks.filter((duck) =>
-        `${duck.name} ${duck.id} ${mentionHandle(duck, ducks)}`.toLowerCase().includes(range.query),
+    ? ducks.filter(
+        (duck) =>
+          duck.id !== exclude &&
+          `${duck.name} ${duck.id} ${mentionHandle(duck, ducks)}`
+            .toLowerCase()
+            .includes(range.query),
       )
     : [];
   const open = range !== null;

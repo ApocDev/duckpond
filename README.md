@@ -51,33 +51,35 @@ tailscale serve --https=3998 off
 
 ### Sending a message
 
-The **To** row above the message box picks who answers. It stays visible and remembers your choice per conversation.
+The **To** row above the message box picks who answers. It stays visible and remembers your choice per conversation. On phones it shrinks to one button that opens the full list.
 
-- **Mediator** (the default when a conversation has more than one duck) reads your message, answers clarifications itself, or brings in the ducks who can help. They can push back on each other, and Mediator then reports the recommendation, remaining disagreements, and at most one question for you.
+- **Mediator** (the default when a conversation has more than one duck, and always available) reads your message, answers clarifications itself, or brings in the ducks who can help. They can push back on each other, and Mediator then reports the recommendation, remaining disagreements, and at most one question for you.
 - **Each separately** sends one message to every duck at once. Nobody sees the others' answers while writing, then Mediator sums up. It applies to that one message; the To row goes back to Mediator afterward.
 - **A duck** gets your message directly. Type `@` to bring another duck into the same message; the selected duck still replies.
 - **Stop** cancels the turn's provider calls and pending approvals. Completed and partial messages stay saved.
 
-The **⋯** menu in the header has **Summarize so far** (Mediator recaps where things landed, what's still disagreed, and the one question worth answering next, without changing who you're talking to), **Rename**, **Move to another pond**, and **Delete**.
+**Summarize** in the header asks Mediator to recap where things landed, what's still disagreed, and the one question worth answering next. It doesn't change who you're talking to. Click the conversation's title to rename it.
 
-While ducks work, each running reply shows what it's doing and for how long, such as "reading docs/plan.md · 1:42", and the line under the message box lists everyone still working. Finished replies keep a collapsible list of the steps they took. You can switch conversations and ponds while a turn runs; a yellow dot marks conversations that are still replying. This tab follows one reply stream at a time, so you can send in another conversation once the current one finishes.
+While ducks work, each running reply shows what it's doing and for how long, such as "reading docs/plan.md · 1:42". After a minute without new text or steps it says "no update for 1:10" instead. The line under the message box names the phase, such as "Mediator is choosing who answers · 0:42". Finished replies keep a collapsible list of the steps they took. A failed or stopped reply offers **Ask <duck> again**, which selects that duck and puts your last message back in the box.
 
-A duck that has nothing relevant to add replies `PASS`. The transcript shows it as "had nothing to add," so you can tell a quiet duck from one that wasn't asked. Passes still use that duck's subscription. A finished group reply collapses to one line, such as "Mediator and Skeptic discussed this · 2 passed"; **Show** expands it. A reply round that is still running, failed, or was stopped stays expanded.
+You can switch conversations and ponds while a turn runs, and send in another conversation; a yellow dot marks conversations that are still replying. Notes stay editable during a turn. Ducks are view-only until the replies finish or you press Stop.
+
+A duck that has nothing relevant to add replies `PASS`. The transcript shows it as "had nothing to add," so you can tell a quiet duck from one that wasn't asked. Passes still use that duck's subscription. A finished group reply collapses to one line, such as "Mediator consulted Skeptic · 2 passed"; **Show** expands it. Inside, Mediator's instructions to each duck fold to one line, such as "Mediator asked Skeptic: …", and expand on click. A reply round that is still running, failed, or was stopped stays expanded.
 
 ### Shared notes
 
-**Notes** in the header holds text every duck in the conversation reads before it replies. Edit it right there. Summaries don't change notes; copy anything worth keeping into them yourself.
+**Notes** in the header holds text every duck in the conversation reads before it replies. Edit it right there. Clicking outside closes the panel unless you have unsaved edits. Summaries don't change notes; copy anything worth keeping into them yourself.
 
 ### Ducks
 
-**Ducks** at the end of the To row opens the conversation's duck list. Mediator is listed first; it hosts every conversation and can't be removed. Click a duck to edit its name, provider, model, reasoning, perspective, and outfit, or to remove it. Changes apply on Save and affect only this conversation; earlier messages stay as they are. Closing with unsaved changes asks before discarding them. To change what new conversations start with, use pond settings.
+**Ducks** at the end of the To row opens the conversation's duck list. Mediator is listed first; it hosts every conversation and can't be removed. Click a duck to edit its name, provider, model, reasoning, perspective, and outfit, or to remove it. Changes apply on Save and affect only this conversation; earlier messages stay as they are. Check **Also make these the <pond> defaults** to save the same list as the pond's starting ducks. Closing with unsaved changes asks before discarding them.
 
 **Add a duck** at the top of the list has four options:
 
-- **Suggest** reads this conversation and its notes and proposes up to five missing perspectives, each with a reason. It needs a message or notes first. In pond settings it reads the pond's docs and code instead, in a read-only sandbox.
+- **Suggest** reads this conversation and its notes and proposes up to five missing perspectives, each with a reason. It needs a message or notes first, so it's the last tab until then. In pond settings it reads the pond's docs and code instead, in a read-only sandbox.
 - **Describe** turns a short description into a full persona you can edit before adding.
-- **Reuse** copies ducks from your other conversations, one at a time or a whole group.
-- **Blank** adds an empty persona to write yourself.
+- **Reuse** copies ducks from your other conversations, one at a time or a whole group. Ducks already in the list are marked and can't be added twice.
+- **Write your own** adds a duck with an empty perspective for you to fill in.
 
 Suggestions use GPT-5.6-Sol with Medium reasoning in one read-only Codex call. They never change the conversation. Requests can be cancelled and time out after two minutes (three for workspace inspection). Added ducks start with the first duck's provider and model.
 
@@ -87,7 +89,7 @@ Personas define a priority, temperament, limits, and what would change their min
 
 ### Ponds
 
-Pick a pond in the sidebar. **New pond…** at the bottom of that list creates a pond in an existing absolute folder, or opens the pond already saved there. The folder button next to the pond list opens pond settings: its name and the ducks new conversations start with. **New conversation** starts with the pond's defaults. Existing conversations keep their own ducks. Use a conversation's **⋯** menu to rename it, move it to another pond, or delete it; moving keeps its messages and ducks, and later replies run in the new pond's folder. A search box appears above the list once a pond has more than six conversations.
+Pick a pond in the sidebar. **New pond…** at the bottom of that list creates a pond in an existing absolute folder, or opens the pond already saved there. **<pond> settings…** in the same list opens its name and the ducks new conversations start with. The pond's folder shows under the picker. **New conversation** starts with the pond's defaults. Existing conversations keep their own ducks. Use a conversation's **⋯** menu in the sidebar to rename it, move it to another pond, or delete it; moving keeps its messages and ducks, and later replies run in the new pond's folder. A search box appears above the list once a pond has more than six conversations.
 
 The folder holds `.duckpond/pond.json` with the pond's ID, name, and duck settings, and `.duckpond/ducks/<duck-id>.md` with each persona. You can edit and commit these files. Duckpond reads them when you open pond defaults or start a conversation, and rejects a stale save if they changed meanwhile. A missing or malformed file marks the pond unavailable instead of silently using built-in ducks.
 

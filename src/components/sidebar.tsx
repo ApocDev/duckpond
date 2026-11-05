@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { FolderCog, MoreHorizontal, Plus, Search, Settings } from "lucide-react";
+import { MoreHorizontal, Plus, Search, Settings } from "lucide-react";
 import type { Room } from "../lib/room";
 import type { connections } from "../server/rooms.functions";
 import { Select } from "./select";
@@ -7,6 +7,7 @@ import { useDismiss } from "./use-dismiss";
 
 type Connection = Awaited<ReturnType<typeof connections>>[number];
 const newPond = "__new";
+const pondSettings = "__settings";
 
 /** Pond picker, conversation list, and provider status. */
 export function Sidebar({
@@ -62,38 +63,41 @@ export function Sidebar({
       </a>
       <div className="pond-picker">
         <label htmlFor="pond">Pond</label>
-        <div className="row">
-          <Select
-            id="pond"
-            className="grow"
-            value={pondId ?? ""}
-            disabled={locked}
-            options={[
-              { value: "", label: "General", detail: "No project folder" },
-              ...ponds.map((item) => ({
-                value: item.id,
-                label: item.error ? `${item.name} (unavailable)` : item.name,
-                detail: item.workspace,
-              })),
-              { value: newPond, label: "New pond…", separated: true },
-            ]}
-            onChange={(value) => (value === newPond ? onNewPond() : onPond(value || null))}
-          />
-          <button
-            type="button"
-            className="icon-button"
-            disabled={locked || !pond || !!pond.error}
-            title={
-              pond
-                ? `${pond.name} settings: name and default ducks`
-                : "General has no folder and uses the built-in ducks"
-            }
-            aria-label="Pond settings"
-            onClick={onPondSettings}
-          >
-            <FolderCog size={16} />
-          </button>
-        </div>
+        <Select
+          id="pond"
+          value={pondId ?? ""}
+          disabled={locked}
+          options={[
+            { value: "", label: "General", detail: "No project folder" },
+            ...ponds.map((item) => ({
+              value: item.id,
+              label: item.error ? `${item.name} (unavailable)` : item.name,
+              detail: item.workspace,
+            })),
+            ...(pond && !pond.error
+              ? [
+                  {
+                    value: pondSettings,
+                    label: `${pond.name} settings…`,
+                    detail: "Name and default ducks",
+                    separated: true,
+                  },
+                ]
+              : []),
+            { value: newPond, label: "New pond…", separated: !pond || !!pond.error },
+          ]}
+          onChange={(value) =>
+            value === newPond
+              ? onNewPond()
+              : value === pondSettings
+                ? onPondSettings()
+                : onPond(value || null)
+          }
+        />
+        <small className="pond-path" title={pond?.workspace}>
+          {/* bdi keeps the path's own order while the ellipsis trims its start. */}
+          <bdi>{pond ? pond.workspace : "No project folder"}</bdi>
+        </small>
         {pond?.error && <p className="field-error">{pond.error}</p>}
       </div>
       <button
@@ -196,7 +200,7 @@ function ConversationRow({
         title={room.title}
         onClick={onSelect}
       >
-        {room.title}
+        <span>{room.title}</span>
         {working && <i className="working-dot" aria-label="replying" title="Replying" />}
       </button>
       <button
