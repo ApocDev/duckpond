@@ -2075,6 +2075,10 @@ details[open] > summary::before {
   .host-row {
     flex-wrap: wrap;
   }
+  /* A 200px basis pushes the tag onto its own line instead of squeezing the text. */
+  .host-row > span:nth-child(2) {
+    flex: 1 1 200px;
+  }
   .host-row .tag {
     order: 3;
     margin-left: 50px;
