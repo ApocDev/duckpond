@@ -17,7 +17,7 @@ vp install
 vp run dev
 ```
 
-Duckpond uses `127.0.0.1:3998`, with strict port checking. The launch command sets `PORT` explicitly so an inherited value from another dev server cannot redirect it.
+The dev server uses `127.0.0.1:3999` and the production server (`vp run start`) uses `127.0.0.1:3998`, both with strict port checking. Each command sets `PORT` explicitly so an inherited value from another dev server cannot redirect it.
 
 For a built version:
 
@@ -86,6 +86,8 @@ The room tools are scoped to the current room and speaker:
 Requests, actions, evidence, review decisions, and published responses remain saved with the conversation. Actions persist across turns. A pass, interrupted reply, or offer to work cannot complete an action. After a server restart, a running action becomes pending when the next discussion starts; its owner must inspect partial work before resuming. Failed or stopped answers leave their assigned requests open. The full exchange stays in the expandable reply group, with Mediator's result expanded. Guide remains the partner for Guided conversation and summaries of Independent review.
 
 Room tools use [Codex App Server dynamic tools](https://developers.openai.com/codex/app-server) and [Claude's in-process MCP tools](https://code.claude.com/docs/en/agent-sdk/custom-tools). They do not need user approval because they only coordinate the conversation. Native tools and their existing approval controls remain available.
+
+The room's ducks sit above the composer. A ring marks ducks that are replying. Click a duck to see its model and perspective, mention it, or open room settings; the **+** after the ducks also opens room settings. Shared notes and agent context are under **Notes** in the header.
 
 Room settings add and remove ducks, and edit their names, perspectives, outfits, provider, model, and reasoning level. Keep at least one duck in a room. Removal preserves earlier messages. Changes apply when you save the room.
 

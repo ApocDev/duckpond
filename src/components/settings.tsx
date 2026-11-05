@@ -190,10 +190,7 @@ export function Settings({
         }}
       >
         <div className="settings-heading">
-          <div>
-            <span className="eyebrow">{pond ? "POND DEFAULTS" : "MAKE THIS ROOM YOURS"}</span>
-            <h2>{pond ? "Ducks for every new conversation." : "Your ducks, your mix."}</h2>
-          </div>
+          <h2>{pond ? `${pond.name} settings` : "Room settings"}</h2>
           <button
             className="icon-button"
             type="button"
@@ -204,7 +201,7 @@ export function Settings({
             <X size={20} />
           </button>
         </div>
-        {pond ? (
+        {pond && (
           <>
             <label>
               Pond name
@@ -218,12 +215,11 @@ export function Settings({
             </label>
             <p className="settings-intro pond-workspace">{pond.workspace}</p>
             <p className="settings-intro">
-              Defaults are saved in .duckpond/pond.json and .duckpond/ducks/*.md. Existing
-              conversations keep their ducks. To use another workspace, create or open a pond there.
+              New conversations here start with these ducks. Defaults are saved in
+              .duckpond/pond.json and .duckpond/ducks/*.md. Existing conversations keep their ducks.
+              To use another workspace, create or open a pond there.
             </p>
           </>
-        ) : (
-          <p className="settings-intro">Give each duck a perspective, a model, and an outfit.</p>
         )}
         {error && (
           <p className="error-banner" role="alert">

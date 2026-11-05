@@ -6,7 +6,7 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "PORT=3998 vp dev --host 127.0.0.1 --port 3998 --strictPort",
+    "dev": "PORT=3999 vp dev --host 127.0.0.1 --port 3999 --strictPort",
     "generate-routes": "tsr generate",
     "build": "NODE_ENV=production vp build",
     "preview": "vp preview",

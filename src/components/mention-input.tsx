@@ -9,12 +9,14 @@ export function MentionInput({
   value,
   onChange,
   ducks,
+  placeholder,
   onSend,
   onDictatingChange,
 }: {
   value: string;
   onChange: (value: string) => void;
   ducks: Duck[];
+  placeholder: string;
   onSend: () => void;
   onDictatingChange: (active: boolean) => void;
 }) {
@@ -138,7 +140,7 @@ export function MentionInput({
           setActive(0);
         }}
         onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
-        placeholder="Think out loud, or @ a duck..."
+        placeholder={placeholder}
         rows={1}
         enterKeyHint="enter"
         maxLength={20000}

@@ -1,29 +1,18 @@
-import { AgentContext } from "../components/agent-context";
 import { z } from "zod";
 import { createFileRoute, replaceEqualDeep } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
-import {
-  ArrowUp,
-  ChevronDown,
-  Circle,
-  MessageCircle,
-  NotebookPen,
-  Plus,
-  Settings2,
-  Square,
-  Users,
-  X,
-} from "lucide-react";
-import Markdown from "react-markdown";
+import { ArrowUp, MessageCircle, NotebookPen, Plus, Square, X } from "lucide-react";
 import { Settings } from "../components/settings";
 import { DuckPicker } from "../components/duck-picker";
 import { PondDialog, MovePondDialog } from "../components/pond-dialog";
 import { loadPonds, moveToPond, savePond } from "../server/ponds.functions";
 import type { Pond } from "../lib/pond";
-import { DuckAvatar } from "../components/duck-avatar";
+import { DuckStrip } from "../components/duck-strip";
+import { RoomNotes } from "../components/room-notes";
 import { MentionInput } from "../components/mention-input";
+import { mentionHandle } from "../lib/mentions";
 import { Transcript } from "../components/transcript";
 import { ConversationMessages } from "../components/chat-message";
 import {
@@ -40,7 +29,6 @@ import {
   ducksSchema,
   isUntouchedRoom,
   duckSchema,
-  duckAvatar,
   modeSchema,
   type Approval,
   type Duck,
@@ -51,6 +39,12 @@ import {
 
 export const Route = createFileRoute("/")({ loader: () => loadRooms(), component: Home });
 const transport = new DefaultChatTransport<RoomStream>({ api: "/api/chat" });
+const modeLabels: Record<Mode, string> = {
+  conversation: "Conversation",
+  review: "Independent review",
+  discussion: "Discuss together",
+  guide: "Guided conversation",
+};
 const prompts = [
   "I have an idea for a game, but I'm not sure what's fun about it yet.",
   "Help me think through a decision I'm stuck on.",
@@ -160,7 +154,6 @@ function Home() {
   const [creatingPond, setCreatingPond] = useState(false);
   const [editingPond, setEditingPond] = useState<Pond | null>(null);
   const [moving, setMoving] = useState<Room | null>(null);
-  const [panel, setPanel] = useState(false);
   const [sidebar, setSidebar] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -182,6 +175,26 @@ function Home() {
   const pondRooms = rooms.filter((item) => (item.pondId ?? null) === selectedPond);
   const ducks = room?.ducks ?? newDucks;
   const currentTarget = ducks.some((duck) => duck.id === target) ? target : ducks[0].id;
+  const partner = ducks.find((duck) => duck.id === currentTarget)?.name ?? ducks[0].name;
+  const placeholder = {
+    conversation: `Message ${partner}, or @ another duck`,
+    review: "Ask every duck",
+    discussion: "Ask the room",
+    guide: "Reply to Guide",
+  }[mode];
+  const modeHint = {
+    conversation: `${partner} replies. @ a duck to bring others in.`,
+    review: "Every duck answers on its own, then Guide sums up.",
+    discussion: "Mediator picks who speaks and reports back.",
+    guide: "Only Guide replies. Switch to Independent review to hear everyone.",
+  }[mode];
+  function mention(duck: Duck) {
+    const handle = `@${mentionHandle(duck, ducks)} `;
+    setInput(input.trim() ? `${input.trimEnd()} ${handle}` : handle);
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(),
+    );
+  }
   function receiveRoom(value: Room) {
     setRooms((current) =>
       replaceEqualDeep(current, [value, ...current.filter((item) => item.id !== value.id)]),
@@ -506,10 +519,10 @@ function Home() {
           <span className="brand-mark">
             <img src="/brand/base.png" alt="" />
           </span>
-          duckpond<span className="poc">POC</span>
+          duckpond
         </a>
         <div className="pond-selector">
-          <label htmlFor="current-pond">POND</label>
+          <label htmlFor="current-pond">Pond</label>
           <select
             id="current-pond"
             value={selectedPond ?? ""}
@@ -548,7 +561,7 @@ function Home() {
               disabled={busy || saving || dictating}
               onClick={() => setCreatingPond(true)}
             >
-              + New pond
+              New pond
             </button>
           </div>
           {pond?.error && <p className="pond-error">{pond.error}</p>}
@@ -567,7 +580,7 @@ function Home() {
         >
           Choose other ducks
         </button>
-        <div className="section-label">YOUR CONVERSATIONS</div>
+        <div className="section-label">Conversations</div>
         <div className="room-list">
           {pondRooms.length ? (
             pondRooms.map((item) => (
@@ -637,32 +650,24 @@ function Home() {
               </div>
             ))
           ) : (
-            <p className="sidebar-empty">
-              Your thoughts have a home here.
-              <br />
-              Start your first conversation.
-            </p>
+            <p className="sidebar-empty">No conversations yet.</p>
           )}
         </div>
         <div className="sidebar-bottom">
-          <div className="section-label">CONNECTIONS</div>
           {(["claude", "codex"] as const).map((provider) => {
             const connection = status.find((item) => item.provider === provider);
             return (
-              <div className="connection" key={provider}>
+              <span className="connection" key={provider}>
                 <span className={`status-dot ${connection?.connected ? "connected" : ""}`} />
-                <span>{provider === "claude" ? "Claude" : "Codex"}</span>
-                <small>
-                  {!connection
-                    ? "Checking"
-                    : connection.connected
-                      ? "Subscription"
-                      : "Sign-in needed"}
-                </small>
-              </div>
+                {provider === "claude" ? "Claude" : "Codex"}
+                {!connection ? (
+                  <small>checking</small>
+                ) : (
+                  !connection.connected && <small>sign-in needed</small>
+                )}
+              </span>
             );
           })}
-          <div className="local-note">Saved on this machine</div>
         </div>
       </aside>
       <main className="conversation">
@@ -676,61 +681,45 @@ function Home() {
           </button>
           <div>
             <div className="breadcrumb">
-              {pond?.name ?? "General"} <span>/</span> Conversation
+              {pond?.name ?? "General"} · {modeLabels[mode]}
             </div>
-            <h1>{room?.title ?? "A little room to think."}</h1>
+            <h1>{room?.title ?? "New conversation"}</h1>
           </div>
-          <button className="participants-toggle" onClick={() => setPanel(!panel)}>
-            <Users size={16} />
-            <span>
-              {ducks.length} {ducks.length === 1 ? "duck" : "ducks"}
-            </span>
-            <ChevronDown size={13} />
-          </button>
+          <RoomNotes
+            room={room}
+            disabled={busy || saving || dictating}
+            onEdit={() => setEditing(true)}
+          />
         </header>
         <Transcript key={selected} messages={room?.messages}>
           {!room?.messages.length ? (
             <div className="welcome">
-              <div className="welcome-mark">
-                <img src="/brand/base.png" alt="" />
-              </div>
-              <span className="eyebrow">THINK OUT LOUD</span>
-              <h2>
-                Good ideas start
-                <br />
-                with a conversation.
-              </h2>
-              <p>
-                A few different minds. Room to disagree.
-                <br />
-                Bring a half-formed thought and see where it goes.
-              </p>
+              <h2>New conversation{pond ? ` in ${pond.name}` : ""}</h2>
+              <p>{modeHint}</p>
               <div className="suggestions">
                 {prompts.map((prompt) => (
                   <button key={prompt} onClick={() => setInput(prompt)}>
                     {prompt}
-                    <ArrowUp size={16} />
                   </button>
-                ))}
-              </div>
-              <div className="welcome-ducks">
-                {ducks.map((duck) => (
-                  <span key={duck.id}>
-                    <DuckAvatar avatar={duckAvatar(duck)} small />
-                    {duck.name}
-                  </span>
                 ))}
               </div>
             </div>
           ) : (
             <div className="messages">
-              <div className="date-divider">
-                <span>Room to think. No need to have it figured out.</span>
-              </div>
               <ConversationMessages messages={room.messages} ducks={room.ducks} />
             </div>
           )}
         </Transcript>
+        <DuckStrip
+          ducks={ducks}
+          thinking={room?.messages.filter((message) => message.status === "thinking") ?? []}
+          activity={activity}
+          partnerId={mode === "conversation" ? currentTarget : undefined}
+          observe={room?.observe ?? false}
+          disabled={busy || saving || dictating}
+          onMention={mention}
+          onSettings={() => setEditing(true)}
+        />
         <div className="composer-wrap" data-dictating={dictating} tabIndex={-1}>
           {error && (
             <div className="error-banner" role="alert">
@@ -766,6 +755,7 @@ function Home() {
               value={input}
               onChange={setInput}
               ducks={ducks}
+              placeholder={placeholder}
               onSend={() => void send()}
               onDictatingChange={setDictating}
             />
@@ -777,10 +767,11 @@ function Home() {
                   disabled={busy || saving || dictating}
                   onChange={(event) => setMode(modeSchema.parse(event.target.value))}
                 >
-                  <option value="conversation">Conversation</option>
-                  <option value="review">Independent review</option>
-                  <option value="discussion">Discuss together</option>
-                  <option value="guide">Guided conversation</option>
+                  {modeSchema.options.map((value) => (
+                    <option key={value} value={value}>
+                      {modeLabels[value]}
+                    </option>
+                  ))}
                 </select>
                 {mode === "conversation" && (
                   <select
@@ -824,94 +815,16 @@ function Home() {
             {needsSync ? (
               "Reconnecting to your conversation…"
             ) : busy ? (
-              "The ducks are thinking. You can stop them at any time."
-            ) : mode === "review" ? (
-              "All ducks give independent input, then Guide summarizes and asks one next question."
-            ) : mode === "discussion" ? (
-              "Mediator directs the ducks' discussion and brings you the result."
-            ) : mode === "guide" ? (
-              "Guide replies alone. Choose Independent review for everyone's input."
+              "Ducks are replying. Stop ends the turn early."
             ) : (
               <>
-                <span className="keyboard-hint">Enter to send · Shift + Enter for a new line</span>
-                <span className="touch-hint">Return for a new line · Tap the arrow to send</span>
+                {modeHint} <span className="keyboard-hint">Shift + Enter for a new line.</span>
+                <span className="touch-hint">Tap the arrow to send.</span>
               </>
             )}
           </div>
         </div>
       </main>
-      <aside className={`ducks-panel ${panel ? "mobile-open" : ""}`}>
-        <div className="panel-heading">
-          <span>IN THE ROOM</span>
-          <button
-            className="icon-button"
-            onClick={() => setEditing(true)}
-            disabled={busy || saving || dictating}
-            aria-label="Edit personas and room settings"
-          >
-            <Settings2 size={16} />
-          </button>
-        </div>
-        <p className="panel-intro">
-          Different perspectives.
-          <br />
-          One conversation.
-        </p>
-        {ducks.map((duck) => {
-          const thinking = room?.messages.some(
-            (message) => message.duckId === duck.id && message.status === "thinking",
-          );
-          return (
-            <div className="duck-card" key={duck.id}>
-              <div className="duck-card-heading">
-                <DuckAvatar avatar={duckAvatar(duck)} />
-                <div>
-                  <h3>{duck.name}</h3>
-                  <span className="model-label">
-                    {duck.provider === "claude" ? "Claude" : "Codex"} ·{" "}
-                    {duck.model || "Account default"}
-                    {duck.reasoning ? ` · ${duck.reasoning}` : ""}
-                  </span>
-                </div>
-              </div>
-              <p>{duck.instructions}</p>
-              <span className={`participation ${thinking ? "thinking" : ""}`}>
-                <Circle size={7} fill="currentColor" />
-                {thinking
-                  ? activity[duck.id] || "Thinking"
-                  : duck.id === currentTarget && mode === "conversation"
-                    ? "Conversation partner"
-                    : room?.observe
-                      ? "Observing"
-                      : "On request"}
-              </span>
-            </div>
-          );
-        })}
-        {room && <AgentContext key={room.id} roomId={room.id} />}
-        <div className="notes-heading">
-          <NotebookPen size={15} />
-          <span>SHARED NOTES</span>
-          <button
-            className="text-button"
-            onClick={() => setEditing(true)}
-            disabled={busy || saving || dictating}
-          >
-            Edit
-          </button>
-        </div>
-        <div className="shared-notes">
-          {room?.notes ? (
-            <Markdown>{room.notes}</Markdown>
-          ) : (
-            <p>Keep a question, constraint, or thought here. Every duck sees these notes.</p>
-          )}
-        </div>
-        <div className="panel-foot">
-          <span className="status-dot connected" />
-          {room?.observe ? "Observers may join after a reply" : "Ducks speak when invited"}
-        </div>
-      </aside>
       {editing && (
         <Settings
           key={room?.id ?? "new"}
