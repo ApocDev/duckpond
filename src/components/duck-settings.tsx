@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
-import type { Duck } from "../lib/room";
+import { Plus, RefreshCw, X } from "lucide-react";
+import { guide, type Duck, type Room } from "../lib/room";
 import type { Pond } from "../lib/pond";
-import type { ModelCatalog } from "../lib/models";
-import { rosterColors } from "../lib/duck-colors";
+import { modelLabel, type ModelCatalog } from "../lib/models";
+import { rosterColors, hostColor } from "../lib/duck-colors";
 import { loadModels } from "../server/rooms.functions";
 import { AddDucks } from "./add-ducks";
 import { AgentContext } from "./agent-context";
 import { Dialog } from "./dialog";
+import { DuckAvatar } from "./duck-avatar";
 import { DuckEditor } from "./duck-editor";
 
-export type DuckSettingsSave = { ducks: Duck[]; pondName?: string; asPondDefaults?: boolean };
-
 /**
- * Edits a roster: either one conversation's ducks, or a pond's default ducks for new
- * conversations. Changes apply on Save.
+ * Edits a roster: one conversation's ducks, or a pond's name and the ducks new conversations
+ * start with. Changes apply on Save; closing with unsaved changes asks first.
  */
 export function DuckSettings({
   scope,
@@ -25,55 +24,71 @@ export function DuckSettings({
   onClose,
 }: {
   scope:
-    | { kind: "conversation"; roomId?: string; pond?: Pond; notes: string }
+    | { kind: "conversation"; roomId?: string; pond?: Pond; room?: Room }
     | { kind: "pond"; pond: Pond };
   ducks: Duck[];
   saving: boolean;
   error: string;
-  onSave: (value: DuckSettingsSave) => Promise<void>;
+  onSave: (value: { ducks: Duck[]; pondName?: string }) => Promise<void>;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState(() => structuredClone(ducks));
   const [open, setOpen] = useState<string>();
+  const [adding, setAdding] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [pondName, setPondName] = useState(scope.pond?.name ?? "");
-  const [asPondDefaults, setAsPondDefaults] = useState(false);
   const [removed, setRemoved] = useState<{ duck: Duck; index: number }>();
   const { catalogs, loading, refresh } = useModelCatalogs();
   const colors = useMemo(() => rosterColors(draft), [draft]);
   const roomId = scope.kind === "conversation" ? scope.roomId : undefined;
-  const title =
-    scope.kind === "pond" ? `${scope.pond.name} defaults` : "Ducks in this conversation";
-  const description =
-    scope.kind === "pond"
-      ? "New conversations in this pond start with these ducks. Existing conversations keep their own."
-      : "Changes affect only this conversation. Earlier messages stay as they are.";
+  const room = scope.kind === "conversation" ? scope.room : undefined;
+  const dirty =
+    JSON.stringify(draft) !== JSON.stringify(ducks) ||
+    (scope.kind === "pond" && pondName !== scope.pond.name);
+  function close() {
+    if (dirty && !saving) setConfirming(true);
+    else onClose();
+  }
   return (
     <Dialog
-      title={title}
-      description={description}
+      title={scope.kind === "pond" ? `${scope.pond.name} settings` : "Ducks in this conversation"}
+      description={
+        scope.kind === "pond"
+          ? "New conversations in this pond start with these ducks. Existing conversations keep their own."
+          : "Changes affect only this conversation. To change what new conversations start with, use pond settings."
+      }
       busy={saving}
       wide
-      onClose={onClose}
+      onClose={close}
       footer={
-        <>
-          {scope.kind === "conversation" && scope.pond && (
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={asPondDefaults}
-                onChange={(event) => setAsPondDefaults(event.target.checked)}
-              />
-              Also use as {scope.pond.name} defaults
-            </label>
-          )}
-          <span className="spacer" />
-          <button type="button" className="text-button" disabled={saving} onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" form="duck-settings" className="primary-button" disabled={saving}>
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </>
+        confirming ? (
+          <>
+            <span className="footer-note">Discard your unsaved changes?</span>
+            <span className="spacer" />
+            <button type="button" className="text-button" onClick={() => setConfirming(false)}>
+              Keep editing
+            </button>
+            <button type="button" className="primary-button danger" onClick={onClose}>
+              Discard
+            </button>
+          </>
+        ) : (
+          <>
+            {dirty && <span className="footer-note">Unsaved changes</span>}
+            <span className="spacer" />
+            <button type="button" className="text-button" disabled={saving} onClick={close}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="duck-settings"
+              className="primary-button"
+              disabled={saving || !dirty}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </>
+        )
       }
     >
       <form
@@ -81,11 +96,7 @@ export function DuckSettings({
         className="duck-settings"
         onSubmit={(event) => {
           event.preventDefault();
-          void onSave({
-            ducks: draft,
-            ...(scope.kind === "pond" ? { pondName } : {}),
-            asPondDefaults,
-          });
+          void onSave({ ducks: draft, ...(scope.kind === "pond" ? { pondName } : {}) });
         }}
       >
         {error && (
@@ -103,23 +114,50 @@ export function DuckSettings({
               onChange={(event) => setPondName(event.target.value)}
             />
             <small>
-              {scope.pond.workspace}. Saved in .duckpond/ in that folder, so you can commit it.
+              Folder: {scope.pond.workspace}. Settings are saved in its .duckpond/ folder, so you
+              can commit them.
             </small>
           </label>
         )}
         <div className="section-heading">
-          <strong>
+          <h3>
             {draft.length} {draft.length === 1 ? "duck" : "ducks"}
-          </strong>
-          <button
-            type="button"
-            className="text-button"
-            disabled={loading}
-            onClick={() => void refresh(true)}
-          >
-            <RefreshCw size={13} /> {loading ? "Loading models…" : "Refresh models"}
-          </button>
+          </h3>
+          <div className="row">
+            <button
+              type="button"
+              className="text-button"
+              disabled={loading}
+              onClick={() => void refresh(true)}
+            >
+              <RefreshCw size={13} /> {loading ? "Loading models…" : "Refresh models"}
+            </button>
+            <button
+              type="button"
+              className="secondary-button compact"
+              aria-expanded={adding}
+              onClick={() => setAdding(!adding)}
+            >
+              {adding ? <X size={15} /> : <Plus size={15} />} {adding ? "Close" : "Add a duck"}
+            </button>
+          </div>
         </div>
+        {adding && (
+          <AddDucks
+            ducks={draft}
+            roomId={roomId}
+            pondId={scope.pond?.id}
+            notes={room?.notes ?? `Pond: ${pondName}`}
+            workspace={scope.kind === "pond"}
+            hasContext={scope.kind === "pond" || !!room?.messages.length || !!room?.notes.trim()}
+            onAdd={(added) => {
+              if (!added.length) return;
+              setDraft((current) => [...current, ...added]);
+              setOpen(added[0].id);
+              setAdding(false);
+            }}
+          />
+        )}
         {Object.values(catalogs)
           .filter((catalog) => catalog.error)
           .map((catalog) => (
@@ -129,7 +167,7 @@ export function DuckSettings({
           ))}
         {removed && (
           <p className="banner" role="status">
-            {removed.duck.name} removed.
+            <span>{removed.duck.name} removed.</span>
             <button
               type="button"
               className="text-button"
@@ -143,6 +181,17 @@ export function DuckSettings({
           </p>
         )}
         <div className="duck-list">
+          <div className="host-row">
+            <DuckAvatar avatar="wizard" />
+            <span>
+              <strong style={{ color: hostColor }}>Mediator</strong>
+              <small>
+                Hosts every conversation and picks who answers ·{" "}
+                {modelLabel(guide.model, guide.reasoning)}
+              </small>
+            </span>
+            <span className="tag">Always here</span>
+          </div>
           {draft.map((duck, index) => (
             <DuckEditor
               key={duck.id}
@@ -166,18 +215,6 @@ export function DuckSettings({
             />
           ))}
         </div>
-        <AddDucks
-          ducks={draft}
-          roomId={roomId}
-          pondId={scope.pond?.id}
-          notes={scope.kind === "conversation" ? scope.notes : `Pond: ${pondName}`}
-          workspace={scope.kind === "pond"}
-          onAdd={(added) => {
-            if (!added.length) return;
-            setDraft((current) => [...current, ...added]);
-            setOpen(added[0].id);
-          }}
-        />
         {roomId && <AgentContext roomId={roomId} />}
       </form>
     </Dialog>

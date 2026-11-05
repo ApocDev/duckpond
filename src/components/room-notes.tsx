@@ -39,7 +39,12 @@ export function RoomNotes({
         className="secondary-button compact"
         aria-label="Shared notes"
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          // With nothing to read yet, open straight into editing.
+          if (!open && !notes && !disabled) setDraft("");
+          if (open) setDraft(null);
+          setOpen(!open);
+        }}
       >
         <NotebookPen size={15} />
         <span>Notes</span>
@@ -86,7 +91,10 @@ export function RoomNotes({
                   type="button"
                   className="text-button"
                   disabled={saving}
-                  onClick={() => setDraft(null)}
+                  onClick={() => {
+                    setDraft(null);
+                    if (!notes) setOpen(false);
+                  }}
                 >
                   Cancel
                 </button>

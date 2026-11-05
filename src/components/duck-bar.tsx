@@ -1,15 +1,19 @@
-import { useMemo } from "react";
-import { Settings2 } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import { Users } from "lucide-react";
 import { duckAvatar, type Duck, type Message } from "../lib/room";
 import { hostColor, rosterColors } from "../lib/duck-colors";
+import { modelLabel } from "../lib/models";
 import { DuckAvatar } from "./duck-avatar";
 
-/** Who the next message goes to: "mediator", who picks speakers, or one duck's id. */
+/**
+ * Who the next message goes to: "mediator" (picks who answers), "everyone" (each duck answers
+ * on its own, once), or one duck's id.
+ */
 export type Target = string;
 
 /**
  * The "To" row above the composer. Selecting a chip sets the recipient; a ring marks anyone
- * currently replying.
+ * replying right now. The row scrolls sideways rather than wrapping.
  */
 export function DuckBar({
   ducks,
@@ -28,21 +32,47 @@ export function DuckBar({
 }) {
   const colors = useMemo(() => rosterColors(ducks), [ducks]);
   const busy = new Set(thinking.map((message) => message.duckId));
-  const hostBusy = busy.has("mediator") || busy.has("guide");
+  const row = useRef<HTMLDivElement>(null);
+  // Keep the selected chip in view when the row scrolls.
+  useLayoutEffect(() => {
+    const chip = row.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    const box = row.current;
+    if (!chip || !box) return;
+    if (chip.offsetLeft < box.scrollLeft) box.scrollLeft = chip.offsetLeft - 8;
+    else if (chip.offsetLeft + chip.offsetWidth > box.scrollLeft + box.clientWidth)
+      box.scrollLeft = chip.offsetLeft + chip.offsetWidth - box.clientWidth + 8;
+  }, [target]);
   return (
     <div className="duck-bar" role="group" aria-label="Send to">
       <span className="duck-bar-label">To</span>
-      <div className="duck-bar-chips">
+      <div className="duck-bar-chips" ref={row}>
         {ducks.length > 1 && (
-          <Chip
-            name="Mediator"
-            avatar="wizard"
-            color={hostColor}
-            detail="Picks who answers"
-            selected={target === "mediator"}
-            busy={hostBusy}
-            onSelect={() => onTarget("mediator")}
-          />
+          <>
+            <Chip
+              name="Mediator"
+              avatar="wizard"
+              color={hostColor}
+              detail="Brings in the ducks who can help and reports back"
+              selected={target === "mediator"}
+              busy={busy.has("mediator") || busy.has("guide")}
+              onSelect={() => onTarget("mediator")}
+            />
+            <button
+              type="button"
+              className="duck-chip everyone"
+              aria-pressed={target === "everyone"}
+              title="Every duck answers on its own without seeing the others, then Mediator sums up. Applies to one message."
+              onClick={() => onTarget("everyone")}
+            >
+              <span className="stack" aria-hidden>
+                {ducks.slice(0, 3).map((duck) => (
+                  <DuckAvatar key={duck.id} avatar={duckAvatar(duck)} small />
+                ))}
+              </span>
+              <span>Each separately</span>
+            </button>
+            <span className="duck-bar-divider" aria-hidden />
+          </>
         )}
         {ducks.map((duck) => (
           <Chip
@@ -50,7 +80,7 @@ export function DuckBar({
             name={duck.name}
             avatar={duckAvatar(duck)}
             color={colors.get(duck.id)!}
-            detail={`${duck.provider === "claude" ? "Claude" : "Codex"} · ${duck.model || "default model"}`}
+            detail={`${duck.provider === "claude" ? "Claude" : "Codex"} · ${modelLabel(duck.model, duck.reasoning)}`}
             selected={target === duck.id}
             busy={busy.has(duck.id)}
             onSelect={() => onTarget(duck.id)}
@@ -61,11 +91,12 @@ export function DuckBar({
         type="button"
         className="secondary-button compact"
         aria-label="Edit ducks"
+        title="Edit the ducks in this conversation"
         onClick={onEdit}
         disabled={editDisabled}
       >
-        <Settings2 size={15} />
-        <span>Edit ducks</span>
+        <Users size={15} />
+        <span>Ducks</span>
       </button>
     </div>
   );

@@ -203,15 +203,14 @@ export type Approval = {
 };
 export type RoomStream = UIMessage<never, { room: RoomEvent }>;
 
-/** Explicit mentions take precedence over the selected conversation partner. */
+/** The selected duck plus anyone mentioned, in roster order. */
 export function selectDucks(ducks: Duck[], text: string, target: Duck["id"]): Duck[] {
   const mentions = new Set([...text.matchAll(/@([\w-]+)/g)].map((match) => match[1].toLowerCase()));
   const selected = ducks.filter(
-    (duck) => mentions.has(duck.id) || mentions.has(mentionHandle(duck, ducks)),
+    (duck) =>
+      duck.id === target || mentions.has(duck.id) || mentions.has(mentionHandle(duck, ducks)),
   );
-  return selected.length
-    ? selected
-    : [ducks.find((duck) => duck.id === target) ?? ducks[0]].filter((duck): duck is Duck => !!duck);
+  return selected.length ? selected : ducks.slice(0, 1);
 }
 
 export function makePrompt(

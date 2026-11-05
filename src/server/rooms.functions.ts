@@ -130,6 +130,7 @@ export const updateRoom = createServerFn({ method: "POST" })
       id: z.string().uuid(),
       ducks: ducksSchema.optional(),
       notes: z.string().max(20000).optional(),
+      title: z.string().trim().min(1).max(80).optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -158,6 +159,7 @@ export const updateRoom = createServerFn({ method: "POST" })
       ...current,
       ducks: data.ducks ?? current.ducks,
       notes: data.notes ?? current.notes,
+      title: data.title ?? current.title,
     });
   });
 export const stopRoom = createServerFn({ method: "POST" })

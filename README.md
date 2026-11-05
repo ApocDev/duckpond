@@ -54,10 +54,13 @@ tailscale serve --https=3998 off
 The **To** row above the message box picks who answers. It stays visible and remembers your choice per conversation.
 
 - **Mediator** (the default when a conversation has more than one duck) reads your message, answers clarifications itself, or brings in the ducks who can help. They can push back on each other, and Mediator then reports the recommendation, remaining disagreements, and at most one question for you.
-- **A duck** gets your message directly and replies alone. Type `@` to bring another duck into the same message.
-- **Ask each separately** sends the current message to every duck at once. Nobody sees the others' answers while writing, then Mediator sums up. It's a one-time action; the next message goes to whoever is selected in the To row.
-- **Summarize** asks Mediator to recap where the conversation landed, what's still disagreed, and the one question worth answering next. It doesn't change who you're talking to.
+- **Each separately** sends one message to every duck at once. Nobody sees the others' answers while writing, then Mediator sums up. It applies to that one message; the To row goes back to Mediator afterward.
+- **A duck** gets your message directly. Type `@` to bring another duck into the same message; the selected duck still replies.
 - **Stop** cancels the turn's provider calls and pending approvals. Completed and partial messages stay saved.
+
+The **⋯** menu in the header has **Summarize so far** (Mediator recaps where things landed, what's still disagreed, and the one question worth answering next, without changing who you're talking to), **Rename**, **Move to another pond**, and **Delete**.
+
+While ducks work, each running reply shows what it's doing and for how long, such as "reading docs/plan.md · 1:42", and the line under the message box lists everyone still working. Finished replies keep a collapsible list of the steps they took. You can switch conversations and ponds while a turn runs; a yellow dot marks conversations that are still replying. This tab follows one reply stream at a time, so you can send in another conversation once the current one finishes.
 
 A duck that has nothing relevant to add replies `PASS`. The transcript shows it as "had nothing to add," so you can tell a quiet duck from one that wasn't asked. Passes still use that duck's subscription. A finished group reply collapses to one line, such as "Mediator and Skeptic discussed this · 2 passed"; **Show** expands it. A reply round that is still running, failed, or was stopped stays expanded.
 
@@ -67,11 +70,11 @@ A duck that has nothing relevant to add replies `PASS`. The transcript shows it 
 
 ### Ducks
 
-**Edit ducks** at the end of the To row opens the conversation's duck list. Click a duck to edit its name, provider, model, reasoning, perspective, and outfit, or to remove it. Changes apply on Save and affect only this conversation; earlier messages stay as they are. In a pond, **Also use as … defaults** saves the same list as the pond's defaults.
+**Ducks** at the end of the To row opens the conversation's duck list. Mediator is listed first; it hosts every conversation and can't be removed. Click a duck to edit its name, provider, model, reasoning, perspective, and outfit, or to remove it. Changes apply on Save and affect only this conversation; earlier messages stay as they are. Closing with unsaved changes asks before discarding them. To change what new conversations start with, use pond settings.
 
-**Add a duck** has four options:
+**Add a duck** at the top of the list has four options:
 
-- **Suggest** reads this conversation and its notes and proposes up to five missing perspectives, each with a reason. In pond defaults it reads the pond's docs and code instead, in a read-only sandbox.
+- **Suggest** reads this conversation and its notes and proposes up to five missing perspectives, each with a reason. It needs a message or notes first. In pond settings it reads the pond's docs and code instead, in a read-only sandbox.
 - **Describe** turns a short description into a full persona you can edit before adding.
 - **Reuse** copies ducks from your other conversations, one at a time or a whole group.
 - **Blank** adds an empty persona to write yourself.
@@ -84,7 +87,7 @@ Personas define a priority, temperament, limits, and what would change their min
 
 ### Ponds
 
-Pick a pond in the sidebar. **New pond…** at the bottom of that list creates a pond in an existing absolute folder, or opens the pond already saved there. The button next to the pond list edits its name and default ducks. **New conversation** starts with the pond's defaults. Existing conversations keep their own ducks. Use a conversation's **⋯** menu to move it to another pond or delete it; moving keeps its messages and ducks, and later replies run in the new pond's folder.
+Pick a pond in the sidebar. **New pond…** at the bottom of that list creates a pond in an existing absolute folder, or opens the pond already saved there. The folder button next to the pond list opens pond settings: its name and the ducks new conversations start with. **New conversation** starts with the pond's defaults. Existing conversations keep their own ducks. Use a conversation's **⋯** menu to rename it, move it to another pond, or delete it; moving keeps its messages and ducks, and later replies run in the new pond's folder. A search box appears above the list once a pond has more than six conversations.
 
 The folder holds `.duckpond/pond.json` with the pond's ID, name, and duck settings, and `.duckpond/ducks/<duck-id>.md` with each persona. You can edit and commit these files. Duckpond reads them when you open pond defaults or start a conversation, and rejects a stale save if they changed meanwhile. A missing or malformed file marks the pond unavailable instead of silently using built-in ducks.
 
@@ -166,11 +169,11 @@ Provider integration tests are opt-in and use the local subscriptions. Set `DUCK
 
 The UI uses the base duck and four outfits in `public/brand/`. Their source artwork and generation prompts live in `design/duck-avatars/v1/`. Each duck chooses an outfit independently of its provider or persona.
 
-## Generate an outfit
+## Draw an outfit
 
-Open Edit room, expand a duck, and choose Generate outfit. Enter a hat and clothing description, or leave it blank for Codex to choose from the duck's perspective. The generator uses Sol 5.6 Medium with the native imagegen skill and `design/duck-avatars/v1/base.png`. It does not use an API-key fallback. Native image generation must be available in the signed-in Codex account.
+Open Ducks, expand a duck, and choose Draw outfit. Enter a hat and clothing description, or leave it blank for Codex to choose from the duck's perspective. The generator uses Sol 5.6 Medium with the native imagegen skill and `design/duck-avatars/v1/base.png`. It does not use an API-key fallback. Native image generation must be available in the signed-in Codex account.
 
-Generation continues when settings or the browser tab closes. Reopen the duck to see its saved previews. Choose Use outfit, then Save room. Existing replies keep their original outfit. Only one outfit generates at a time. If the generated PNG is opaque, the same session attempts one background correction using the supplied cleanup prompt. Both turns count toward usage. An outfit must contain actual transparent pixels before it is offered for use. A server restart interrupts an unfinished generation and shows an error so you can try again.
+Generation continues when settings or the browser tab closes. Reopen the duck to see its saved previews. Choose Use outfit, then Save. Existing replies keep their original outfit. Only one outfit generates at a time. If the generated PNG is opaque, the same session attempts one background correction using the supplied cleanup prompt. Both turns count toward usage. An outfit must contain actual transparent pixels before it is offered for use. A server restart interrupts an unfinished generation and shows an error so you can try again.
 
 Generated PNGs and job records live in `.data/avatars`, or under `DUCKPOND_DATA_DIR` when configured. Each job also saves its prompt. Back up this directory with the database. Reported Codex token usage appears in the usage endpoint; it does not measure remaining image-generation quota.
 
@@ -182,4 +185,4 @@ Sessions survive changes to prompt wording, tool descriptions, and string-length
 
 Duckpond bounds new room-context batches to 32,000 characters. Oversized batches start a fresh native session with selected original messages, prioritizing the latest human message, its preceding proposal, and recent replies. The full visible transcript stays under `.data/context` for native file-tool lookup. A replacement session is saved only after the provider accepts its input; a failed handoff preserves the working session. Short updates continue using the existing session and its cache, even when its accumulated context is large. The 32,000-character limit covers the app's input text, not provider instructions, tools, retained native history, or a token/spending limit. This handoff is a selection of original messages, not a generated summary. It identifies omitted history and requires checking original decisions and authorizing messages before acting. Oversized individual messages remain intact in the archive. Independent reviewers only receive archives of messages visible to their review.
 
-Open Agent context in the duck sidebar for each agent's last reported input tokens and recorded compactions. Codex also reports the model's context window. Claude input counts include cached tokens, but no window percentage is shown without a reported capacity. These figures are separate from cumulative usage. Native compaction remains managed by the provider. Handoffs preserve published conversation history; earlier native tool output is not copied, so ducks must reopen cited files when those details matter.
+Open Context usage at the bottom of a conversation's Ducks dialog for each agent's last reported input tokens and recorded compactions. Codex also reports the model's context window. Claude input counts include cached tokens, but no window percentage is shown without a reported capacity. These figures are separate from cumulative usage. Native compaction remains managed by the provider. Handoffs preserve published conversation history; earlier native tool output is not copied, so ducks must reopen cited files when those details matter.

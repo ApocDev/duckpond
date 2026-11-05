@@ -1,10 +1,11 @@
 import { useLayoutEffect, useRef, type ComponentProps } from "react";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { avatarSchema, duckAvatar, duckSchema, type Duck } from "../lib/room";
-import { findModel, type ModelCatalog } from "../lib/models";
+import { findModel, modelLabel, type ModelCatalog } from "../lib/models";
 import { mentionHandle } from "../lib/mentions";
 import { DuckAvatar } from "./duck-avatar";
 import { OutfitGenerator } from "./outfit-generator";
+import { Select } from "./select";
 
 /** One duck in the settings list: a summary row that expands into its editable fields. */
 export function DuckEditor({
@@ -44,11 +45,13 @@ export function DuckEditor({
       >
         <DuckAvatar avatar={duckAvatar(duck)} />
         <span>
-          <strong style={{ color }}>{duck.name}</strong>
-          <small>
-            {provider} · {model?.name ?? (duck.model || "default model")}
-            {duck.reasoning ? ` · ${duck.reasoning}` : ""}
-          </small>
+          <strong style={{ color }}>
+            {duck.name}
+            <small>
+              {provider} · {modelLabel(duck.model, duck.reasoning, model?.name)}
+            </small>
+          </strong>
+          {!open && <em>{duck.instructions.split(/(?<=[.!?])\s/)[0]}</em>}
         </span>
         <ChevronDown size={16} />
       </button>
@@ -64,58 +67,64 @@ export function DuckEditor({
             />
             <small>Mention as @{mentionHandle(duck, ducks)}</small>
           </label>
-          <label className="field">
+          <div className="field">
             <span>Provider</span>
-            <select
+            <Select
+              label="Provider"
               value={duck.provider}
-              onChange={(event) =>
+              options={[
+                { value: "claude", label: "Claude" },
+                { value: "codex", label: "Codex" },
+              ]}
+              onChange={(value) =>
                 onChange({
-                  provider: duckSchema.shape.provider.parse(event.target.value),
+                  provider: duckSchema.shape.provider.parse(value),
                   model: "",
                   reasoning: "",
                 })
               }
-            >
-              <option value="claude">Claude</option>
-              <option value="codex">Codex</option>
-            </select>
-          </label>
-          <label className="field">
+            />
+          </div>
+          <div className="field">
             <span>Model</span>
-            <select
+            <Select
+              label="Model"
               disabled={!catalog || !!catalog.error}
               value={model?.id ?? duck.model}
-              onChange={(event) => onChange({ model: event.target.value, reasoning: "" })}
-            >
-              <option value="">Account default</option>
-              {duck.model && !model && <option value={duck.model}>{duck.model} (saved)</option>}
-              {catalog?.models.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
+              options={[
+                { value: "", label: "Account default" },
+                ...(duck.model && !model
+                  ? [{ value: duck.model, label: `${duck.model} (saved)` }]
+                  : []),
+                ...(catalog?.models.map((item) => ({ value: item.id, label: item.name })) ?? []),
+              ]}
+              onChange={(value) => onChange({ model: value, reasoning: "" })}
+            />
+          </div>
+          <div className="field">
             <span>Reasoning</span>
-            <select
-              value={duck.reasoning ?? ""}
+            <Select
+              label="Reasoning"
               disabled={!model?.reasoning.length}
-              onChange={(event) => onChange({ reasoning: event.target.value })}
-            >
-              <option value="">
-                {model?.defaultReasoning ? `Default (${model.defaultReasoning})` : "Default"}
-              </option>
-              {duck.reasoning && !model?.reasoning.includes(duck.reasoning) && (
-                <option value={duck.reasoning}>{duck.reasoning} (saved)</option>
-              )}
-              {model?.reasoning.map((level) => (
-                <option key={level} value={level}>
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                </option>
-              ))}
-            </select>
-          </label>
+              value={duck.reasoning ?? ""}
+              options={[
+                {
+                  value: "",
+                  label: model?.defaultReasoning
+                    ? `Default (${model.defaultReasoning})`
+                    : "Default",
+                },
+                ...(duck.reasoning && !model?.reasoning.includes(duck.reasoning)
+                  ? [{ value: duck.reasoning, label: `${duck.reasoning} (saved)` }]
+                  : []),
+                ...(model?.reasoning.map((level) => ({
+                  value: level,
+                  label: level.charAt(0).toUpperCase() + level.slice(1),
+                })) ?? []),
+              ]}
+              onChange={(value) => onChange({ reasoning: value })}
+            />
+          </div>
         </div>
         {model?.description && <p className="field-hint">{model.description}</p>}
         <label className="field">

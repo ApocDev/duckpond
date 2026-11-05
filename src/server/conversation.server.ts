@@ -121,8 +121,11 @@ export async function runConversation(
         },
         (event) => {
           if (event.type === "activity") {
-            message.tools ??= [];
-            if (!message.tools.includes(event.label)) message.tools.push(event.label);
+            // Unique steps, most recent last, so the last entry is what the duck is doing now.
+            message.tools = [
+              ...(message.tools ?? []).filter((tool) => tool !== event.label),
+              event.label,
+            ];
             emit({
               type: "message",
               message: {

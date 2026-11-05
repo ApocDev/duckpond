@@ -1,3 +1,4 @@
+import { ArrowDown } from "lucide-react";
 import { Component, createRef, type ReactNode } from "react";
 import type { Message } from "../lib/room";
 
@@ -94,7 +95,9 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
         </div>
         {this.state.unread && (
           <div className="transcript-jump">
-            <button onClick={this.jumpToLatest}>↓ New replies</button>
+            <button onClick={this.jumpToLatest}>
+              <ArrowDown size={14} /> New replies
+            </button>
           </div>
         )}
       </>

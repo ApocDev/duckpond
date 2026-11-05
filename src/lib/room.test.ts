@@ -18,3 +18,10 @@ it("restates the duck's core perspective on every turn", () => {
     "Stay Skeptic: You protect the room from convincing itself of something it has not established.",
   );
 });
+
+it("labels models the same way with or without a loaded catalog", async () => {
+  const { modelLabel } = await import("./models");
+  expect(modelLabel("gpt-5.6-luna", "medium")).toBe("GPT-5.6-Luna · Medium");
+  expect(modelLabel("", "")).toBe("Default model");
+  expect(modelLabel("sonnet", undefined, "Claude Sonnet")).toBe("Claude Sonnet");
+});

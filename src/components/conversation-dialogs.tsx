@@ -1,6 +1,136 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { MoreHorizontal } from "lucide-react";
 import type { Room } from "../lib/room";
 import { Dialog } from "./dialog";
+import { Select } from "./select";
+import { useDismiss } from "./use-dismiss";
+
+/** The header's conversation actions: a one-off recap plus rename, move, and delete. */
+export function ConversationMenu({
+  canSummarize,
+  locked,
+  onSummarize,
+  onRename,
+  onMove,
+  onDelete,
+}: {
+  canSummarize: boolean;
+  locked: boolean;
+  onSummarize: () => void;
+  onRename: () => void;
+  onMove: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapper = useRef<HTMLDivElement>(null);
+  useDismiss(wrapper, open, () => setOpen(false));
+  const item = (
+    label: string,
+    action: () => void,
+    options: { disabled?: boolean; hint?: string; danger?: boolean } = {},
+  ) => (
+    <button
+      type="button"
+      role="menuitem"
+      className={options.danger ? "danger" : undefined}
+      disabled={options.disabled}
+      onClick={() => {
+        setOpen(false);
+        action();
+      }}
+    >
+      {label}
+      {options.hint && <small>{options.hint}</small>}
+    </button>
+  );
+  return (
+    <div className="room-notes" ref={wrapper}>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label="Conversation options"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <MoreHorizontal size={18} />
+      </button>
+      {open && (
+        <div className="popover menu header-menu" role="menu">
+          {item("Summarize so far", onSummarize, {
+            disabled: !canSummarize,
+            hint: "Mediator recaps where things landed. Doesn't change who you're talking to.",
+          })}
+          {item("Rename", onRename, { disabled: locked })}
+          {item("Move to another pond", onMove, { disabled: locked })}
+          {item("Delete", onDelete, { disabled: locked, danger: true })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Renames a conversation; titles start as the first message, cut at a word. */
+export function RenameDialog({
+  room,
+  onRename,
+  onClose,
+}: {
+  room: Room;
+  onRename: (title: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(room.title);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <Dialog
+      title="Rename conversation"
+      busy={saving}
+      onClose={onClose}
+      footer={
+        <>
+          <span className="spacer" />
+          <button type="button" className="text-button" disabled={saving} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" form="rename-form" className="primary-button" disabled={saving}>
+            {saving ? "Saving…" : "Rename"}
+          </button>
+        </>
+      }
+    >
+      <form
+        id="rename-form"
+        className="form-stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!title.trim()) return;
+          setSaving(true);
+          void onRename(title.trim()).catch((cause: unknown) => {
+            setError(cause instanceof Error ? cause.message : "Couldn't rename it.");
+            setSaving(false);
+          });
+        }}
+      >
+        <label className="field">
+          <span>Title</span>
+          <input
+            autoFocus
+            required
+            maxLength={80}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </label>
+        {error && (
+          <p className="banner error" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+    </Dialog>
+  );
+}
 
 /** Moves a conversation to another pond; later replies run in that pond's folder. */
 export function MoveDialog({
@@ -46,21 +176,19 @@ export function MoveDialog({
         </>
       }
     >
-      <label className="field">
+      <div className="field">
         <span>Pond</span>
-        <select
+        <Select
+          label="Pond"
           value={selected}
           disabled={saving}
-          onChange={(event) => setSelected(event.target.value)}
-        >
-          <option value="">General</option>
-          {ponds.map((pond) => (
-            <option key={pond.id} value={pond.id} disabled={!!pond.error}>
-              {pond.name}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={[
+            { value: "", label: "General" },
+            ...ponds.map((pond) => ({ value: pond.id, label: pond.name, disabled: !!pond.error })),
+          ]}
+          onChange={setSelected}
+        />
+      </div>
       {error && (
         <p className="banner error" role="alert">
           {error}

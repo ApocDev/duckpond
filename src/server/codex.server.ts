@@ -1,4 +1,5 @@
 import { commandPermission } from "./command-permissions.server";
+import { activityLabel } from "../lib/activity";
 import { codexUsageTracker, type NativeSession } from "./sessions.server";
 import { connectCodex, type CodexPacket } from "./codex-client.server";
 import { z } from "zod";
@@ -137,7 +138,10 @@ export async function codexReply(
           emit({
             type: "activity",
             duckId: duck.id,
-            label: item.data.tool ?? item.data.command ?? item.data.type,
+            label: activityLabel({
+              name: item.data.tool ?? item.data.type,
+              command: item.data.command,
+            }),
           });
       }
     }

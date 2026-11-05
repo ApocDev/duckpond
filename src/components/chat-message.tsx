@@ -1,10 +1,11 @@
-import { createContext, useContext, useMemo, memo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, memo, useState } from "react";
 import { MessageMarkdown } from "./message-markdown";
 import { ChevronDown } from "lucide-react";
 import { duckAvatar, type Duck, type Message } from "../lib/room";
 import { groupMessages } from "../lib/message-groups";
 import { mentionHandle } from "../lib/mentions";
 import { rosterColors, speakerColor } from "../lib/duck-colors";
+import { modelLabel } from "../lib/models";
 import { DuckAvatar } from "./duck-avatar";
 
 const DuckNames = createContext<Record<string, string>>({});
@@ -49,7 +50,7 @@ function ReplyRound({ messages }: { messages: Message[] }) {
   const passed = messages.filter((message) => message.status === "passed");
   const settled = spoke.length + passed.length === messages.length;
   const open = !settled || expanded;
-  const speakers = unique(spoke);
+  const speakers = unique(spoke).filter((message) => !isHost(message));
   return (
     <section className={`reply-round ${open ? "open" : ""}`} aria-label="Duck replies">
       <button
@@ -95,13 +96,18 @@ function ReplyRound({ messages }: { messages: Message[] }) {
   );
 }
 
+function isHost(message: Message) {
+  return message.duckId === "mediator" || message.duckId === "guide";
+}
+
 function unique(messages: Message[]) {
   return [...new Map(messages.map((message) => [message.duckId, message])).values()];
 }
 
 function roundSummary(phase: Message["phase"], names: string[], passes: number) {
   const passNote = passes ? ` · ${passes} passed` : "";
-  if (!names.length) return `Nobody had anything to add${passNote}`;
+  if (!names.length)
+    return passes ? `Nobody had anything to add${passNote}` : "Mediator handled it";
   if (phase === "review")
     return `${names.length} independent ${names.length === 1 ? "reply" : "replies"}${passNote}`;
   const who =
@@ -110,7 +116,7 @@ function roundSummary(phase: Message["phase"], names: string[], passes: number) 
       : names.length === 3
         ? `${names[0]}, ${names[1]} and ${names[2]}`
         : `${names[0]}, ${names[1]} and ${names.length - 2} others`;
-  return `${who} ${phase === "discussion" ? "discussed this" : "replied"}${passNote}`;
+  return `${who} ${phase === "discussion" ? "weighed in" : "replied"}${passNote}`;
 }
 
 const RoundReply = memo(function RoundReply({ message }: { message: Message }) {
@@ -138,17 +144,48 @@ function MessageHeading({ message, color }: { message: Message; color: string })
     <div className="message-heading">
       <DuckAvatar avatar={duckAvatar({ id: message.duckId!, avatar: message.avatar })} small />
       <strong style={{ color }}>{message.speaker}</strong>
-      {message.phase === "review" && <span className="message-meta">independent</span>}
+      {message.phase === "review" && <span className="message-meta">answered independently</span>}
       {message.phase === "guide" && message.model && (
-        <span className="message-meta">
-          {[message.model, message.reasoning].filter(Boolean).join(" · ")}
-        </span>
+        <span className="message-meta">{modelLabel(message.model, message.reasoning)}</span>
       )}
-      {message.status === "thinking" && <span className="message-meta live">thinking</span>}
+      {message.status === "thinking" && <LiveStatus message={message} />}
       {message.status === "stopped" && <span className="message-meta">stopped</span>}
       {message.status === "error" && <span className="message-meta error">failed</span>}
+      {message.status !== "thinking" && !!message.tools?.length && (
+        <details className="tool-log">
+          <summary>
+            {message.tools.length} {message.tools.length === 1 ? "step" : "steps"}
+          </summary>
+          <ul>
+            {message.tools.map((tool) => (
+              <li key={tool}>{tool}</li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
+}
+
+/** "reading docs/plan.md · 1:42" while a reply runs; updates once a second. */
+function LiveStatus({ message }: { message: Message }) {
+  const now = useNow();
+  const seconds = Math.max(0, Math.floor((now - Date.parse(message.createdAt)) / 1000));
+  const step = message.text.trim() ? "writing" : (message.tools?.at(-1) ?? "thinking");
+  return (
+    <span className="message-meta live">
+      {step} · {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
+    </span>
+  );
+}
+
+function useNow() {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
 }
 
 const ChatMessage = memo(function ChatMessage({ message }: { message: Message }) {
@@ -194,7 +231,9 @@ function MessageText({ message }: { message: Message }) {
         )
       ) : (
         <span className="thinking-text">
-          {message.status === "thinking" ? "Thinking…" : "No reply."}
+          {message.status === "thinking"
+            ? "Working on it. The reply appears here when it's ready."
+            : "No reply."}
         </span>
       )}
     </div>

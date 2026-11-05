@@ -8,7 +8,20 @@ function loadRenderer() {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
-      theme: "dark",
+      theme: "base",
+      // Match the pond palette instead of Mermaid's default grey.
+      themeVariables: {
+        darkMode: true,
+        background: "#0f1b1e",
+        primaryColor: "#1a2d33",
+        primaryBorderColor: "#30494f",
+        primaryTextColor: "#e4ecee",
+        secondaryColor: "#1e343a",
+        tertiaryColor: "#142328",
+        lineColor: "#8ba1a7",
+        textColor: "#e4ecee",
+        fontFamily: "Inter Variable, ui-sans-serif, system-ui, sans-serif",
+      },
       suppressErrorRendering: true,
     });
     return mermaid;

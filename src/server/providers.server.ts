@@ -1,4 +1,5 @@
 import { commandPermission } from "./command-permissions.server";
+import { activityLabel } from "../lib/activity";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, realpath, stat } from "node:fs/promises";
@@ -231,7 +232,11 @@ export async function reply(
     for await (const part of result.fullStream) {
       if (part.type === "text-delta") onText(part.text);
       if (part.type === "tool-call")
-        emit({ type: "activity", duckId: duck.id, label: part.toolName });
+        emit({
+          type: "activity",
+          duckId: duck.id,
+          label: activityLabel({ name: part.toolName, input: part.input }),
+        });
       if (part.type === "error") throw part.error;
     }
     status = "complete";

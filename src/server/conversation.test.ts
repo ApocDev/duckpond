@@ -221,9 +221,9 @@ describe("conversation rounds", () => {
       "guide",
     ]);
   });
-  it("routes explicit mentions without also calling the default duck", () => {
+  it("adds mentioned ducks to the selected duck", () => {
     expect(selectDucks(defaults, "@skeptic check this", "explorer").map((duck) => duck.id)).toEqual(
-      ["skeptic"],
+      ["explorer", "skeptic"],
     );
     expect(
       selectDucks(defaults, "Unaddressed thought", "simplifier").map((duck) => duck.id),

@@ -18,6 +18,7 @@ export function AddDucks({
   pondId,
   notes,
   workspace,
+  hasContext,
   onAdd,
 }: {
   ducks: Duck[];
@@ -26,14 +27,15 @@ export function AddDucks({
   notes: string;
   /** Suggest from the pond's files instead of the conversation. */
   workspace: boolean;
+  /** Suggestions read the conversation or notes, so they need one of them first. */
+  hasContext: boolean;
   onAdd: (ducks: Duck[]) => void;
 }) {
-  const [method, setMethod] = useState<Method>("suggest");
+  const [method, setMethod] = useState<Method>(hasContext ? "suggest" : "describe");
   return (
     <section className="add-ducks" aria-label="Add a duck">
       <div className="add-ducks-heading">
-        <strong>Add a duck</strong>
-        <div className="segmented" role="tablist">
+        <div className="segmented" role="tablist" aria-label="How to add a duck">
           {(
             [
               ["suggest", "Suggest"],
@@ -61,6 +63,7 @@ export function AddDucks({
           pondId={pondId}
           notes={notes}
           workspace={workspace}
+          hasContext={hasContext}
           onAdd={(personas) => onAdd(personas.map((persona) => fromPersona(persona, ducks)))}
         />
       )}
@@ -145,6 +148,7 @@ function Suggest({
   pondId,
   notes,
   workspace,
+  hasContext,
   onAdd,
 }: {
   ducks: Duck[];
@@ -152,6 +156,7 @@ function Suggest({
   pondId?: string;
   notes: string;
   workspace: boolean;
+  hasContext: boolean;
   onAdd: (personas: Persona[]) => void;
 }) {
   const suggestion = useSuggestion();
@@ -179,13 +184,15 @@ function Suggest({
       <p className="field-hint">
         {workspace
           ? "Reads this pond's docs and code and proposes up to five ducks that would help here."
-          : "Reads this conversation and its notes and proposes up to five perspectives it's missing."}
+          : hasContext
+            ? "Reads this conversation and its notes and proposes up to five perspectives it's missing."
+            : "Suggestions read the conversation, so there's nothing to go on yet. Send a message or add notes first, or use Describe."}
       </p>
       <div className="row">
         <button
           type="button"
           className="secondary-button"
-          disabled={suggestion.running}
+          disabled={suggestion.running || !hasContext}
           onClick={() => void suggest()}
         >
           <Lightbulb size={15} />
@@ -376,7 +383,7 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
           {groups.length ? "No matching ducks." : "Ducks from other conversations appear here."}
         </p>
       ) : (
-        <div className="choice-list scroll">
+        <div className="choice-list">
           {matching.map((group) => {
             const keys = group.ducks.map((duck) => `${group.id}/${duck.id}`);
             const all = keys.every((key) => selected.includes(key));

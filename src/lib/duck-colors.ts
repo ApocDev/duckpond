@@ -1,17 +1,10 @@
 import type { Duck } from "./room";
 
-// Distinct on the dark pond background at similar perceived lightness.
-const palette = [
-  "#ff9e80",
-  "#7cc8ff",
-  "#b9e07a",
-  "#e8a0f0",
-  "#ffc46b",
-  "#6fe0bf",
-  "#ff8fb3",
-  "#f2e27a",
-  "#8fd3e8",
-];
+// Twelve hues at equal perceived lightness on the dark pond background. Yellow (reserved for
+// actions and live status) and Mediator's lavender are left out.
+const palette = [0, 22, 45, 128, 150, 172, 194, 216, 238, 260, 318, 338].map(
+  (hue) => `oklch(80% 0.12 ${hue})`,
+);
 export const hostColor = "#c4b5fd";
 
 function hash(id: string) {

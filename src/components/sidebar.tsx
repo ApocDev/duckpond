@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { MoreHorizontal, Plus, Settings, SlidersHorizontal } from "lucide-react";
+import { FolderCog, MoreHorizontal, Plus, Search, Settings } from "lucide-react";
 import type { Room } from "../lib/room";
 import type { connections } from "../server/rooms.functions";
+import { Select } from "./select";
 import { useDismiss } from "./use-dismiss";
 
 type Connection = Awaited<ReturnType<typeof connections>>[number];
@@ -13,37 +14,46 @@ export function Sidebar({
   pondId,
   rooms,
   selected,
+  working,
   locked,
   status,
   open,
   onPond,
   onNewPond,
-  onPondDefaults,
+  onPondSettings,
   onNew,
   onSelect,
+  onRename,
   onMove,
   onDelete,
   onSettings,
 }: {
-  ponds: { id: string; name: string; error: string | null }[];
+  ponds: { id: string; name: string; workspace: string; error: string | null }[];
   pondId: string | null;
   rooms: Room[];
   selected: string | null;
-  /** Switching is blocked while ducks reply or a save runs. */
+  /** Conversations with a turn running; they get a "replying" dot. */
+  working: Set<string>;
+  /** Switching is blocked only while a save or dictation runs. */
   locked: boolean;
   status: Connection[];
   open: boolean;
   onPond: (id: string | null) => void;
   onNewPond: () => void;
-  onPondDefaults: () => void;
+  onPondSettings: () => void;
   onNew: () => void;
   onSelect: (id: string) => void;
+  onRename: (room: Room) => void;
   onMove: (room: Room) => void;
   onDelete: (room: Room) => void;
   onSettings: () => void;
 }) {
   const pond = ponds.find((item) => item.id === pondId);
   const signedOut = status.filter((item) => !item.connected);
+  const [query, setQuery] = useState("");
+  const shown = query.trim()
+    ? rooms.filter((room) => room.title.toLowerCase().includes(query.trim().toLowerCase()))
+    : rooms;
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
       <a className="brand" href="/">
@@ -53,32 +63,35 @@ export function Sidebar({
       <div className="pond-picker">
         <label htmlFor="pond">Pond</label>
         <div className="row">
-          <select
+          <Select
             id="pond"
+            className="grow"
             value={pondId ?? ""}
             disabled={locked}
-            onChange={(event) =>
-              event.target.value === newPond ? onNewPond() : onPond(event.target.value || null)
-            }
-          >
-            <option value="">General</option>
-            {ponds.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-                {item.error ? " (unavailable)" : ""}
-              </option>
-            ))}
-            <option value={newPond}>New pond…</option>
-          </select>
+            options={[
+              { value: "", label: "General", detail: "No project folder" },
+              ...ponds.map((item) => ({
+                value: item.id,
+                label: item.error ? `${item.name} (unavailable)` : item.name,
+                detail: item.workspace,
+              })),
+              { value: newPond, label: "New pond…", separated: true },
+            ]}
+            onChange={(value) => (value === newPond ? onNewPond() : onPond(value || null))}
+          />
           <button
             type="button"
             className="icon-button"
             disabled={locked || !pond || !!pond.error}
-            title={pond ? `${pond.name} default ducks` : "General uses the built-in ducks"}
-            aria-label="Pond default ducks"
-            onClick={onPondDefaults}
+            title={
+              pond
+                ? `${pond.name} settings: name and default ducks`
+                : "General has no folder and uses the built-in ducks"
+            }
+            aria-label="Pond settings"
+            onClick={onPondSettings}
           >
-            <SlidersHorizontal size={16} />
+            <FolderCog size={16} />
           </button>
         </div>
         {pond?.error && <p className="field-error">{pond.error}</p>}
@@ -91,21 +104,36 @@ export function Sidebar({
       >
         <Plus size={16} /> New conversation
       </button>
+      {rooms.length > 6 && (
+        <label className="search-box">
+          <Search size={14} aria-hidden />
+          <input
+            value={query}
+            placeholder="Find a conversation"
+            aria-label="Find a conversation"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      )}
       <nav className="conversation-list" aria-label="Conversation list">
-        {rooms.length ? (
-          rooms.map((room) => (
+        {shown.length ? (
+          shown.map((room) => (
             <ConversationRow
               key={room.id}
               room={room}
               selected={room.id === selected}
+              working={working.has(room.id)}
               locked={locked}
               onSelect={() => onSelect(room.id)}
+              onRename={() => onRename(room)}
               onMove={() => onMove(room)}
               onDelete={() => onDelete(room)}
             />
           ))
         ) : (
-          <p className="muted empty-list">No conversations in this pond yet.</p>
+          <p className="muted empty-list">
+            {rooms.length ? "No matching conversations." : "No conversations in this pond yet."}
+          </p>
         )}
       </nav>
       <footer className="sidebar-footer">
@@ -139,15 +167,19 @@ export function Sidebar({
 function ConversationRow({
   room,
   selected,
+  working,
   locked,
   onSelect,
+  onRename,
   onMove,
   onDelete,
 }: {
   room: Room;
   selected: boolean;
+  working: boolean;
   locked: boolean;
   onSelect: () => void;
+  onRename: () => void;
   onMove: () => void;
   onDelete: () => void;
 }) {
@@ -165,6 +197,7 @@ function ConversationRow({
         onClick={onSelect}
       >
         {room.title}
+        {working && <i className="working-dot" aria-label="replying" title="Replying" />}
       </button>
       <button
         type="button"
@@ -178,6 +211,16 @@ function ConversationRow({
       </button>
       {menu && (
         <div className="popover menu" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenu(false);
+              onRename();
+            }}
+          >
+            Rename
+          </button>
           <button
             type="button"
             role="menuitem"
