@@ -1,0 +1,21 @@
+src/components/sidebar.tsx
+  s_105d2118509069::t_9d2288caa9293e 94
+src/styles.css
+  s_105d2118509069::t_df2c8f3a401153 1512
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ea815ebaa8c7a09c853e02782bb6bee0673bbc11",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "unknown"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
