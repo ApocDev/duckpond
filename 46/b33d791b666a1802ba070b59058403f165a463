@@ -1,0 +1,21 @@
+src/lib/room.test.ts
+  s_105d2118509069::t_efd67db0f8f678 2,14-20
+src/lib/room.ts
+  s_105d2118509069::t_22c7abe51ee78f 234-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "46b33d791b666a1802ba070b59058403f165a463",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
