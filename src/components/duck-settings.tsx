@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Plus, RefreshCw } from "lucide-react";
 import { guide, type Duck, type Room } from "../lib/room";
 import type { Pond } from "../lib/pond";
-import { modelLabel, type ModelCatalog } from "../lib/models";
+import { findModel, modelLabel, type ModelCatalog } from "../lib/models";
 import { rosterColors, hostColor, withColors } from "../lib/duck-colors";
 import { loadModels } from "../server/rooms.functions";
 import { AddDucks } from "./add-ducks";
@@ -183,6 +183,7 @@ export function DuckSettings({
         {adding && (
           <AddDucks
             ducks={draft}
+            modelName={(duck) => findModel(catalogs[duck.provider]?.models ?? [], duck.model)?.name}
             roomId={roomId}
             pondId={scope.pond?.id}
             notes={room?.notes ?? `Pond: ${pondName}`}

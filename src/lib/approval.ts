@@ -9,6 +9,9 @@ import { shellScript } from "./activity";
 export function pathsOutside(command: string, cwd: string) {
   const folder = cwd.replace(/\/+$/, "");
   const words = shellScript(command)
+    // Heredoc bodies and quoted text with spaces (inline scripts, messages) hold code, not paths.
+    .replace(/<<-?\s*['"]?(\w+)['"]?[^\n]*\n[\s\S]*?\n\s*\1\s*(\n|$)/g, " ")
+    .replace(/'[^']*\s[^']*'|"[^"]*\s[^"]*"/g, " ")
     .split(/\s+/)
     .map((word) => word.replace(/^[A-Za-z_][A-Za-z0-9_]*=/, ""))
     .map((word) => word.replace(/^['"(]+|['";|&)]+$/g, ""));
@@ -16,7 +19,8 @@ export function pathsOutside(command: string, cwd: string) {
     ...new Set(
       words.filter(
         (word) =>
-          (/^(\/(?!\/)|~)/.test(word) ||
+          (/^(\/[\w.~-]|~)/.test(word) ||
+            word === "/" ||
             /^\$\{?\w+\}?\//.test(word) ||
             /^\$\{?(HOME|TMPDIR)\}?$/.test(word)) &&
           !/^\$\{?PWD\b/.test(word) &&

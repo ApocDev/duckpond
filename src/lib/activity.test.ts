@@ -15,6 +15,9 @@ it("describes provider tool events in plain words", () => {
     }),
   ).toBe("running sed -n");
   expect(
+    activityLabel({ name: "commandExecution", command: "node --version && cat src/loans.ts" }),
+  ).toBe("running node --version and 1 more");
+  expect(
     activityLabel({
       name: "fileChange",
       input: { changes: [{ path: "/pond/src/loans.ts" }, { path: "/pond/README.md" }] },

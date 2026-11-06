@@ -22,9 +22,12 @@ export function AddDucks({
   notes,
   workspace,
   hasContext,
+  modelName,
   onAdd,
 }: {
   ducks: Duck[];
+  /** The catalog's name for a duck's model, so lists match the duck editor. */
+  modelName: (duck: Duck) => string | undefined;
   roomId?: string;
   pondId?: string;
   notes: string;
@@ -95,7 +98,7 @@ export function AddDucks({
           onAdd={(persona) => onAdd([fromPersona(persona, ducks)])}
         />
       )}
-      {method === "reuse" && <Reuse ducks={ducks} onAdd={onAdd} />}
+      {method === "reuse" && <Reuse ducks={ducks} modelName={modelName} onAdd={onAdd} />}
       {method === "write" && (
         <div className="add-ducks-body">
           <p className="field-hint">
@@ -191,7 +194,8 @@ function Suggest({
       -25,
     );
     setResult(value);
-    setChosen([]);
+    // A lone suggestion is the obvious pick.
+    setChosen(value.suggestions.length === 1 ? [value.suggestions[0].name] : []);
   }
   return (
     <div className="add-ducks-body">
@@ -232,7 +236,7 @@ function Suggest({
       {suggestion.error && <p className="field-error">{suggestion.error}</p>}
       {result && (
         <div className="choice-list">
-          <p className="field-hint">{result.reason}</p>
+          <p className="field-hint">{withCode(result.reason)}</p>
           {result.suggestions.map((duck) => (
             <label className="choice" key={duck.name}>
               <input
@@ -248,7 +252,7 @@ function Suggest({
               />
               <span>
                 <strong>{duck.name}</strong>
-                <small>{duck.reason}</small>
+                <small>{withCode(duck.reason)}</small>
               </span>
             </label>
           ))}
@@ -361,7 +365,15 @@ function Describe({
 }
 
 /** Copies ducks from other conversations and ponds. Each persona shows once, with where it's from. */
-function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void }) {
+function Reuse({
+  ducks,
+  modelName,
+  onAdd,
+}: {
+  ducks: Duck[];
+  modelName: (duck: Duck) => string | undefined;
+  onAdd: (ducks: Duck[]) => void;
+}) {
   const [groups, setGroups] = useState<DuckGroup[]>();
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -412,7 +424,7 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
           {available.length
             ? "No matching ducks."
             : unique.size
-              ? "Every duck from your other conversations is already here."
+              ? "Nothing new to copy: every duck from your other conversations and ponds is already in this list."
               : "Ducks from other conversations appear here."}
         </p>
       ) : (
@@ -435,7 +447,7 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
                 <strong>{duck.name}</strong>
                 <small className="preview">{duck.instructions.split(/(?<=[.!?])\s/)[0]}</small>
                 <small>
-                  {modelLabel(duck.model, duck.reasoning)} · from {sources[0]}
+                  {modelLabel(duck.model, duck.reasoning, modelName(duck))} · from {sources[0]}
                   {sources.length > 1 ? ` and ${sources.length - 1} more` : ""}
                 </small>
               </span>
@@ -443,7 +455,7 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
           ))}
         </div>
       )}
-      {!!present && !!groups && (
+      {!!present && !!available.length && (
         <p className="field-hint">
           {present} {present === 1 ? "duck is" : "ducks are"} already here and not listed.
         </p>
@@ -470,4 +482,11 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
 function Elapsed({ since }: { since: number }) {
   const now = useNow();
   return <span className="muted">{clock(Math.floor((now - since) / 1000))}</span>;
+}
+
+/** Shows `backtick` spans in model-written reasons as code instead of raw backticks. */
+function withCode(text: string) {
+  return text
+    .split(/`([^`]+)`/)
+    .map((part, index) => (index % 2 ? <code key={index}>{part}</code> : part));
 }

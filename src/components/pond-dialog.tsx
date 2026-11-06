@@ -7,10 +7,14 @@ import { Dialog } from "./dialog";
 /** Creates a pond in a folder, or opens the pond already saved there. */
 export function PondDialog({
   ducks,
+  from,
   onCreated,
   onClose,
 }: {
+  /** The ducks the new pond starts with: the open pond's. */
   ducks: Duck[];
+  /** Name of the pond those ducks come from. */
+  from: string;
   onCreated: (pond: Pond) => Promise<void>;
   onClose: () => void;
 }) {
@@ -22,7 +26,15 @@ export function PondDialog({
     setSaving(true);
     setError("");
     try {
-      const pond = await createPond({ data: { name, workspace: workspace.trim(), ducks } });
+      const folder = workspace.trim();
+      // An empty name becomes the folder's name, which is what most people would type anyway.
+      const pond = await createPond({
+        data: {
+          name: name.trim() || folder.replace(/\/+$/, "").split("/").at(-1) || "Pond",
+          workspace: folder,
+          ducks,
+        },
+      });
       await onCreated(pond);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Couldn't open this pond.");
@@ -58,11 +70,10 @@ export function PondDialog({
         <label className="field">
           <span>Name</span>
           <input
-            required
             maxLength={80}
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="My game"
+            placeholder="Defaults to the folder's name"
             disabled={saving}
           />
         </label>
@@ -72,7 +83,7 @@ export function PondDialog({
             required
             value={workspace}
             onChange={(event) => setWorkspace(event.target.value)}
-            placeholder="/home/you/code/my-game"
+            placeholder="Full path, such as /home/you/code/project"
             disabled={saving}
           />
           <small>
@@ -80,8 +91,8 @@ export function PondDialog({
           </small>
         </label>
         <p className="field-hint">
-          Starts with the ducks you have now: {ducks.map((duck) => duck.name).join(", ")}. You can
-          change them after.
+          Starts with {from}'s ducks: {ducks.map((duck) => duck.name).join(", ")}. You can change
+          them after.
         </p>
         {error && (
           <p role="alert" className="banner error">

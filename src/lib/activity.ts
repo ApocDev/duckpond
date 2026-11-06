@@ -33,15 +33,18 @@ export function shellScript(command: string) {
 
 /** The program being run, without its arguments. */
 function program(command?: string) {
-  const words = command
+  // Leading `cd …&&` only sets the folder, so it isn't counted as a command.
+  const script = command
     ? shellScript(command)
         .replace(/^(cd [^&;]+(&&|;)\s*)+/, "")
         .trim()
-        .split(/\s+/)
-    : [];
-  const name = /(^|\/)(bash|sh|zsh)$/.test(words[0] ?? "")
+    : "";
+  const words = script.split(/\s+/);
+  const chained = script.split(/&&|\|\||;|\n/).filter((part) => part.trim()).length - 1;
+  const first = /(^|\/)(bash|sh|zsh)$/.test(words[0] ?? "")
     ? "a script"
     : words.slice(0, 2).join(" ");
+  const name = chained > 0 ? `${first} and ${chained} more` : first;
   return name.length > 40 ? `${name.slice(0, 40)}…` : name;
 }
 

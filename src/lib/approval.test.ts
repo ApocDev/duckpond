@@ -11,6 +11,12 @@ it("points out paths a command names outside the project folder", () => {
     "/tmp/other",
     "$TMPDIR/t.ts",
   ]);
+  expect(
+    pathsOutside(
+      "cat > src/loans.ts <<'EOF'\n/** Loans */\nconst a = b / c;\nEOF\nnode -e \"const x = '/returned'\" /tmp/t.json",
+      "/pond",
+    ),
+  ).toEqual(["/tmp/t.json"]);
   expect(pathsOutside("/repo/node_modules/.bin/tsc --noEmit", "/pond")).toEqual([
     "/repo/node_modules/.bin/tsc",
   ]);

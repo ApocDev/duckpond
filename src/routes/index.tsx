@@ -38,6 +38,7 @@ import {
   type RoomStream,
 } from "../lib/room";
 import { pathsOutside } from "../lib/approval";
+import { mentionHandle } from "../lib/mentions";
 
 export const Route = createFileRoute("/")({ loader: () => loadRooms(), component: Home });
 const transport = new DefaultChatTransport<RoomStream>({ api: "/api/chat" });
@@ -97,7 +98,7 @@ function WorkingLine({ messages }: { messages: Room["messages"] }) {
         ? "Mediator is weighing the replies"
         : "Mediator is choosing who answers"
       : names.length === 1
-        ? `${names[0]} is ${ducks[0].tools?.at(-1) ?? "thinking"}`
+        ? `${names[0]} is ${ducks[0].tools?.at(-1) ?? (ducks[0].text || ducks[0].written ? "writing" : "thinking")}`
         : `${listNames(names)} are replying`;
   // The timer sits apart from the phase so a narrow screen trims the words, never the time.
   return (
@@ -105,7 +106,9 @@ function WorkingLine({ messages }: { messages: Room["messages"] }) {
       <span className="phase" title={names.join(", ") || undefined}>
         {phase}
       </span>
-      <span className="elapsed">{clock(Math.floor((now - started) / 1000))}</span>
+      <span className="elapsed" title="Time since you sent the message">
+        {clock(Math.floor((now - started) / 1000))} total
+      </span>
     </>
   );
 }
@@ -540,13 +543,35 @@ function Home() {
 
   const thinking = room?.messages.filter((message) => message.status === "thinking") ?? [];
   /**
-   * "Ask again" after a failed or stopped reply: offer the last question again. A duck's retry also
-   * selects that duck; Mediator's keeps the current To choice.
+   * "Edit and ask again" after a failed or stopped reply: puts back the message that reply answered,
+   * with the To choice it used. A duck's retry goes to that duck alone; a stopped Summarize reruns.
    */
-  function retry(duckId?: string) {
-    const question = room?.messages.findLast((message) => !message.duckId)?.text ?? "";
-    if (duckId) setTargets((current) => ({ ...current, [key]: duckId }));
-    if (!input.trim()) setInput(question);
+  function retry(messageId: string) {
+    if (!room) return;
+    const index = room.messages.findIndex((message) => message.id === messageId);
+    const asked = room.messages.slice(0, index).findLastIndex((message) => !message.duckId);
+    const question = room.messages[asked];
+    if (!question) return;
+    if (question.text === summaryRequest) return void send("summary");
+    const reply = room.messages[index];
+    const turn = room.messages.slice(asked + 1, index + 1);
+    const host = reply.duckId === "mediator" || reply.duckId === "guide";
+    const duck = ducks.find((item) => item.id === reply.duckId);
+    const retarget = host
+      ? turn.some((message) => message.phase === "review")
+        ? "everyone"
+        : turn.some((message) => message.phase === "discussion")
+          ? "mediator"
+          : undefined
+      : reply.duckId;
+    if (retarget) setTargets((current) => ({ ...current, [key]: retarget }));
+    // The duck is now the recipient, so a mention of it in the old text would be redundant.
+    const text = duck
+      ? question.text
+          .replace(new RegExp(`@(${duck.id}|${mentionHandle(duck, ducks)})\\b[,:]?\\s*`, "gi"), "")
+          .trim()
+      : question.text;
+    if (!input.trim()) setInput(text);
     requestAnimationFrame(() =>
       document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(),
     );
@@ -810,6 +835,7 @@ function Home() {
       {dialog?.kind === "new-pond" && (
         <PondDialog
           ducks={ducks}
+          from={pond?.name ?? "General"}
           onClose={() => setDialog(null)}
           onCreated={async (created) => {
             setPonds(await loadPonds());
