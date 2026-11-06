@@ -1303,6 +1303,11 @@ textarea:focus {
 .approval-warning {
   color: var(--danger);
 }
+.recipients {
+  margin: 0 0 4px;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
 /* Several requests scroll here instead of pushing the conversation off screen. */
 .approvals {
   display: flex;

@@ -5,6 +5,10 @@ import type { Message } from "../lib/room";
 type Anchor = { element: Element; top: number };
 type TranscriptProps = { children: ReactNode; messages?: Message[] };
 
+/** Changes when a message is added or grows, but not when the same messages are reloaded. */
+const progress = (messages?: Message[]) =>
+  messages?.map((message) => `${message.id}:${message.status}:${message.text.length}`).join();
+
 /** The id of your latest message, so sending one can bring the view back down. */
 const lastSent = (messages?: Message[]) => messages?.findLast((message) => !message.duckId)?.id;
 
@@ -64,7 +68,11 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
     // Already at the bottom after the update: nothing new is out of view, so keep following.
     if (!this.following && viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 48)
       this.following = true;
-    if (!this.following && previousProps.messages !== this.props.messages && !this.state.unread)
+    if (
+      !this.following &&
+      progress(previousProps.messages) !== progress(this.props.messages) &&
+      !this.state.unread
+    )
       this.setState({ unread: true });
   }
 

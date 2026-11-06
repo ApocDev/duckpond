@@ -64,6 +64,12 @@ export async function runConversation(
     status: "complete",
     phase: "conversation",
     createdAt: new Date().toISOString(),
+    to:
+      mode === "discussion" || mode === "guide"
+        ? ["mediator"]
+        : mode === "review"
+          ? ["everyone"]
+          : selectDucks(room.ducks, text, target).map((duck) => duck.id),
   });
   if (room.messages.length === 1) room.title = shortTitle(text);
   persist(room);

@@ -695,6 +695,7 @@ function Home() {
                 ducks={room.ducks}
                 notes={room.notes}
                 onRetry={busy ? undefined : retry}
+                onSumUp={busy ? undefined : () => void send("summary")}
                 onAddToNotes={(text) =>
                   saveNotes(room.notes.trim() ? `${room.notes.trim()}\n\n${text}` : text)
                 }
@@ -957,6 +958,12 @@ function ApprovalCard({ approval }: { approval: Approval }) {
           You can revoke it in Settings.
         </p>
       )}
+      {approval.editsInFolder && (
+        <p className="muted">
+          "Allow edits this turn" lets {approval.duck} change files in this folder without asking
+          again until it replies.
+        </p>
+      )}
       <details>
         <summary>Technical details</summary>
         <pre>{approval.detail}</pre>
@@ -1019,14 +1026,14 @@ function ApprovalCard({ approval }: { approval: Approval }) {
         >
           Decline
         </button>
-        {approval.remember && (
+        {(approval.remember || approval.editsInFolder) && (
           <button
             disabled={sending}
             type="button"
             className="secondary-button"
             onClick={() => respond(true, true)}
           >
-            Always allow here
+            {approval.remember ? "Always allow here" : "Allow edits this turn"}
           </button>
         )}
         <button disabled={sending} type="submit" className="primary-button">

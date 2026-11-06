@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Check, ChevronDown, Users } from "lucide-react";
-import { duckAvatar, type Duck, type Message } from "../lib/room";
+import { duckAvatar, duckRole, type Duck, type Message } from "../lib/room";
 import { hostColor, rosterColors } from "../lib/duck-colors";
 import { DuckAvatar } from "./duck-avatar";
 import { useDismiss } from "./use-dismiss";
@@ -67,7 +67,7 @@ export function DuckBar({
     name: duck.name,
     avatar: duckAvatar(duck),
     color: colors.get(duck.id)!,
-    detail: duck.instructions.split(/(?<=[.!?])\s/)[0],
+    detail: duckRole(duck.instructions),
     busy: busy.has(duck.id),
   }));
   const modes = [mediator, ...(ducks.length > 1 ? [everyone] : [])];

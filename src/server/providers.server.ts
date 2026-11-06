@@ -3,7 +3,7 @@ import { activityLabel } from "../lib/activity";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, realpath, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { createClaudeCode, createSdkMcpServer, tool } from "ai-sdk-provider-claude-code";
 import { streamText } from "ai";
 import { z } from "zod";
@@ -32,6 +32,8 @@ const toolTitles: Record<string, string> = {
   WebSearch: "Search the web",
 };
 const isString = (value: unknown): value is string => typeof value === "string";
+/** Claude tools that change files; inside the pond folder they can be allowed for a whole turn. */
+const editTools = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 const agentDirectory = join(dataDirectory, "agent");
 export async function getAgentDirectory(workspace?: string) {
   if (workspace) {
@@ -88,6 +90,7 @@ export async function reply(
   if (context?.workspace)
     system = `${system}\n\nYour working folder is ${cwd}. It is the project this conversation is about: files the person mentions are in it, so read them there instead of searching elsewhere.`;
   const session = prepareReply(duck, system, prompt, cwd, roomTools, context);
+  let editsAllowed = false;
   let status: "complete" | "error" | "stopped" = "error";
   try {
     signal.throwIfAborted();
@@ -215,12 +218,20 @@ export async function reply(
         canUseTool: async (name, input) => {
           if (roomTools?.definitions.some((definition) => name === `mcp__room__${definition.name}`))
             return { behavior: "allow", updatedInput: input };
+          const path = [input.file_path, input.notebook_path, input.path].find(isString);
+          const editsInFolder =
+            editTools.has(name) &&
+            !!path &&
+            `${resolve(cwd, path)}${sep}`.startsWith(`${cwd}${sep}`);
+          // "Allow edits this turn" covers this duck's later edits inside the folder, until it replies.
+          if (editsInFolder && editsAllowed) return { behavior: "allow", updatedInput: input };
           const response = await askApproval(
             {
               duck: duck.name,
               title: toolTitles[name] ?? name,
               command: typeof input.command === "string" ? input.command : undefined,
-              path: [input.file_path, input.notebook_path, input.path].find(isString),
+              path,
+              editsInFolder,
               // An edit shows what it removes as well as what it adds.
               preview:
                 isString(input.old_string) && isString(input.new_string)
@@ -240,6 +251,7 @@ export async function reply(
             signal,
             emit,
           );
+          if (editsInFolder && response.remember) editsAllowed = true;
           return response.approved
             ? {
                 behavior: "allow",

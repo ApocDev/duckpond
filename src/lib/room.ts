@@ -90,6 +90,8 @@ export const messageSchema = z.object({
   tools: z.array(z.string()).optional(),
   // Characters written so far, sent in place of the text while a reply's text stays hidden.
   written: z.number().int().nonnegative().optional(),
+  /** Who your message went to: "mediator", "everyone", or duck ids. Shown above it. */
+  to: z.array(z.string()).optional(),
   // "passed" keeps a visible record of a duck that was asked and had nothing to add.
   status: z.enum(["thinking", "complete", "passed", "stopped", "error"]),
   // "observer" only appears in transcripts saved before observers were removed.
@@ -204,12 +206,33 @@ export type Approval = {
   path?: string;
   /** The text a write or edit would put in that file. */
   preview?: string;
+  /** A file edit inside the project folder, which can be allowed for the rest of this turn. */
+  editsInFolder?: boolean;
   cwd?: string;
   remember?: { id: string; provider: string; command: string; cwd: string };
   fields?: ApprovalField[];
   url?: string;
 };
 export type RoomStream = UIMessage<never, { room: RoomEvent }>;
+
+/**
+ * A persona's first sentence, reworded for the person picking a duck: "You protect the room from…"
+ * becomes "Protects the room from…". Sentences that don't start with "You <verb>" stay as written.
+ */
+export function duckRole(instructions: string) {
+  const first = instructions.split(/(?<=[.!?])\s/)[0];
+  const [, verb, rest] = first.match(/^You ([a-z]+)\b([\s\S]*)$/) ?? [];
+  if (!verb) return first;
+  const irregular: Record<string, string> = { are: "is", have: "has", do: "does", go: "goes" };
+  const third =
+    irregular[verb] ??
+    (/(s|x|z|ch|sh)$/.test(verb)
+      ? `${verb}es`
+      : /[^aeiou]y$/.test(verb)
+        ? `${verb.slice(0, -1)}ies`
+        : `${verb}s`);
+  return `${third[0].toUpperCase()}${third.slice(1)}${rest}`;
+}
 
 /** What Summarize sends; the transcript shows it as an action rather than as your words. */
 export const summaryRequest =

@@ -84,6 +84,7 @@ export function activityLabel({ name, input, command }: ToolEvent) {
     case "imageGeneration":
       return "drawing";
   }
+  if (name.startsWith("mcp__room__")) return "coordinating";
   if (name.startsWith("mcp__")) return `using ${name.split("__")[1] ?? "a tool"}`;
   if (
     /^(ask_duck|request_turn|start_review|assign_action|report_action|review_action|give_floor|finish_discussion)$/.test(

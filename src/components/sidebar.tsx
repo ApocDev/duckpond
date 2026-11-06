@@ -83,7 +83,7 @@ export function Sidebar({
         <div className="pond-meta">
           <small className="pond-path" title={pond?.workspace}>
             {/* bdi keeps the path's own order while the ellipsis trims its start. */}
-            <bdi>{pond ? pond.workspace.replace(/^\/home\/[^/]+/, "~") : "No project folder"}</bdi>
+            <bdi>{pond ? shortPath(pond.workspace) : "No project folder"}</bdi>
           </small>
           {pond && !pond.error && (
             <button
@@ -258,4 +258,15 @@ function ConversationRow({
       )}
     </div>
   );
+}
+
+/** "~/code/shelf", or "…/ponds/shelf" for deeper folders, so the sidebar shows which folder. */
+function shortPath(path: string) {
+  const parts = path
+    .replace(/^\/home\/[^/]+/, "~")
+    .split("/")
+    .filter(Boolean);
+  return parts.length > 3
+    ? `…/${parts.slice(-2).join("/")}`
+    : `${path.startsWith("/home/") ? "" : "/"}${parts.join("/")}`;
 }

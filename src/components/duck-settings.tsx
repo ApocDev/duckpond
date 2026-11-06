@@ -120,7 +120,9 @@ export function DuckSettings({
                   ? "Saving…"
                   : scope.kind === "pond"
                     ? "Save pond defaults"
-                    : "Save to this conversation"}
+                    : pondDefaults
+                      ? "Save to conversation and pond"
+                      : "Save to this conversation"}
               </button>
             )}
           </>

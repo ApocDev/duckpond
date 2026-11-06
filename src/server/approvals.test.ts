@@ -77,3 +77,18 @@ it("never widens a saved command to another command, project, provider or privil
   expect(commandPermission("claude", request)!.id).not.toBe(id);
   expect(commandPermission("codex", { command: "pwd" })).toBeUndefined();
 });
+
+it("passes an edit's allow-for-this-turn back to the caller without saving anything", async () => {
+  const saved = rules.size;
+  const events: RoomEvent[] = [];
+  const request = askApproval(
+    { duck: "Skeptic", title: "Edit a file", detail: "{}", input: false, editsInFolder: true },
+    new AbortController().signal,
+    (event) => events.push(event),
+  );
+  const event = events[0];
+  if (event.type !== "approval") throw new Error("Expected approval");
+  resolveApproval(event.approval.id, true, "", true);
+  await expect(request).resolves.toEqual({ approved: true, answer: "", remember: true });
+  expect(rules.size).toBe(saved);
+});

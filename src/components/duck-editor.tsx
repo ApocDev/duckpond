@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { ChevronDown, Sparkles, Trash2 } from "lucide-react";
-import { avatarSchema, duckAvatar, duckSchema, type Duck } from "../lib/room";
+import { avatarSchema, duckAvatar, duckRole, duckSchema, type Duck } from "../lib/room";
 import { findModel, modelLabel, type ModelCatalog } from "../lib/models";
 import { mentionHandle } from "../lib/mentions";
 import { DuckAvatar } from "./duck-avatar";
@@ -44,20 +44,14 @@ export function DuckEditor({
   const long = duck.instructions.length > 500;
   const [expanded, setExpanded] = useState(false);
   const [drawing, setDrawing] = useState(false);
-  // Reopening a duck shows a drawing that's still running or finished but unused, so it isn't lost.
+  // Reopening a duck shows its latest drawing unless it's in use: running, ready, or failed.
   useEffect(() => {
     if (!open || !roomId || drawing) return;
     let current = true;
     loadOutfits({ data: roomId })
       .then((jobs) => {
         const latest = jobs.filter((job) => job.duckId === duck.id).at(-1);
-        if (
-          current &&
-          latest &&
-          latest.status !== "error" &&
-          duck.avatar !== `generated-${latest.id}`
-        )
-          setDrawing(true);
+        if (current && latest && duck.avatar !== `generated-${latest.id}`) setDrawing(true);
       })
       // The generator reports load errors itself once it's open; here there's nothing to show.
       .catch(() => {});
@@ -83,7 +77,7 @@ export function DuckEditor({
               {provider} · {modelLabel(duck.model, duck.reasoning, model?.name)}
             </small>
           </strong>
-          {!open && <em>{duck.instructions.split(/(?<=[.!?])\s/)[0]}</em>}
+          {!open && <em>{duckRole(duck.instructions)}</em>}
         </span>
         <ChevronDown size={16} />
       </button>

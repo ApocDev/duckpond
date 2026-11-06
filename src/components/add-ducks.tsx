@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Lightbulb, Plus } from "lucide-react";
-import { combineDucks, duckAvatar, type Duck, type DuckGroup } from "../lib/room";
+import { combineDucks, duckAvatar, duckRole, type Duck, type DuckGroup } from "../lib/room";
 import { modelLabel } from "../lib/models";
 import type { DuckSuggestion } from "../lib/suggestions";
 import { reusableDucks, suggestDuck } from "../server/rooms.functions";
@@ -445,7 +445,7 @@ function Reuse({
               <DuckAvatar avatar={duckAvatar(duck)} small />
               <span>
                 <strong>{duck.name}</strong>
-                <small className="preview">{duck.instructions.split(/(?<=[.!?])\s/)[0]}</small>
+                <small className="preview">{duckRole(duck.instructions)}</small>
                 <small>
                   {modelLabel(duck.model, duck.reasoning, modelName(duck))} · from {sources[0]}
                   {sources.length > 1 ? ` and ${sources.length - 1} more` : ""}

@@ -63,7 +63,7 @@ export function RoomNotes({
   });
   const changed = draft !== null && draft !== notes;
   async function save() {
-    if (!changed) return;
+    if (!changed) return false;
     const key = conversation;
     setSaving(true);
     setError("");
@@ -72,8 +72,10 @@ export function RoomNotes({
       // Saving can create the conversation, which moves the draft to its new id.
       setDrafts((current) => edited(current, [key, latest.current], null));
       setSaved(true);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Couldn't save notes.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -149,7 +151,9 @@ export function RoomNotes({
               type="button"
               className="secondary-button compact"
               disabled={!!summarizeBlocked}
-              onClick={() => {
+              onClick={async () => {
+                // Mediator reads the saved notes, so unsaved edits are saved before it recaps.
+                if (changed && !(await save())) return;
                 setOpen(false);
                 onSummarize();
               }}

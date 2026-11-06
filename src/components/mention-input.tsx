@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Mic, Square } from "lucide-react";
-import { duckAvatar, type Duck } from "../lib/room";
+import { duckAvatar, duckRole, type Duck } from "../lib/room";
 import { insertMention, mentionAt, mentionHandle } from "../lib/mentions";
 import { rosterColors } from "../lib/duck-colors";
 import { DuckAvatar } from "./duck-avatar";
@@ -104,7 +104,7 @@ export function MentionInput({
                 <span>
                   <strong style={{ color: colors.get(duck.id) }}>{duck.name}</strong>
                   <small>
-                    @{mentionHandle(duck, ducks)} · {duck.instructions.split(/(?<=[.!?])\s/)[0]}
+                    @{mentionHandle(duck, ducks)} · {duckRole(duck.instructions)}
                   </small>
                 </span>
               </button>

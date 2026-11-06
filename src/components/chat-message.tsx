@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, memo, useState } from "react";
 import { MessageMarkdown } from "./message-markdown";
-import { Check, ChevronDown, Plus, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, ListChecks, Plus, RotateCcw } from "lucide-react";
 import { duckAvatar, summaryRequest, type Duck, type Message } from "../lib/room";
 import { groupMessages } from "../lib/message-groups";
 import { mentionHandle } from "../lib/mentions";
@@ -12,6 +12,8 @@ const DuckNames = createContext<Record<string, string>>({});
 const DuckColors = createContext(new Map<string, string>());
 /** Puts back the message a failed or stopped reply answered, ready to edit and send again. */
 const Retry = createContext<((messageId: string) => void) | undefined>(undefined);
+/** Runs Summarize, offered when a Mediator turn stopped before its report. */
+const SumUp = createContext<(() => void) | undefined>(undefined);
 /** The conversation's notes, so Mediator's reports can be added to them. */
 const Notes = createContext<{ notes: string; add?: (text: string) => Promise<void> }>({
   notes: "",
@@ -23,12 +25,14 @@ export const ConversationMessages = memo(function ConversationMessages({
   ducks,
   notes,
   onRetry,
+  onSumUp,
   onAddToNotes,
 }: {
   messages: Message[];
   ducks: Duck[];
   notes: string;
   onRetry?: (messageId: string) => void;
+  onSumUp?: () => void;
   onAddToNotes: (text: string) => Promise<void>;
 }) {
   const entries = messages
@@ -41,24 +45,39 @@ export const ConversationMessages = memo(function ConversationMessages({
   const colors = useMemo(() => rosterColors(ducks), [ducks]);
   const notesValue = useMemo(() => ({ notes, add: onAddToNotes }), [notes, onAddToNotes]);
   const groups = groupMessages(messages);
+  // A stopped Summarize is retried as it is; only other stopped Mediator turns get "Sum up".
+  const asked = groups.map(
+    (_, index) =>
+      groups.slice(0, index).findLast((group) => group.kind === "message" && !group.message.duckId)
+        ?.id,
+  );
+  const summaries = new Set(
+    messages.filter((message) => message.text === summaryRequest).map((message) => message.id),
+  );
   return (
     <Notes.Provider value={notesValue}>
       <Retry.Provider value={onRetry}>
-        <DuckColors.Provider value={colors}>
-          <DuckNames.Provider value={names}>
-            {groups.map((group, index) =>
-              group.kind === "message" ? (
-                <ChatMessage key={group.id} message={group.message} />
-              ) : (
-                <ReplyRound
-                  key={group.id}
-                  messages={group.messages}
-                  reported={isReport(groups[index + 1])}
-                />
-              ),
-            )}
-          </DuckNames.Provider>
-        </DuckColors.Provider>
+        <SumUp.Provider value={onSumUp}>
+          <DuckColors.Provider value={colors}>
+            <DuckNames.Provider value={names}>
+              {groups.map((group, index) =>
+                group.kind === "message" ? (
+                  <ChatMessage
+                    key={group.id}
+                    message={group.message}
+                    canSumUp={!summaries.has(asked[index] ?? "")}
+                  />
+                ) : (
+                  <ReplyRound
+                    key={group.id}
+                    messages={group.messages}
+                    reported={isReport(groups[index + 1])}
+                  />
+                ),
+              )}
+            </DuckNames.Provider>
+          </DuckColors.Provider>
+        </SumUp.Provider>
       </Retry.Provider>
     </Notes.Provider>
   );
@@ -219,7 +238,9 @@ function HandoffLine({ message }: { message: Message }) {
   const [open, setOpen] = useState(false);
   const [, handle, rest] = message.text.match(/^@([\w-]+):?\s*([\s\S]*)$/) ?? [];
   const who = handle ? (names[handle] ?? handle) : undefined;
-  const summary = (rest ?? message.text).split(/(?<=[.!?])\s|\n/)[0];
+  const summary = (rest ?? message.text)
+    .split(/(?<=[.!?])\s|\n/)[0]
+    .replace(/@([\w-]+)/g, (mention, id: string) => names[id] ?? mention);
   return (
     <div data-scroll-anchor className={`handoff-line ${open ? "open" : ""}`}>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
@@ -248,8 +269,17 @@ function PassedLine({ message }: { message: Message }) {
   );
 }
 
-function MessageHeading({ message, color }: { message: Message; color: string }) {
+function MessageHeading({
+  message,
+  color,
+  canSumUp = false,
+}: {
+  message: Message;
+  color: string;
+  canSumUp?: boolean;
+}) {
   const retry = useContext(Retry);
+  const sumUp = useContext(SumUp);
   return (
     <div className="message-heading">
       <DuckAvatar
@@ -277,6 +307,14 @@ function MessageHeading({ message, color }: { message: Message; color: string })
           {isHost(message) ? "Edit and ask again" : `Edit and ask ${message.speaker} again`}
         </button>
       )}
+      {(message.status === "error" || message.status === "stopped") &&
+        // Mediator's own stopped turn, or a duck stopped mid-discussion before Mediator reported.
+        (isHost(message) ? canSumUp : message.phase === "discussion") &&
+        sumUp && (
+          <button type="button" className="text-button retry" onClick={sumUp}>
+            <ListChecks size={13} /> Sum up what's here
+          </button>
+        )}
       {message.status !== "thinking" && !!message.tools?.length && (
         <details className="tool-log">
           <summary>
@@ -336,7 +374,23 @@ export function useNow() {
   return now;
 }
 
-const ChatMessage = memo(function ChatMessage({ message }: { message: Message }) {
+/** "To Mediator", "To each duck", or "To Skeptic and Simplifier" above a sent message. */
+function Recipients({ to }: { to: string[] }) {
+  const names = useContext(DuckNames);
+  const label =
+    to[0] === "everyone"
+      ? "each duck"
+      : listNames(to.map((id) => (id === "mediator" ? "Mediator" : (names[id] ?? id))));
+  return <p className="recipients">To {label}</p>;
+}
+
+const ChatMessage = memo(function ChatMessage({
+  message,
+  canSumUp,
+}: {
+  message: Message;
+  canSumUp: boolean;
+}) {
   const colors = useContext(DuckColors);
   if (!message.duckId && message.text === summaryRequest)
     return (
@@ -347,6 +401,7 @@ const ChatMessage = memo(function ChatMessage({ message }: { message: Message })
   if (!message.duckId)
     return (
       <article data-scroll-anchor className="chat-message human-message">
+        {message.to && <Recipients to={message.to} />}
         <MessageText message={message} />
       </article>
     );
@@ -356,7 +411,11 @@ const ChatMessage = memo(function ChatMessage({ message }: { message: Message })
       data-scroll-anchor
       className={`chat-message duck-message ${message.phase === "guide" ? "host-message" : ""}`}
     >
-      <MessageHeading message={message} color={speakerColor(colors, message.duckId)} />
+      <MessageHeading
+        message={message}
+        color={speakerColor(colors, message.duckId)}
+        canSumUp={canSumUp}
+      />
       <MessageText message={message} />
       {message.phase === "guide" && message.status === "complete" && !!message.text && (
         <AddToNotes text={message.text} />
