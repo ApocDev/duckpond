@@ -1,0 +1,57 @@
+README.md
+  s_105d2118509069::t_8c56f70e887c05 67,71,77,136,180
+src/components/add-ducks.tsx
+  s_105d2118509069::t_74cee5b02482ac 8,136,144,156,213-224,468-473
+src/components/chat-message.tsx
+  s_105d2118509069::t_f788807b7a1f63 67-84,99-100,289
+src/components/duck-editor.tsx
+  s_105d2118509069::t_8d4dea5c5250d7 1,8,47-67,166-167
+src/components/duck-settings.tsx
+  s_105d2118509069::t_e0816ae1519b7f 6,39-41,53,119-123,193
+src/components/pond-dialog.tsx
+  s_105d2118509069::t_dd8ae6c0d04219 83-84
+src/components/room-notes.tsx
+  s_105d2118509069::t_695b7956f6a378 10,17-18,30-57,67,72-73,169-178
+src/lib/approval.test.ts
+  s_105d2118509069::t_ae5687e1d44f5f 10-16
+src/lib/approval.ts
+  s_105d2118509069::t_18a79a172549af 5-7,13,19-22
+src/lib/duck-colors.test.ts
+  s_105d2118509069::t_fead50a988fee0 2,15-22
+src/lib/duck-colors.ts
+  s_105d2118509069::t_5430fcc9a0c69b 16-39,43,47,49-52
+src/lib/room.ts
+  s_105d2118509069::t_0b5d7a50d98103 19-20
+src/routes/index.tsx
+  s_105d2118509069::t_f3a9152779a101 651,919-921
+src/server/conversation.server.ts
+  s_105d2118509069::t_57e33e87261bd9 105-107
+src/server/conversation.test.ts
+  s_105d2118509069::t_2059b86f3c70db 387-390
+src/server/discussion.server.ts
+  s_105d2118509069::t_862e113105f6a7 32
+src/server/ponds.server.ts
+  s_105d2118509069::t_0cbece4fee769b 20,23
+src/server/ponds.test.ts
+  s_105d2118509069::t_95e9166d7d71e2 70
+src/server/providers.server.ts
+  s_105d2118509069::t_38bac2fd1b5ae8 224-231,251-255,263-265,267-272
+src/styles.css
+  s_105d2118509069::t_fe672913384d60 1324-1326,1332-1333
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6cd8fc4a0e2dcca8a7f06cba5def4b5fa138019c",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
