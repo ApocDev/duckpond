@@ -102,7 +102,9 @@ export async function runConversation(
           phase,
           room.notes,
           room.ducks,
-          phase !== "guide" && !discussion?.assignedTo(duck.id),
+          phase !== "guide" &&
+            !discussion?.assignedTo(duck.id) &&
+            !(mode === "conversation" && duck.id === target),
         );
         return `${prompt}\n\nCurrent mode: ${mode}. Your published reply ID: ${message.id}.${
           discussion && phase === "discussion" ? `\n\n${discussion.context()}` : ""

@@ -80,7 +80,8 @@ export function PondDialog({
           </small>
         </label>
         <p className="field-hint">
-          Starts with {ducks.map((duck) => duck.name).join(", ")}. You can change them after.
+          Starts with the ducks you have now: {ducks.map((duck) => duck.name).join(", ")}. You can
+          change them after.
         </p>
         {error && (
           <p role="alert" className="banner error">

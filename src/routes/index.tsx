@@ -648,7 +648,7 @@ function Home() {
             </span>
           </div>
           <RoomNotes
-            key={room?.id ?? newKey}
+            conversation={room?.id ?? newKey}
             notes={room?.notes ?? ""}
             disabled={saving || dictating}
             onSave={saveNotes}
@@ -916,7 +916,9 @@ function ApprovalCard({ approval }: { approval: Approval }) {
         </pre>
       )}
       {!!outside.length && (
-        <p className="approval-warning">Names paths outside this folder: {outside.join(", ")}</p>
+        <p className="approval-warning">
+          Check these paths, they may be outside this folder: {outside.join(", ")}
+        </p>
       )}
       {approval.cwd && (
         <p className="muted">

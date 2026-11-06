@@ -17,10 +17,10 @@ import { type Duck } from "../lib/room";
 import { listPondLocations, registerPond } from "./store.server";
 
 function workspaceDirectory(workspace: string) {
-  if (!isAbsolute(workspace)) throw new Error("Choose an absolute workspace directory.");
+  if (!isAbsolute(workspace)) throw new Error("Use the folder's full path, starting with /.");
   if (!existsSync(workspace)) throw new Error("That folder doesn't exist. Check the path.");
   const resolved = realpathSync(workspace);
-  if (!statSync(resolved).isDirectory()) throw new Error("The workspace must be a directory.");
+  if (!statSync(resolved).isDirectory()) throw new Error("That path is a file, not a folder.");
   return resolved;
 }
 

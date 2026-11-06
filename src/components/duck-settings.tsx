@@ -3,7 +3,7 @@ import { ChevronDown, Plus, RefreshCw } from "lucide-react";
 import { guide, type Duck, type Room } from "../lib/room";
 import type { Pond } from "../lib/pond";
 import { modelLabel, type ModelCatalog } from "../lib/models";
-import { rosterColors, hostColor } from "../lib/duck-colors";
+import { rosterColors, hostColor, withColors } from "../lib/duck-colors";
 import { loadModels } from "../server/rooms.functions";
 import { AddDucks } from "./add-ducks";
 import { AgentContext } from "./agent-context";
@@ -36,7 +36,9 @@ export function DuckSettings({
   onSave: (value: { ducks: Duck[]; pondName?: string; pondDefaults?: boolean }) => Promise<void>;
   onClose: () => void;
 }) {
-  const [draft, setDraft] = useState(() => structuredClone(ducks));
+  // Colors are filled in up front, so a saved roster keeps them when ducks are removed later.
+  const initial = useMemo(() => withColors(ducks), [ducks]);
+  const [draft, setDraft] = useState<Duck[]>(() => structuredClone(initial));
   const [open, setOpen] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -48,7 +50,7 @@ export function DuckSettings({
   const roomId = scope.kind === "conversation" ? scope.roomId : undefined;
   const room = scope.kind === "conversation" ? scope.room : undefined;
   const dirty =
-    JSON.stringify(draft) !== JSON.stringify(ducks) ||
+    JSON.stringify(draft) !== JSON.stringify(initial) ||
     (scope.kind === "pond" && pondName !== scope.pond.name);
   // Whether this conversation's ducks match what its pond starts new conversations with.
   const pondDucks = scope.kind === "conversation" ? scope.pond?.ducks : undefined;
@@ -114,7 +116,11 @@ export function DuckSettings({
                 className="primary-button"
                 disabled={saving || !(dirty || (pondDefaults && draftDiffers))}
               >
-                {saving ? "Saving…" : scope.kind === "pond" ? "Save pond defaults" : "Save"}
+                {saving
+                  ? "Saving…"
+                  : scope.kind === "pond"
+                    ? "Save pond defaults"
+                    : "Save to this conversation"}
               </button>
             )}
           </>
@@ -184,7 +190,7 @@ export function DuckSettings({
             hasContext={scope.kind === "pond" || !!room?.messages.length || !!room?.notes.trim()}
             onAdd={(added) => {
               if (!added.length) return;
-              setDraft((current) => [...current, ...added]);
+              setDraft((current) => withColors([...current, ...added]));
               setOpen(added[0].id);
               setAdding(false);
             }}

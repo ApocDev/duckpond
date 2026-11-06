@@ -67,7 +67,7 @@ it("reports broken ponds individually and refuses to overwrite an unrelated .duc
   writeFileSync(join(unrelated, ".duckpond/user-file"), "User-owned");
   expect(() => openPond("New", unrelated, defaults)).toThrow("contains files");
   expect(readFileSync(join(unrelated, ".duckpond/user-file"), "utf8")).toBe("User-owned");
-  expect(() => openPond("Relative", "relative/path", defaults)).toThrow("absolute");
+  expect(() => openPond("Relative", "relative/path", defaults)).toThrow("full path");
   expect(() => openPond("Missing", join(unrelated, "missing"), defaults)).toThrow(
     "That folder doesn't exist",
   );

@@ -64,6 +64,24 @@ export const ConversationMessages = memo(function ConversationMessages({
   );
 });
 
+const pastVerbs: Record<string, string> = {
+  running: "ran",
+  reading: "read",
+  editing: "edited",
+  searching: "searched",
+  using: "used",
+  delegating: "delegated",
+  planning: "planned",
+  drawing: "drew",
+  coordinating: "coordinated",
+  working: "worked",
+};
+/** Finished steps read as done: "running wc -l" becomes "ran wc -l". */
+function pastTense(label: string) {
+  const [verb, ...rest] = label.split(" ");
+  return [pastVerbs[verb] ?? verb, ...rest].join(" ");
+}
+
 /** Whether a group is Mediator's finished report, which sums up the round before it. */
 function isReport(group?: ReturnType<typeof groupMessages>[number]) {
   return (
@@ -78,7 +96,8 @@ function isReport(group?: ReturnType<typeof groupMessages>[number]) {
  * and rounds that are running, failed, or stopped, stay open.
  */
 function ReplyRound({ messages, reported }: { messages: Message[]; reported: boolean }) {
-  const [expanded, setExpanded] = useState(false);
+  // Each separately's answers are what you asked for, so they start open even after the summary.
+  const [expanded, setExpanded] = useState(messages[0].phase === "review");
   // Mediator's handoffs sit in the round but aren't replies, so the counts leave them out.
   const replies = messages.filter((message) => !isHost(message));
   const working = unique(replies.filter((message) => message.status === "thinking"));
@@ -267,7 +286,7 @@ function MessageHeading({ message, color }: { message: Message; color: string })
           </summary>
           <ul>
             {message.tools.map((tool) => (
-              <li key={tool}>{tool}</li>
+              <li key={tool}>{pastTense(tool)}</li>
             ))}
           </ul>
         </details>

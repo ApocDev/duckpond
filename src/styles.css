@@ -1321,11 +1321,16 @@ textarea:focus {
   color: var(--text-2);
 }
 .approval-actions {
+  /* Stays in reach at the bottom of the approvals area while a long request scrolls. */
+  position: sticky;
+  bottom: 0;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
   margin-top: 4px;
+  padding-top: 6px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
 }
 
 /* ---------- Dialogs ---------- */

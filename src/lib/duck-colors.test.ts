@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { rosterColors } from "./duck-colors";
+import { rosterColors, withColors } from "./duck-colors";
 
 describe("rosterColors", () => {
   it("keeps the first six ducks' hues at least 40 degrees apart", () => {
@@ -11,5 +11,13 @@ describe("rosterColors", () => {
         const gap = Math.abs(hue - other);
         expect(Math.min(gap, 360 - gap)).toBeGreaterThanOrEqual(40);
       }
+  });
+
+  it("keeps each duck's color after another duck is removed", () => {
+    const saved = withColors([{ id: "a" }, { id: "b" }, { id: "c" }]);
+    const before = rosterColors(saved);
+    const after = rosterColors(saved.filter((duck) => duck.id !== "a"));
+    expect(after.get("b")).toBe(before.get("b"));
+    expect(after.get("c")).toBe(before.get("c"));
   });
 });

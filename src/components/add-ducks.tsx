@@ -5,6 +5,7 @@ import { modelLabel } from "../lib/models";
 import type { DuckSuggestion } from "../lib/suggestions";
 import { reusableDucks, suggestDuck } from "../server/rooms.functions";
 import { DuckAvatar } from "./duck-avatar";
+import { clock, useNow } from "./chat-message";
 
 type Method = "suggest" | "describe" | "reuse" | "write";
 type Persona = Pick<Duck, "name" | "instructions">;
@@ -132,6 +133,7 @@ function fromPersona({ name, instructions }: Persona, ducks: Duck[]): Duck {
 function useSuggestion() {
   const request = useRef<AbortController | null>(null);
   const [running, setRunning] = useState(false);
+  const [startedAt, setStartedAt] = useState(0);
   const [error, setError] = useState("");
   useEffect(() => () => request.current?.abort(), []);
   async function run(data: Parameters<typeof suggestDuck>[0]["data"]) {
@@ -139,6 +141,7 @@ function useSuggestion() {
     const controller = new AbortController();
     request.current = controller;
     setRunning(true);
+    setStartedAt(Date.now());
     setError("");
     try {
       return await suggestDuck({ data, signal: controller.signal });
@@ -150,7 +153,7 @@ function useSuggestion() {
       setRunning(false);
     }
   }
-  return { run, running, error, cancel: () => request.current?.abort() };
+  return { run, running, startedAt, error, cancel: () => request.current?.abort() };
 }
 
 function Suggest({
@@ -207,15 +210,18 @@ function Suggest({
           onClick={() => void suggest()}
         >
           <Lightbulb size={15} />
-          {suggestion.running
-            ? workspace
-              ? "Reading the workspace…"
-              : "Thinking of ducks…"
-            : result
-              ? "Suggest more"
-              : workspace
-                ? "Suggest from the pond's files"
-                : "Suggest from this conversation"}
+          {suggestion.running ? (
+            <>
+              {workspace ? "Reading the workspace…" : "Thinking of ducks…"}{" "}
+              <Elapsed since={suggestion.startedAt} />
+            </>
+          ) : result ? (
+            "Suggest more"
+          ) : workspace ? (
+            "Suggest from the pond's files"
+          ) : (
+            "Suggest from this conversation"
+          )}
         </button>
         {suggestion.running && (
           <button type="button" className="text-button" onClick={suggestion.cancel}>
@@ -458,4 +464,10 @@ function Reuse({ ducks, onAdd }: { ducks: Duck[]; onAdd: (ducks: Duck[]) => void
       </div>
     </div>
   );
+}
+
+/** Seconds since a request started, like the timers on running replies. */
+function Elapsed({ since }: { since: number }) {
+  const now = useNow();
+  return <span className="muted">{clock(Math.floor((now - since) / 1000))}</span>;
 }

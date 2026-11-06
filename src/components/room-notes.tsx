@@ -7,12 +7,15 @@ import { useDismiss } from "./use-dismiss";
  * holds Summarize: Mediator posts a recap you can add here with one click.
  */
 export function RoomNotes({
+  conversation,
   notes,
   disabled,
   onSave,
   summarizeBlocked,
   onSummarize,
 }: {
+  /** The open conversation's id, or its draft key before it's saved. Drafts are kept per id. */
+  conversation: string;
   notes: string;
   disabled: boolean;
   onSave: (notes: string) => Promise<void>;
@@ -21,16 +24,37 @@ export function RoomNotes({
   onSummarize: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<string | null>(null);
-  // Text added from outside (Add to notes) joins an open draft, so saving the draft keeps it.
-  const [base, setBase] = useState(notes);
-  if (notes !== base) {
-    setBase(notes);
-    if (draft !== null && notes.startsWith(base)) setDraft(draft + notes.slice(base.length));
-  }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  // Unsaved edits per conversation, so switching away and back keeps them.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draft = drafts[conversation] ?? null;
+  function setDraft(value: string | null) {
+    setDrafts((current) => edited(current, [conversation], value));
+  }
+  const latest = useRef(conversation);
+  latest.current = conversation;
+  const [shown, setShown] = useState({ conversation, notes });
+  if (shown.conversation !== conversation) {
+    setShown({ conversation, notes });
+    if (shown.conversation.startsWith("new:")) {
+      // A new conversation that just got saved is the same conversation: keep the panel and draft.
+      const carried = drafts[shown.conversation];
+      if (carried !== undefined)
+        setDrafts((current) =>
+          edited(edited(current, [shown.conversation], null), [conversation], carried),
+        );
+    } else {
+      setOpen(false);
+      setSaved(false);
+    }
+  } else if (notes !== shown.notes) {
+    // Text added from outside (Add to notes) joins an open draft, so saving the draft keeps it.
+    setShown({ conversation, notes });
+    if (draft !== null && notes.startsWith(shown.notes))
+      setDraft(draft + notes.slice(shown.notes.length));
+  }
   const wrapper = useRef<HTMLDivElement>(null);
   // An outside click or Escape closes the popover unless it holds unsaved edits.
   useDismiss(wrapper, open && (draft === null || draft === notes), () => {
@@ -40,11 +64,13 @@ export function RoomNotes({
   const changed = draft !== null && draft !== notes;
   async function save() {
     if (!changed) return;
+    const key = conversation;
     setSaving(true);
     setError("");
     try {
       await onSave(draft.trim());
-      setDraft(null);
+      // Saving can create the conversation, which moves the draft to its new id.
+      setDrafts((current) => edited(current, [key, latest.current], null));
       setSaved(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Couldn't save notes.");
@@ -139,4 +165,14 @@ export function RoomNotes({
       )}
     </div>
   );
+}
+
+/** A copy of `drafts` with `keys` set to `value`, or removed when it's null. */
+function edited(drafts: Record<string, string>, keys: string[], value: string | null) {
+  const next = { ...drafts };
+  for (const key of keys) {
+    if (value === null) delete next[key];
+    else next[key] = value;
+  }
+  return next;
 }

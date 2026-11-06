@@ -13,16 +13,41 @@ function hash(id: string) {
   return Math.abs(value);
 }
 
-/** Name colors for a roster, given out in roster order so neighbors in the list never clash. */
-export function rosterColors(ducks: Pick<Duck, "id">[]) {
+/**
+ * Gives every duck a palette slot: its stored one if no earlier duck holds it, otherwise the first
+ * free slot. Saving a roster stores these, so later removals leave the other ducks' colors alone.
+ */
+export function withColors<T extends Pick<Duck, "id" | "color">>(ducks: T[]) {
+  const used = new Set<number>();
+  const kept = ducks.map((duck) => {
+    const color = duck.color !== undefined && !used.has(duck.color) ? duck.color : undefined;
+    if (color !== undefined) used.add(color);
+    return color;
+  });
+  return ducks.map((duck, index) => {
+    let color = kept[index];
+    if (color === undefined) {
+      const free = palette.findIndex((_, slot) => !used.has(slot));
+      color = free === -1 ? index % palette.length : free;
+      used.add(color);
+    }
+    return { ...duck, color };
+  });
+}
+
+/** Name colors for a roster. Neighbors in a fresh roster never clash. */
+export function rosterColors(ducks: Pick<Duck, "id" | "color">[]) {
   return new Map<string, string>([
     ["mediator", hostColor],
     ["guide", hostColor],
-    ...ducks.map((duck, index) => [duck.id, palette[index % palette.length]] as const),
+    ...withColors(ducks).map((duck) => [duck.id, palette[duck.color]] as const),
   ]);
 }
 
-/** Color for one speaker, including ducks no longer in the roster. */
+/** Color for one speaker. Ducks no longer in the roster get a color no current duck uses. */
 export function speakerColor(colors: Map<string, string>, id: string) {
-  return colors.get(id) ?? palette[hash(id) % palette.length];
+  const taken = new Set(colors.values());
+  const free = palette.filter((color) => !taken.has(color));
+  const choices = free.length ? free : palette;
+  return colors.get(id) ?? choices[hash(id) % choices.length];
 }

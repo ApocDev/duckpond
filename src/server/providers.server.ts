@@ -221,7 +221,14 @@ export async function reply(
               title: toolTitles[name] ?? name,
               command: typeof input.command === "string" ? input.command : undefined,
               path: [input.file_path, input.notebook_path, input.path].find(isString),
-              preview: [input.content, input.new_string, input.new_source].find(isString),
+              // An edit shows what it removes as well as what it adds.
+              preview:
+                isString(input.old_string) && isString(input.new_string)
+                  ? [
+                      ...input.old_string.split("\n").map((line) => `- ${line}`),
+                      ...input.new_string.split("\n").map((line) => `+ ${line}`),
+                    ].join("\n")
+                  : [input.content, input.new_source].find(isString),
               reason: typeof input.description === "string" ? input.description : undefined,
               cwd,
               remember:
@@ -241,7 +248,11 @@ export async function reply(
                     ? { ...input, answers: response.answer ? JSON.parse(response.answer) : {} }
                     : input,
               }
-            : { behavior: "deny", message: "The user declined this request." };
+            : {
+                behavior: "deny",
+                message:
+                  "The person declined this request. Don't ask for it again this turn; continue without it, or say what you'd need instead.",
+              };
         },
       }),
       system,
@@ -249,8 +260,16 @@ export async function reply(
       abortSignal: signal,
       maxRetries: 0,
     });
+    // Claude can answer in several text blocks around tool calls; keep them apart as paragraphs.
+    let textBlock: string | undefined;
+    let wrote = false;
     for await (const part of result.fullStream) {
-      if (part.type === "text-delta") onText(part.text);
+      if (part.type === "text-delta") {
+        if (wrote && part.id !== textBlock) onText("\n\n");
+        textBlock = part.id;
+        wrote = true;
+        onText(part.text);
+      }
       if (part.type === "tool-call")
         emit({
           type: "activity",

@@ -7,4 +7,11 @@ it("points out paths a command names outside the project folder", () => {
     ["~/.ssh/config"],
   );
   expect(pathsOutside("ls src", "/pond")).toEqual([]);
+  expect(pathsOutside("S=/tmp/other cp a.ts $TMPDIR/t.ts // note", "/pond")).toEqual([
+    "/tmp/other",
+    "$TMPDIR/t.ts",
+  ]);
+  expect(pathsOutside("/repo/node_modules/.bin/tsc --noEmit", "/pond")).toEqual([
+    "/repo/node_modules/.bin/tsc",
+  ]);
 });

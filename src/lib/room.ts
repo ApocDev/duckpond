@@ -16,6 +16,8 @@ export const duckSchema = z.object({
   model: z.string().trim().max(120),
   reasoning: z.string().trim().max(32).optional(),
   avatar: outfitSchema.optional(),
+  /** Index into the name-color palette, kept so a duck's color survives roster changes. */
+  color: z.number().int().min(0).max(9).optional(),
   instructions: z.string().trim().min(1).max(4000),
 });
 export type Duck = z.infer<typeof duckSchema>;

@@ -1,10 +1,11 @@
-import { useLayoutEffect, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { ChevronDown, Sparkles, Trash2 } from "lucide-react";
 import { avatarSchema, duckAvatar, duckSchema, type Duck } from "../lib/room";
 import { findModel, modelLabel, type ModelCatalog } from "../lib/models";
 import { mentionHandle } from "../lib/mentions";
 import { DuckAvatar } from "./duck-avatar";
 import { OutfitGenerator } from "./outfit-generator";
+import { loadOutfits } from "../server/outfits.functions";
 import { Select } from "./select";
 
 /** One duck in the settings list: a summary row that expands into its editable fields. */
@@ -43,6 +44,27 @@ export function DuckEditor({
   const long = duck.instructions.length > 500;
   const [expanded, setExpanded] = useState(false);
   const [drawing, setDrawing] = useState(false);
+  // Reopening a duck shows a drawing that's still running or finished but unused, so it isn't lost.
+  useEffect(() => {
+    if (!open || !roomId || drawing) return;
+    let current = true;
+    loadOutfits({ data: roomId })
+      .then((jobs) => {
+        const latest = jobs.filter((job) => job.duckId === duck.id).at(-1);
+        if (
+          current &&
+          latest &&
+          latest.status !== "error" &&
+          duck.avatar !== `generated-${latest.id}`
+        )
+          setDrawing(true);
+      })
+      // The generator reports load errors itself once it's open; here there's nothing to show.
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [open, roomId, duck.id]);
   const provider = duck.provider === "claude" ? "Claude" : "Codex";
   return (
     <section className={`duck-editor ${open ? "open" : ""}`} onInvalid={() => !open && onToggle()}>
@@ -141,8 +163,8 @@ export function DuckEditor({
           </div>
         </div>
         <p className="field-hint">
-          {model?.description ? `${model.description} ` : ""}Higher reasoning is slower and more
-          thorough.
+          {model?.description ? `${model.description.replace(/[^.!?]$/, "$&.")} ` : ""}Higher
+          reasoning is slower and more thorough.
         </p>
         <div className={`field perspective ${long && !expanded && !readOnly ? "capped" : ""}`}>
           <label htmlFor={`perspective-${duck.id}`}>Perspective</label>
