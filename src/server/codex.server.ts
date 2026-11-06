@@ -140,6 +140,7 @@ export async function codexReply(
             duckId: duck.id,
             label: activityLabel({
               name: item.data.tool ?? item.data.type,
+              input: item.data,
               command: item.data.command,
             }),
           });

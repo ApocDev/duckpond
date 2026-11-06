@@ -30,12 +30,14 @@ import {
   ducksSchema,
   isUntouchedRoom,
   selectDucks,
+  summaryRequest,
   type Approval,
   type Duck,
   type Mode,
   type Room,
   type RoomStream,
 } from "../lib/room";
+import { pathsOutside } from "../lib/approval";
 
 export const Route = createFileRoute("/")({ loader: () => loadRooms(), component: Home });
 const transport = new DefaultChatTransport<RoomStream>({ api: "/api/chat" });
@@ -44,8 +46,6 @@ const prompts = [
   "Help me decide between two approaches.",
   "Poke holes in something I'm building.",
 ];
-const summaryRequest =
-  "Summarize this conversation so far: where we landed, what's still disagreed, and the one question worth answering next.";
 const reconnectError = "Lost the connection. Retrying when it comes back.";
 
 // Match the composer's mobile keyboard behavior, including touch tablets.
@@ -587,7 +587,7 @@ function Home() {
         : `Message ${targetDuck?.name ?? "a duck"}…`;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${preferencesLoaded ? "" : "restoring"}`}>
       <Sidebar
         ponds={ponds}
         pondId={selectedPond}
@@ -652,7 +652,13 @@ function Home() {
             notes={room?.notes ?? ""}
             disabled={saving || dictating}
             onSave={saveNotes}
-            canSummarize={!!room?.messages.length && !composerLocked}
+            summarizeBlocked={
+              !room?.messages.length
+                ? "Send a message first."
+                : composerLocked
+                  ? "Available when the replies finish."
+                  : undefined
+            }
             onSummarize={() => void send("summary")}
           />
         </header>
@@ -672,7 +678,7 @@ function Home() {
           ) : (
             <div className="welcome">
               <h2>New conversation{pond ? ` in ${pond.name}` : ""}</h2>
-              <p>Pick who you're talking to in the To row below:</p>
+              <p>Use To, below, to pick who answers:</p>
               <ul className="welcome-modes">
                 <li>
                   <strong className="host">Mediator</strong> brings in the ducks who can help, lets
@@ -717,9 +723,13 @@ function Home() {
               </button>
             </div>
           )}
-          {roomApprovals.map((approval) => (
-            <ApprovalCard key={approval.id} approval={approval} />
-          ))}
+          {!!roomApprovals.length && (
+            <div className="approvals">
+              {roomApprovals.map((approval) => (
+                <ApprovalCard key={approval.id} approval={approval} />
+              ))}
+            </div>
+          )}
           <DuckBar
             ducks={ducks}
             target={target}
@@ -860,6 +870,8 @@ function ApprovalCard({ approval }: { approval: Approval }) {
   const [answers, setAnswers] = useState<Record<string, string | boolean | number>>({});
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const outside =
+    approval.command && approval.cwd ? pathsOutside(approval.command, approval.cwd) : [];
   async function respond(approved: boolean, remember = false) {
     setError("");
     setSending(true);
@@ -888,11 +900,9 @@ function ApprovalCard({ approval }: { approval: Approval }) {
       {approval.path && (
         <p>
           File <code>{approval.path}</code>
-          {approval.cwd &&
-            approval.path.startsWith("/") &&
-            !`${approval.path}/`.startsWith(`${approval.cwd.replace(/\/$/, "")}/`) && (
-              <strong className="approval-warning"> · outside this folder</strong>
-            )}
+          {approval.cwd && !!pathsOutside(`read ${approval.path}`, approval.cwd).length && (
+            <strong className="approval-warning"> · outside this folder</strong>
+          )}
         </p>
       )}
       {approval.preview && (
@@ -905,15 +915,18 @@ function ApprovalCard({ approval }: { approval: Approval }) {
           <code>{approval.command}</code>
         </pre>
       )}
+      {!!outside.length && (
+        <p className="approval-warning">Names paths outside this folder: {outside.join(", ")}</p>
+      )}
       {approval.cwd && (
         <p className="muted">
-          In <code>{approval.cwd}</code>
+          {approval.command ? "Runs from" : "Project folder"} <code>{approval.cwd}</code>
         </p>
       )}
       {approval.remember && (
         <p className="muted">
-          "Always allow" saves this exact command for every duck in this folder. You can revoke it
-          in Settings.
+          "Always allow" saves this exact command for every duck on this provider in this folder.
+          You can revoke it in Settings.
         </p>
       )}
       <details>

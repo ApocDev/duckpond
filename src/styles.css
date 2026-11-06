@@ -1303,6 +1303,19 @@ textarea:focus {
 .approval-warning {
   color: var(--danger);
 }
+/* Several requests scroll here instead of pushing the conversation off screen. */
+.approvals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 45dvh;
+  overflow-y: auto;
+}
+/* Until this browser's saved pond and conversation load, show neither the server's pick. */
+.app-shell.restoring main,
+.app-shell.restoring .conversation-list {
+  visibility: hidden;
+}
 .approval-card summary {
   cursor: pointer;
   color: var(--text-2);

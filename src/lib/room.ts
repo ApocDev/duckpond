@@ -209,6 +209,10 @@ export type Approval = {
 };
 export type RoomStream = UIMessage<never, { room: RoomEvent }>;
 
+/** What Summarize sends; the transcript shows it as an action rather than as your words. */
+export const summaryRequest =
+  "Summarize this conversation so far: where we landed, what's still disagreed, and the one question worth answering next.";
+
 /** The selected duck plus anyone mentioned, in roster order. */
 export function selectDucks(ducks: Duck[], text: string, target: Duck["id"]): Duck[] {
   const mentions = new Set([...text.matchAll(/@([\w-]+)/g)].map((match) => match[1].toLowerCase()));

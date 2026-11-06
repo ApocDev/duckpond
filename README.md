@@ -70,7 +70,7 @@ A duck that has nothing relevant to add replies `PASS`. The transcript shows it 
 
 **Notes** in the header holds text every duck in the conversation reads before it replies. The panel opens straight into the text; **Save notes** saves it and shows "Saved". Closing the panel keeps unsaved edits for when you reopen it.
 
-**Summarize so far** in the Notes panel asks Mediator to recap where things landed, what's still disagreed, and the one question worth answering next. The recap appears in the conversation without changing who you're talking to. Every Mediator report, including recaps, has **Add to notes**, which appends it to the notes.
+**Summarize so far** in the Notes panel asks Mediator to recap where things landed, what's still disagreed, and the one question worth answering next. The recap appears in the conversation without changing who you're talking to, after a line that says you asked for it. The panel says why Summarize is unavailable before the first message or while replies run. Every Mediator report, including recaps, has **Add to notes**, which appends it to the notes; if the panel holds unsaved edits, the added text joins them.
 
 ### Ducks
 
@@ -78,7 +78,7 @@ A duck that has nothing relevant to add replies `PASS`. The transcript shows it 
 
 **Add a duck** at the top of the list has four options:
 
-- **Suggest** reads this conversation and its notes and proposes up to five missing perspectives, each with a reason. It needs a message or notes first, so it's the last tab until then. In pond settings it reads the pond's docs and code instead, in a read-only sandbox.
+- **Suggest** reads this conversation and its notes and proposes up to five missing perspectives, each with a reason. It needs a message or notes first; until then Add a duck opens on Describe. In pond settings it reads the pond's docs and code instead, in a read-only sandbox.
 - **Describe** turns a short description into a full persona you can edit before adding.
 - **Reuse** copies ducks from your other conversations and pond defaults. Each persona appears once, with where it's from; ducks already in the list are left out.
 - **Write your own** adds a blank duck for you to fill in.
@@ -133,7 +133,7 @@ Conversations, settings, notes, and completed or stopped responses are stored in
 
 Claude uses `ai-sdk-provider-claude-code` with the Vercel AI SDK. Codex uses its local App Server protocol; AI SDK's UI stream carries both providers' updates.
 
-Ducks retain native tools, skills, and MCP configuration. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests show the reason, the command or the file a file tool wants (marked when it's outside the project folder), the text a write or edit would put there, and the project directory, with raw provider data under Technical details. Allow once approves one request. Always allow here saves the exact command, directory, provider, and requested access for future requests from any duck. Different commands, projects, providers, or requested privileges require another approval. Saved command permissions persist across restarts and can be revoked in Settings. Revoking affects future requests, not already-running commands. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported yet.
+Ducks retain native tools, skills, and MCP configuration. In a pond, each duck is told that the pond folder is its working folder and the project being discussed. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests show the reason, the command or the file a file tool wants (absolute paths outside the project folder are pointed out), the text a write or edit would put there, and the project directory, with raw provider data under Technical details. Allow once approves one request. Always allow here saves the exact command, directory, provider, and requested access for future requests from any duck. Different commands, projects, providers, or requested privileges require another approval. Saved command permissions persist across restarts and can be revoked in Settings. Revoking affects future requests, not already-running commands. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported yet.
 
 `DUCKPOND_AGENT_CWD` selects the working directory for both providers and their project-specific tools/settings. The default is `.data/agent`. Set it to a project directory when you want that project's configuration. `DUCKPOND_CLAUDE_BIN` can specify an absolute Claude executable path for a bundled build.
 

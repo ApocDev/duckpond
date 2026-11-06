@@ -83,6 +83,10 @@ export async function reply(
   context?: ReplyContext,
 ): Promise<void> {
   const cwd = await getAgentDirectory(context?.workspace);
+  // Claude's SDK prompt doesn't name the working folder, so ducks in a pond are told where the
+  // project is instead of searching the whole machine for files the person mentions.
+  if (context?.workspace)
+    system = `${system}\n\nYour working folder is ${cwd}. It is the project this conversation is about: files the person mentions are in it, so read them there instead of searching elsewhere.`;
   const session = prepareReply(duck, system, prompt, cwd, roomTools, context);
   let status: "complete" | "error" | "stopped" = "error";
   try {

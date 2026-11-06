@@ -1,4 +1,28 @@
 import { z } from "zod";
+import { shellScript } from "./activity";
+
+/**
+ * Absolute paths a command names outside `cwd`, so an approval card can point them out. It reads
+ * words, not shell syntax, so it's a hint: `find /` shows up, a path built at runtime doesn't.
+ */
+export function pathsOutside(command: string, cwd: string) {
+  const folder = cwd.replace(/\/+$/, "");
+  const words = shellScript(command)
+    .split(/\s+/)
+    .slice(1)
+    .map((word) => word.replace(/^['"(]+|['";|&)]+$/g, ""));
+  return [
+    ...new Set(
+      words.filter(
+        (word) =>
+          /^(\/|~)/.test(word) &&
+          !word.startsWith("/dev/") &&
+          word !== folder &&
+          !word.startsWith(`${folder}/`),
+      ),
+    ),
+  ];
+}
 
 export type ApprovalField = {
   key: string;

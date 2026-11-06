@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /** A provider tool event, normalized from Claude tool calls and Codex thread items. */
 export type ToolEvent = {
   /** Claude tool name, Codex item type, or Codex MCP tool name. */
@@ -16,25 +18,39 @@ function field(input: unknown, ...keys: string[]) {
   return undefined;
 }
 
+const changesSchema = z.object({ changes: z.array(z.object({ path: z.string() })) });
+
 /** The last path segment, so labels stay short. */
 function file(path?: string) {
   return path ? path.split("/").filter(Boolean).slice(-2).join("/") : undefined;
 }
 
+/** The script inside a shell wrapper such as Codex's `/usr/bin/bash -lc '…'`, or the command itself. */
+export function shellScript(command: string) {
+  const wrapped = command.trim().match(/^\S*\b(?:bash|sh|zsh)\s+-l?c\s+(['"])([\s\S]*)\1$/);
+  return (wrapped?.[2] ?? command).trim();
+}
+
 /** The program being run, without its arguments. */
 function program(command?: string) {
-  const words =
-    command
-      ?.replace(/^(cd [^&;]+(&&|;)\s*)+/, "")
-      .trim()
-      .split(/\s+/) ?? [];
-  const name = words[0] === "bash" || words[0] === "sh" ? "a script" : words.slice(0, 2).join(" ");
+  const words = command
+    ? shellScript(command)
+        .replace(/^(cd [^&;]+(&&|;)\s*)+/, "")
+        .trim()
+        .split(/\s+/)
+    : [];
+  const name = /(^|\/)(bash|sh|zsh)$/.test(words[0] ?? "")
+    ? "a script"
+    : words.slice(0, 2).join(" ");
   return name.length > 40 ? `${name.slice(0, 40)}…` : name;
 }
 
 /** A short present-tense description of what a duck is doing, for status lines. */
 export function activityLabel({ name, input, command }: ToolEvent) {
-  const path = file(field(input, "file_path", "path", "notebook_path"));
+  // Codex file changes list their files; Claude's file tools name one.
+  const changed = changesSchema.safeParse(input).data?.changes ?? [];
+  const path = file(field(input, "file_path", "path", "notebook_path") ?? changed[0]?.path);
+  const more = changed.length > 1 ? ` and ${changed.length - 1} more` : "";
   switch (name) {
     case "Read":
       return path ? `reading ${path}` : "reading a file";
@@ -47,7 +63,7 @@ export function activityLabel({ name, input, command }: ToolEvent) {
     case "Write":
     case "NotebookEdit":
     case "fileChange":
-      return path ? `editing ${path}` : "editing files";
+      return path ? `editing ${path}${more}` : "editing files";
     case "Bash":
     case "commandExecution":
       return `running ${program(command ?? field(input, "command")) || "a command"}`;

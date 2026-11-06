@@ -230,6 +230,7 @@ export function DuckSettings({
               catalog={catalogs[duck.provider]}
               open={open === duck.id}
               roomId={roomId}
+              inPond={scope.kind === "pond"}
               readOnly={readOnly}
               canRemove={draft.length > 1}
               onToggle={() => setOpen(open === duck.id ? undefined : duck.id)}

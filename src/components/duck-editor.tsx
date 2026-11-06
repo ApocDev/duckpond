@@ -15,6 +15,7 @@ export function DuckEditor({
   catalog,
   open,
   roomId,
+  inPond,
   readOnly,
   canRemove,
   onToggle,
@@ -28,6 +29,8 @@ export function DuckEditor({
   open: boolean;
   /** Outfit generation needs a saved conversation. */
   roomId?: string;
+  /** Editing a pond's starting ducks, where there's no conversation to draw outfits in. */
+  inPond: boolean;
   /** Lets you read the duck but not change it, while replies run. */
   readOnly: boolean;
   canRemove: boolean;
@@ -181,7 +184,11 @@ export function DuckEditor({
           </div>
           {open &&
             (!roomId ? (
-              <small>Save the conversation once to draw a custom outfit.</small>
+              <small>
+                {inPond
+                  ? "Draw custom outfits from a conversation's Ducks."
+                  : "Send a message first to draw a custom outfit."}
+              </small>
             ) : drawing ? (
               <OutfitGenerator
                 roomId={roomId}

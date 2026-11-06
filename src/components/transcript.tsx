@@ -61,6 +61,9 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
       if (anchor) viewport.scrollTop += anchor.element.getBoundingClientRect().top - anchor.top;
     }
     this.lastTop = viewport.scrollTop;
+    // Already at the bottom after the update: nothing new is out of view, so keep following.
+    if (!this.following && viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 48)
+      this.following = true;
     if (!this.following && previousProps.messages !== this.props.messages && !this.state.unread)
       this.setState({ unread: true });
   }

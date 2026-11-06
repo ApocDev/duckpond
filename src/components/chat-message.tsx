@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, memo, useState } from "react";
 import { MessageMarkdown } from "./message-markdown";
 import { Check, ChevronDown, Plus, RotateCcw } from "lucide-react";
-import { duckAvatar, type Duck, type Message } from "../lib/room";
+import { duckAvatar, summaryRequest, type Duck, type Message } from "../lib/room";
 import { groupMessages } from "../lib/message-groups";
 import { mentionHandle } from "../lib/mentions";
 import { hostColor, rosterColors, speakerColor } from "../lib/duck-colors";
@@ -85,6 +85,8 @@ function ReplyRound({ messages, reported }: { messages: Message[]; reported: boo
   const unfinished = replies.filter(
     (message) => message.status === "error" || message.status === "stopped",
   ).length;
+  const hostWorking = messages.some((message) => isHost(message) && message.status === "thinking");
+  const replied = `${replies.length - working.length - unfinished} of ${replies.length} replied`;
   const spoke = messages.filter((message) => message.status === "complete");
   const passed = messages.filter((message) => message.status === "passed");
   const settled = spoke.length + passed.length === messages.length;
@@ -120,8 +122,14 @@ function ReplyRound({ messages, reported }: { messages: Message[]; reported: boo
                 unique(passed).length,
               )
             : working.length
-              ? `${listNames(working.map((message) => message.speaker))} ${working.length === 1 ? "is" : "are"} still working · ${replies.length - working.length - unfinished} of ${replies.length} replied`
-              : `${unfinished} ${unfinished === 1 ? "reply" : "replies"} didn't finish`}
+              ? `${listNames(working.map((message) => message.speaker))} ${working.length === 1 ? "is" : "are"} still working · ${replied}`
+              : hostWorking
+                ? replies.length
+                  ? `Mediator is weighing the replies · ${replied}`
+                  : "Mediator is choosing who answers"
+                : unfinished
+                  ? `${unfinished} ${unfinished === 1 ? "reply" : "replies"} didn't finish`
+                  : "Mediator didn't finish"}
         </span>
         {folds && (
           <span className="round-toggle">
@@ -235,7 +243,11 @@ function MessageHeading({ message, color }: { message: Message; color: string })
       >
         {message.speaker}
       </strong>
-      {message.phase === "review" && <span className="message-meta">answered independently</span>}
+      {message.phase === "review" && (
+        <span className="message-meta">
+          {message.status === "thinking" ? "answering independently" : "answered independently"}
+        </span>
+      )}
       {message.status === "thinking" && <LiveStatus message={message} />}
       {message.status === "stopped" && <span className="message-meta">stopped</span>}
       {message.status === "error" && <span className="message-meta error">failed</span>}
@@ -309,6 +321,12 @@ export function useNow() {
 
 const ChatMessage = memo(function ChatMessage({ message }: { message: Message }) {
   const colors = useContext(DuckColors);
+  if (!message.duckId && message.text === summaryRequest)
+    return (
+      <p data-scroll-anchor className="passed-line">
+        You asked Mediator to sum up the conversation
+      </p>
+    );
   if (!message.duckId)
     return (
       <article data-scroll-anchor className="chat-message human-message">

@@ -10,17 +10,24 @@ export function RoomNotes({
   notes,
   disabled,
   onSave,
-  canSummarize,
+  summarizeBlocked,
   onSummarize,
 }: {
   notes: string;
   disabled: boolean;
   onSave: (notes: string) => Promise<void>;
-  canSummarize: boolean;
+  /** Why Summarize can't run right now, if it can't. */
+  summarizeBlocked?: string;
   onSummarize: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
+  // Text added from outside (Add to notes) joins an open draft, so saving the draft keeps it.
+  const [base, setBase] = useState(notes);
+  if (notes !== base) {
+    setBase(notes);
+    if (draft !== null && notes.startsWith(base)) setDraft(draft + notes.slice(base.length));
+  }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -115,7 +122,7 @@ export function RoomNotes({
             <button
               type="button"
               className="secondary-button compact"
-              disabled={!canSummarize}
+              disabled={!!summarizeBlocked}
               onClick={() => {
                 setOpen(false);
                 onSummarize();
@@ -124,8 +131,8 @@ export function RoomNotes({
               <ListChecks size={15} /> Summarize so far
             </button>
             <small>
-              Mediator posts a recap of decisions and open questions in the conversation. Its Add to
-              notes button copies it here.
+              {summarizeBlocked ? `${summarizeBlocked} ` : ""}Mediator posts a recap of decisions
+              and open questions in the conversation. Its Add to notes button copies it here.
             </small>
           </div>
         </div>

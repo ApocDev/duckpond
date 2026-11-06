@@ -33,7 +33,7 @@ export function AddDucks({
   hasContext: boolean;
   onAdd: (ducks: Duck[]) => void;
 }) {
-  const [method, setMethod] = useState<Method>(hasContext ? "suggest" : "reuse");
+  const [method, setMethod] = useState<Method>(hasContext ? "suggest" : "describe");
   // One order everywhere; only the starting tab depends on whether there's anything to suggest from.
   const order: [Method, string][] = [
     ["suggest", "Suggest"],

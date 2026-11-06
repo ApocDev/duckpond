@@ -13,7 +13,8 @@ export function RenameDialog({
   onRename: (title: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [title, setTitle] = useState(room.title);
+  // Long first messages become titles cut with "…"; start the edit without it.
+  const [title, setTitle] = useState(room.title.replace(/…$/, ""));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   return (
