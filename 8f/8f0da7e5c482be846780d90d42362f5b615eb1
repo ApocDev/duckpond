@@ -1,0 +1,41 @@
+README.md
+  s_105d2118509069::t_6e575579a68132 63,67,73,81,94
+src/components/add-ducks.tsx
+  s_105d2118509069::t_1940b553e3f839 25,29-30,101,197-198,239,255,368-376,427,450,458,486-492
+src/components/chat-message.tsx
+  s_105d2118509069::t_8e20ec8837e7d2 13-14,31,99-101,113-114,123-124,154,156,275-277,377
+src/components/duck-settings.tsx
+  s_105d2118509069::t_0d207d7dd5202f 5,186
+src/components/pond-dialog.tsx
+  s_105d2118509069::t_d22e58117f0ba0 10,14,16-17,29-37,76,86,94-95
+src/lib/activity.test.ts
+  s_105d2118509069::t_d8764f12d6c0af 17-19
+src/lib/activity.ts
+  s_105d2118509069::t_7feec3b967fe3a 36-37,41-44,47
+src/lib/approval.test.ts
+  s_105d2118509069::t_320ea5b5201e95 14-19
+src/lib/approval.ts
+  s_105d2118509069::t_f2c62737551d3a 12-14,22-23
+src/lib/room.ts
+  s_105d2118509069::t_30e04ee8b6c326 240,245-249
+src/routes/index.tsx
+  s_105d2118509069::t_4372e8aa98dee4 41,101,109-111,546-547,549-574,838
+src/server/discussion.server.ts
+  s_105d2118509069::t_c11c48c9f34e87 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8f8f0da7e5c482be846780d90d42362f5b615eb1",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
