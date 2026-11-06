@@ -1,0 +1,51 @@
+README.md
+  s_105d2118509069::t_636f4be5d86dae 73,81,136
+src/components/add-ducks.tsx
+  s_105d2118509069::t_c68c1c03aef1ef 36
+src/components/chat-message.tsx
+  s_105d2118509069::t_5b19c5d9ce951f 4,88-89,125-132,246-250,324-329
+src/components/conversation-dialogs.tsx
+  s_105d2118509069::t_a8032029c21159 16-17
+src/components/duck-editor.tsx
+  s_105d2118509069::t_6325d1aea40da7 18,32-33,187-191
+src/components/duck-settings.tsx
+  s_105d2118509069::t_c06af913624f2c 233
+src/components/room-notes.tsx
+  s_105d2118509069::t_a0edfe24123585 13,19-20,25-30,125,134-135
+src/components/transcript.tsx
+  s_105d2118509069::t_f6b5bacbff90ee 64-66
+src/lib/activity.test.ts
+  s_105d2118509069::t_ac97e3fef7da84 11-22
+src/lib/activity.ts
+  s_105d2118509069::t_6807fe98f4b6bd 1-2,21-22,28-33,36-44,50-53,66
+src/lib/approval.test.ts
+  s_105d2118509069::t_e42427bc0253f6 1-10
+src/lib/approval.ts
+  s_105d2118509069::t_ac6bc5f1d7a80b 2-25
+src/lib/room.ts
+  s_105d2118509069::t_6130f362c66bb9 212-215
+src/routes/index.tsx
+  s_105d2118509069::t_61e2f8e79a3061 33,40,590,655-661,681,726-732,873-874,903-905,918-920,923,928-929
+src/server/codex.server.ts
+  s_105d2118509069::t_35cf3a372a68ef 143
+src/server/providers.server.ts
+  s_105d2118509069::t_b21f9e72824b20 86-89
+src/styles.css
+  s_105d2118509069::t_2103e3a7de6e3f 1306-1318
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2df5d914ed20945316fe8d7ce0c081dfa62ceae5",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
