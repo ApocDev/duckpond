@@ -155,7 +155,7 @@ const RoundReply = memo(function RoundReply({ message }: { message: Message }) {
   if (message.duckId === "mediator" && message.status === "complete")
     return <HandoffLine message={message} />;
   return (
-    <article data-scroll-anchor className="round-reply" style={{ borderColor: color }}>
+    <article data-scroll-anchor className="round-reply">
       <MessageHeading message={message} color={color} />
       <MessageText message={message} />
     </article>

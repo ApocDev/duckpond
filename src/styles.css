@@ -342,6 +342,8 @@ textarea:focus {
 .duck-avatar {
   width: 40px;
   height: 40px;
+  /* Tailwind's base sets img max-width: 100%, which squeezes avatars in tight flex rows. */
+  max-width: none;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -424,8 +426,7 @@ textarea:focus {
   background: var(--surface);
 }
 .conversation-row:has([aria-current="page"]) {
-  background: var(--surface-raised);
-  box-shadow: inset 2px 0 0 var(--text-2);
+  background: var(--surface-overlay);
 }
 .conversation-link {
   flex: 1;
@@ -839,7 +840,9 @@ textarea:focus {
 .round-avatars .duck-avatar {
   width: 24px;
   height: 24px;
-  margin-right: -7px;
+}
+.round-avatars .duck-avatar + .duck-avatar {
+  margin-left: -7px;
 }
 .round-summary {
   flex: 1;
@@ -860,10 +863,6 @@ textarea:focus {
   flex-direction: column;
   gap: 16px;
   margin: 10px 0 4px 14px;
-}
-.round-reply {
-  padding-left: 14px;
-  border-left: 2px solid var(--line-strong);
 }
 .handoff-line > button {
   display: flex;
@@ -945,10 +944,6 @@ textarea:focus {
   gap: 8px;
   font-size: var(--text-md);
   color: var(--text-2);
-}
-.welcome-modes li {
-  padding-left: 12px;
-  border-left: 2px solid var(--line-strong);
 }
 .welcome-modes strong {
   color: var(--text);
