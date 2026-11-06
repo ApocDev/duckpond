@@ -121,12 +121,14 @@ export function DuckEditor({
               value={duck.reasoning === model?.defaultReasoning ? "" : (duck.reasoning ?? "")}
               options={[
                 // Levels in the model's order; the default level stands for "follow the model".
-                ...(model?.reasoning.length
-                  ? model.reasoning.map((level) => ({
-                      value: level === model.defaultReasoning ? "" : level,
-                      label: `${level.charAt(0).toUpperCase()}${level.slice(1)}${level === model.defaultReasoning ? " (default)" : ""}`,
-                    }))
+                // Models that don't name a default level (Claude's) get a separate Default first.
+                ...(model?.defaultReasoning && model.reasoning.includes(model.defaultReasoning)
+                  ? []
                   : [{ value: "", label: "Default" }]),
+                ...(model?.reasoning ?? []).map((level) => ({
+                  value: level === model?.defaultReasoning ? "" : level,
+                  label: `${level.charAt(0).toUpperCase()}${level.slice(1)}${level === model?.defaultReasoning ? " (default)" : ""}`,
+                })),
                 ...(duck.reasoning && !model?.reasoning.includes(duck.reasoning)
                   ? [{ value: duck.reasoning, label: `${duck.reasoning} (saved)` }]
                   : []),

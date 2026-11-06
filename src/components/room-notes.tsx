@@ -23,6 +23,7 @@ export function RoomNotes({
   const [draft, setDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
   // An outside click or Escape closes the popover unless it holds unsaved edits.
   useDismiss(wrapper, open && (draft === null || draft === notes), () => {
@@ -37,6 +38,7 @@ export function RoomNotes({
     try {
       await onSave(draft.trim());
       setDraft(null);
+      setSaved(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Couldn't save notes.");
     } finally {
@@ -75,7 +77,10 @@ export function RoomNotes({
             value={draft ?? notes}
             readOnly={disabled}
             placeholder="Goals, constraints, decisions to keep in mind…"
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setSaved(false);
+            }}
           />
           {error && (
             <p className="field-error" role="alert">
@@ -83,7 +88,11 @@ export function RoomNotes({
             </p>
           )}
           <div className="popover-actions">
-            {changed && <span className="footer-note">Unsaved changes</span>}
+            {changed ? (
+              <span className="footer-note">Unsaved changes</span>
+            ) : (
+              saved && <span className="footer-note">Saved</span>
+            )}
             <span className="spacer" />
             <button
               type="button"

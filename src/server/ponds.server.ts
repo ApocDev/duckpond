@@ -18,6 +18,7 @@ import { listPondLocations, registerPond } from "./store.server";
 
 function workspaceDirectory(workspace: string) {
   if (!isAbsolute(workspace)) throw new Error("Choose an absolute workspace directory.");
+  if (!existsSync(workspace)) throw new Error("That folder doesn't exist. Check the path.");
   const resolved = realpathSync(workspace);
   if (!statSync(resolved).isDirectory()) throw new Error("The workspace must be a directory.");
   return resolved;

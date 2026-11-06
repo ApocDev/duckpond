@@ -18,6 +18,20 @@ import { callRoomTool, type RoomTools } from "./room-tools.server";
 
 const exec = promisify(execFile);
 const claude = createClaudeCode();
+/** Plain titles for the approval card; other tools show their own name. */
+const toolTitles: Record<string, string> = {
+  Bash: "Run a command",
+  Read: "Read a file",
+  Write: "Write a file",
+  Edit: "Edit a file",
+  MultiEdit: "Edit a file",
+  NotebookEdit: "Edit a notebook",
+  Glob: "Find files",
+  Grep: "Search files",
+  WebFetch: "Open a web page",
+  WebSearch: "Search the web",
+};
+const isString = (value: unknown): value is string => typeof value === "string";
 const agentDirectory = join(dataDirectory, "agent");
 export async function getAgentDirectory(workspace?: string) {
   if (workspace) {
@@ -200,8 +214,10 @@ export async function reply(
           const response = await askApproval(
             {
               duck: duck.name,
-              title: name === "Bash" ? "Run a command" : name,
+              title: toolTitles[name] ?? name,
               command: typeof input.command === "string" ? input.command : undefined,
+              path: [input.file_path, input.notebook_path, input.path].find(isString),
+              preview: [input.content, input.new_string, input.new_source].find(isString),
               reason: typeof input.description === "string" ? input.description : undefined,
               cwd,
               remember:

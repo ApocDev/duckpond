@@ -10,8 +10,8 @@ import { DuckAvatar } from "./duck-avatar";
 
 const DuckNames = createContext<Record<string, string>>({});
 const DuckColors = createContext(new Map<string, string>());
-/** Re-asks one duck after its reply failed; the host decides how. */
-const Retry = createContext<((duckId: string) => void) | undefined>(undefined);
+/** Asks again after a failed or stopped reply: that duck, or without an id, the same To choice. */
+const Retry = createContext<((duckId?: string) => void) | undefined>(undefined);
 /** The conversation's notes, so Mediator's reports can be added to them. */
 const Notes = createContext<{ notes: string; add?: (text: string) => Promise<void> }>({
   notes: "",
@@ -28,7 +28,7 @@ export const ConversationMessages = memo(function ConversationMessages({
   messages: Message[];
   ducks: Duck[];
   notes: string;
-  onRetry?: (duckId: string) => void;
+  onRetry?: (duckId?: string) => void;
   onAddToNotes: (text: string) => Promise<void>;
 }) {
   const entries = messages
@@ -40,16 +40,21 @@ export const ConversationMessages = memo(function ConversationMessages({
   const names = useMemo<Record<string, string>>(() => JSON.parse(signature), [signature]);
   const colors = useMemo(() => rosterColors(ducks), [ducks]);
   const notesValue = useMemo(() => ({ notes, add: onAddToNotes }), [notes, onAddToNotes]);
+  const groups = groupMessages(messages);
   return (
     <Notes.Provider value={notesValue}>
       <Retry.Provider value={onRetry}>
         <DuckColors.Provider value={colors}>
           <DuckNames.Provider value={names}>
-            {groupMessages(messages).map((group) =>
+            {groups.map((group, index) =>
               group.kind === "message" ? (
                 <ChatMessage key={group.id} message={group.message} />
               ) : (
-                <ReplyRound key={group.id} messages={group.messages} />
+                <ReplyRound
+                  key={group.id}
+                  messages={group.messages}
+                  reported={isReport(groups[index + 1])}
+                />
               ),
             )}
           </DuckNames.Provider>
@@ -59,17 +64,32 @@ export const ConversationMessages = memo(function ConversationMessages({
   );
 });
 
-/** One line once every reply finished; a running or interrupted round stays open. */
-function ReplyRound({ messages }: { messages: Message[] }) {
+/** Whether a group is Mediator's finished report, which sums up the round before it. */
+function isReport(group?: ReturnType<typeof groupMessages>[number]) {
+  return (
+    group?.kind === "message" &&
+    group.message.phase === "guide" &&
+    group.message.status === "complete"
+  );
+}
+
+/**
+ * Folds to one line once every duck finished and Mediator reported on the round. Direct replies,
+ * and rounds that are running, failed, or stopped, stay open.
+ */
+function ReplyRound({ messages, reported }: { messages: Message[]; reported: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const working = unique(messages.filter((message) => message.status === "thinking"));
-  const unfinished = messages.filter(
+  // Mediator's handoffs sit in the round but aren't replies, so the counts leave them out.
+  const replies = messages.filter((message) => !isHost(message));
+  const working = unique(replies.filter((message) => message.status === "thinking"));
+  const unfinished = replies.filter(
     (message) => message.status === "error" || message.status === "stopped",
   ).length;
   const spoke = messages.filter((message) => message.status === "complete");
   const passed = messages.filter((message) => message.status === "passed");
   const settled = spoke.length + passed.length === messages.length;
-  const open = !settled || expanded;
+  const folds = settled && reported;
+  const open = !folds || expanded;
   const speakers = unique(spoke).filter((message) => !isHost(message));
   const colors = useContext(DuckColors);
   return (
@@ -78,7 +98,7 @@ function ReplyRound({ messages }: { messages: Message[] }) {
         type="button"
         className="round-heading"
         aria-expanded={open}
-        disabled={!settled}
+        disabled={!folds}
         onClick={() => setExpanded(!expanded)}
       >
         <span className="round-avatars">
@@ -100,10 +120,10 @@ function ReplyRound({ messages }: { messages: Message[] }) {
                 unique(passed).length,
               )
             : working.length
-              ? `${listNames(working.map((message) => message.speaker))} ${working.length === 1 ? "is" : "are"} still working · ${spoke.length + passed.length} of ${messages.length} replied`
+              ? `${listNames(working.map((message) => message.speaker))} ${working.length === 1 ? "is" : "are"} still working · ${replies.length - working.length - unfinished} of ${replies.length} replied`
               : `${unfinished} ${unfinished === 1 ? "reply" : "replies"} didn't finish`}
         </span>
-        {settled && (
+        {folds && (
           <span className="round-toggle">
             {expanded ? "Hide" : "Show"} <ChevronDown size={14} />
           </span>
@@ -219,18 +239,15 @@ function MessageHeading({ message, color }: { message: Message; color: string })
       {message.status === "thinking" && <LiveStatus message={message} />}
       {message.status === "stopped" && <span className="message-meta">stopped</span>}
       {message.status === "error" && <span className="message-meta error">failed</span>}
-      {(message.status === "error" || message.status === "stopped") &&
-        retry &&
-        message.duckId &&
-        !isHost(message) && (
-          <button
-            type="button"
-            className="text-button retry"
-            onClick={() => retry(message.duckId!)}
-          >
-            <RotateCcw size={13} /> Ask {message.speaker} again
-          </button>
-        )}
+      {(message.status === "error" || message.status === "stopped") && retry && (
+        <button
+          type="button"
+          className="text-button retry"
+          onClick={() => retry(isHost(message) ? undefined : message.duckId)}
+        >
+          <RotateCcw size={13} /> {isHost(message) ? "Ask again" : `Ask ${message.speaker} again`}
+        </button>
+      )}
       {message.status !== "thinking" && !!message.tools?.length && (
         <details className="tool-log">
           <summary>

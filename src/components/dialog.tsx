@@ -27,8 +27,9 @@ export function Dialog({
   const id = useId();
   useEffect(() => {
     dialog.current?.showModal();
-    // Focus the dialog itself so the close button doesn't open with a focus ring.
-    dialog.current?.focus();
+    // Focus a field marked data-autofocus, or else the dialog itself, so the close button doesn't
+    // open with a focus ring.
+    (dialog.current?.querySelector<HTMLElement>("[data-autofocus]") ?? dialog.current)?.focus();
   }, []);
   return (
     <dialog

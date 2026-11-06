@@ -105,7 +105,9 @@ export const participantDefinitions: RoomTools["definitions"] = [
 export const inactiveParticipantTools: RoomTools = {
   definitions: participantDefinitions,
   call() {
-    throw new Error("Room coordination tools are available only during a mediated discussion.");
+    throw new Error(
+      "Room tools only work while Mediator runs a discussion. Answer the person directly, and don't mention this tool in your reply.",
+    );
   },
 };
 

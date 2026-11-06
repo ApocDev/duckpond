@@ -27,8 +27,8 @@ export function SavedPermissions() {
     <section className="settings-section">
       <h3>Always-allowed commands</h3>
       <p className="field-hint">
-        Saved when you choose "Always allow in this project" on an approval. They apply to every
-        duck on that provider in that folder. Revoking affects future requests only.
+        Saved when you choose "Always allow here" on an approval. They apply to every duck on that
+        provider in that folder. Revoking affects future requests only.
       </p>
       {error && (
         <p className="field-error" role="alert">

@@ -5,6 +5,9 @@ import type { Message } from "../lib/room";
 type Anchor = { element: Element; top: number };
 type TranscriptProps = { children: ReactNode; messages?: Message[] };
 
+/** The id of your latest message, so sending one can bring the view back down. */
+const lastSent = (messages?: Message[]) => messages?.findLast((message) => !message.duckId)?.id;
+
 /** Capture the reading position before React grows any of the streaming replies. */
 export class Transcript extends Component<TranscriptProps, { unread: boolean }> {
   state = { unread: false };
@@ -47,6 +50,10 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
       return;
     const viewport = this.viewport.current;
     if (!viewport) return;
+    if (lastSent(this.props.messages) !== lastSent(previousProps.messages)) {
+      this.following = true;
+      if (this.state.unread) this.setState({ unread: false });
+    }
     if (this.following) {
       viewport.scrollTop = viewport.scrollHeight;
     } else {
@@ -70,9 +77,10 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
   private onScroll = () => {
     const viewport = this.viewport.current;
     if (!viewport || viewport.scrollTop === this.lastTop) return;
-    this.following =
-      viewport.scrollTop >= this.lastTop &&
-      viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 48;
+    const fromBottom = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop;
+    // Content shrinking (a round folding up) pulls scrollTop down while the view stays at the
+    // bottom; only a move up away from the bottom means you scrolled to read.
+    this.following = fromBottom <= 1 || (viewport.scrollTop >= this.lastTop && fromBottom < 48);
     this.lastTop = viewport.scrollTop;
     if (this.following && this.state.unread) this.setState({ unread: false });
   };

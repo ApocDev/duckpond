@@ -68,6 +68,9 @@ it("reports broken ponds individually and refuses to overwrite an unrelated .duc
   expect(() => openPond("New", unrelated, defaults)).toThrow("contains files");
   expect(readFileSync(join(unrelated, ".duckpond/user-file"), "utf8")).toBe("User-owned");
   expect(() => openPond("Relative", "relative/path", defaults)).toThrow("absolute");
+  expect(() => openPond("Missing", join(unrelated, "missing"), defaults)).toThrow(
+    "That folder doesn't exist",
+  );
 });
 
 it("validates manifest handles and refuses to write through persona symlinks", () => {

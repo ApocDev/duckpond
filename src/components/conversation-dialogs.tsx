@@ -49,7 +49,7 @@ export function RenameDialog({
         <label className="field">
           <span>Title</span>
           <input
-            autoFocus
+            data-autofocus
             required
             maxLength={80}
             value={title}

@@ -181,7 +181,7 @@ it("keeps system instructions stable when mode, roster, notes, and passing permi
   expect(new Set(systems).size).toBe(1);
   expect(makePrompt(defaults[0], [], "discussion", "", [], false).prompt).toContain("Do not PASS");
   expect(() => inactiveParticipantTools.call("ask_duck", {})).toThrow(
-    "only during a mediated discussion",
+    "only work while Mediator runs a discussion",
   );
 });
 

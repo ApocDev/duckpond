@@ -34,14 +34,13 @@ export function AddDucks({
   onAdd: (ducks: Duck[]) => void;
 }) {
   const [method, setMethod] = useState<Method>(hasContext ? "suggest" : "reuse");
-  const tabs: [Method, string][] = [
+  // One order everywhere; only the starting tab depends on whether there's anything to suggest from.
+  const order: [Method, string][] = [
+    ["suggest", "Suggest"],
     ["describe", "Describe"],
     ["reuse", "Reuse"],
     ["write", "Write your own"],
   ];
-  const order: [Method, string][] = hasContext
-    ? [["suggest", "Suggest"], ...tabs]
-    : [tabs[1], tabs[0], tabs[2], ["suggest", "Suggest"]];
   return (
     <section className="add-ducks" aria-label="Add a duck">
       <div className="add-ducks-heading">

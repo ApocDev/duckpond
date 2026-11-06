@@ -52,7 +52,6 @@ export function DuckSettings({
     (scope.kind === "pond" && pondName !== scope.pond.name);
   // Whether this conversation's ducks match what its pond starts new conversations with.
   const pondDucks = scope.kind === "conversation" ? scope.pond?.ducks : undefined;
-  const savedDiffers = !!pondDucks && personas(ducks) !== personas(pondDucks);
   const draftDiffers = !!pondDucks && personas(draft) !== personas(pondDucks);
   function close() {
     if (dirty && !saving) setConfirming(true);
@@ -68,7 +67,7 @@ export function DuckSettings({
           ? "New conversations in this pond start with these ducks. Existing conversations keep their own."
           : !scope.pond
             ? "Changes here affect only this conversation."
-            : savedDiffers
+            : draftDiffers
               ? `These ducks differ from the ${scope.pond.name} defaults. Changes here affect only this conversation.`
               : `Same as the ${scope.pond.name} defaults. Changes here affect only this conversation.`
       }

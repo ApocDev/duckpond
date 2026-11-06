@@ -1300,6 +1300,9 @@ textarea:focus {
   font-family: var(--mono);
   font-size: var(--text-xs);
 }
+.approval-warning {
+  color: var(--danger);
+}
 .approval-card summary {
   cursor: pointer;
   color: var(--text-2);

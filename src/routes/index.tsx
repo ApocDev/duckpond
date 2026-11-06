@@ -40,7 +40,7 @@ import {
 export const Route = createFileRoute("/")({ loader: () => loadRooms(), component: Home });
 const transport = new DefaultChatTransport<RoomStream>({ api: "/api/chat" });
 const prompts = [
-  "I have a game idea but I'm not sure what's fun about it yet.",
+  "Help me figure out what to work on next.",
   "Help me decide between two approaches.",
   "Poke holes in something I'm building.",
 ];
@@ -149,6 +149,8 @@ function Home() {
   const [sidebar, setSidebar] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  /** Set from submit until this tab's reply stream ends; only the composer waits on it. */
+  const [sending, setSending] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [status, setStatus] = useState<Awaited<ReturnType<typeof connections>>>([]);
   const [remoteActive, setRemoteActive] = useState(initial.active);
@@ -289,7 +291,7 @@ function Home() {
         : "Duckpond";
   }, [waiting.size, ready]);
   /** Only the busy conversation's composer and roster lock; navigation never does. */
-  const composerLocked = busy || saving || dictating;
+  const composerLocked = busy || saving || sending || dictating;
 
   // Poll while a turn runs elsewhere or the stream dropped; the server owns the turn.
   useEffect(() => {
@@ -481,7 +483,7 @@ function Home() {
             : "conversation";
     if (!text || composerLocked) return;
     setError("");
-    setSaving(true);
+    setSending(true);
     let activeRoomId = selected;
     try {
       // This tab reads one reply stream at a time. Another conversation's turn keeps running on
@@ -519,7 +521,7 @@ function Home() {
         setDrafts((current) => ({ ...current, [activeRoomId ?? newKey]: text }));
       setError(cause instanceof Error ? cause.message : "Couldn't send your message.");
     } finally {
-      setSaving(false);
+      setSending(false);
       streamingRef.current = null;
       setStreaming(null);
       setNeedsSync(true);
@@ -537,10 +539,13 @@ function Home() {
   }
 
   const thinking = room?.messages.filter((message) => message.status === "thinking") ?? [];
-  /** "Ask again" after a failed reply: talk to that duck directly and offer the last question. */
-  function retry(duckId: string) {
+  /**
+   * "Ask again" after a failed or stopped reply: offer the last question again. A duck's retry also
+   * selects that duck; Mediator's keeps the current To choice.
+   */
+  function retry(duckId?: string) {
     const question = room?.messages.findLast((message) => !message.duckId)?.text ?? "";
-    setTargets((current) => ({ ...current, [key]: duckId }));
+    if (duckId) setTargets((current) => ({ ...current, [key]: duckId }));
     if (!input.trim()) setInput(question);
     requestAnimationFrame(() =>
       document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(),
@@ -565,7 +570,7 @@ function Home() {
   ) : target === "everyone" ? (
     "Every duck answers without seeing the others, then Mediator sums up."
   ) : (
-    `${replying.length > 1 ? `${listNames(replying)} reply` : `Only ${targetDuck?.name} replies`}. Type @ to add a duck.`
+    `${replying.length > 1 ? `${listNames(replying)} answer separately` : `Only ${targetDuck?.name} replies`}. Type @ to add a duck.`
   );
   const offline = (["claude", "codex"] as const)
     .filter(
@@ -754,7 +759,7 @@ function Home() {
             ) : (
               <button
                 className="send-button"
-                disabled={!input.trim() || saving || dictating}
+                disabled={!input.trim() || saving || sending || dictating}
                 type="submit"
                 aria-label="Send"
               >
@@ -875,9 +880,26 @@ function ApprovalCard({ approval }: { approval: Approval }) {
         void respond(true);
       }}
     >
-      <strong>{approval.duck} needs your answer</strong>
+      <strong>
+        {approval.duck} {approval.input ? "has a question" : "asks permission"}
+      </strong>
       <div>{approval.title}</div>
       {approval.reason && <p>{approval.reason}</p>}
+      {approval.path && (
+        <p>
+          File <code>{approval.path}</code>
+          {approval.cwd &&
+            approval.path.startsWith("/") &&
+            !`${approval.path}/`.startsWith(`${approval.cwd.replace(/\/$/, "")}/`) && (
+              <strong className="approval-warning"> · outside this folder</strong>
+            )}
+        </p>
+      )}
+      {approval.preview && (
+        <pre className="approval-command">
+          <code>{approval.preview}</code>
+        </pre>
+      )}
       {approval.command && (
         <pre className="approval-command">
           <code>{approval.command}</code>

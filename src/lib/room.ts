@@ -198,6 +198,10 @@ export type Approval = {
   input: boolean;
   reason?: string;
   command?: string;
+  /** The file or folder a file tool wants to read, write, or search. */
+  path?: string;
+  /** The text a write or edit would put in that file. */
+  preview?: string;
   cwd?: string;
   remember?: { id: string; provider: string; command: string; cwd: string };
   fields?: ApprovalField[];
