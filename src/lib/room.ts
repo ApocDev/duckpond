@@ -88,6 +88,8 @@ export const messageSchema = z.object({
   avatar: outfitSchema.optional(),
   text: z.string(),
   tools: z.array(z.string()).optional(),
+  /** Files this reply changed, each with the lines it removed (-) and added (+). */
+  changes: z.array(z.object({ path: z.string(), diff: z.string() })).optional(),
   // Characters written so far, sent in place of the text while a reply's text stays hidden.
   written: z.number().int().nonnegative().optional(),
   /** Who your message went to: "mediator", "everyone", or duck ids. Shown above it. */
@@ -193,7 +195,8 @@ export type RoomEvent =
   | { type: "error"; message: string }
   | { type: "approval"; approval: Approval }
   | { type: "resolved"; id: string }
-  | { type: "activity"; duckId: Duck["id"]; label: string };
+  | { type: "activity"; duckId: Duck["id"]; label: string }
+  | { type: "change"; duckId: Duck["id"]; path: string; diff: string };
 export type Approval = {
   id: string;
   duck: string;
@@ -277,7 +280,7 @@ export function makePrompt(
       ? "Before responding, decide whether your perspective adds something useful to the current question. If you have no relevant, substantive contribution, reply exactly PASS and nothing else. Your persona is a perspective, not an obligation to find an angle on every topic. Do not invent concerns, repeat others, offer generic advice, or expand into unrelated topics just to participate. For example, a duck focused on in-game economics should pass on Unity versus Unreal unless a concrete economic requirement actually affects that choice. Passing is not agreement. If you pass, do not call room tools or explain why you are passing."
       : "Do not PASS this turn. Complete the assigned task, report a concrete blocker, or provide the requested synthesis.",
     phase === "review"
-      ? "Other ducks' assessments for this round are intentionally hidden. Assess only what your role makes you especially qualified to notice. A shared review prompt is context, not a requirement that every duck produce the same complete answer, roadmap, or checklist. Lead with your most useful specific contribution; leave the whole-room synthesis to Mediator. If the prompt includes asks for named roles, answer yours. Do not guess what other ducks will say."
+      ? "Other ducks' assessments for this round are intentionally hidden. Assess only what your role makes you especially qualified to notice. A shared review prompt is context, not a requirement that every duck produce the same complete answer, roadmap, or checklist. Open with a one-sentence answer in bold, then the one concern or reason only your role adds, so your answer can be compared with the others at a glance. Leave the whole-room synthesis to Mediator. If the prompt includes asks for named roles, answer yours. Do not guess what other ducks will say."
       : "",
     phase === "discussion"
       ? "Answer the specific invitation: give an opening idea, challenge the named claim, or respond to an objection. Contribute what your perspective adds. Do not repeat the shared proposal or turn an exploratory question into a smallest-first implementation plan. If there is no new contribution, PASS is valid when allowed."

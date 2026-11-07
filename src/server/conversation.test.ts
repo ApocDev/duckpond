@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { defaults, guide, roomSchema, selectDucks, type Room, type RoomEvent } from "../lib/room";
 vi.mock("./providers.server", () => ({ reply: vi.fn() }));
 vi.mock("./store.server", () => ({ saveRoom: vi.fn() }));
-import { runConversation } from "./conversation.server";
+import { activeTurns, recoverInterrupted, runConversation } from "./conversation.server";
 import { reply } from "./providers.server";
 
 function room(): Room {
@@ -521,7 +521,7 @@ it("executes approved work, requires evidence and review, and persists completio
             };
             expect(() =>
               tools!.call("assign_action", { ...assignment, authorizationId: "duck-proposal" }),
-            ).toThrow("human message");
+            ).toThrow(`The person's latest message ID is ${value.messages[0].id}.`);
             tools!.call("assign_action", assignment);
           } else if (turn === 2) {
             expect(() =>
@@ -746,4 +746,55 @@ it("shows Mediator thinking before a decision and removes that temporary row whe
     },
   );
   expect(value.messages.some((message) => message.status === "thinking")).toBe(false);
+});
+
+describe("turns cut off by a restart", () => {
+  it("closes a turn left running as stopped, so it can be retried or summarized", () => {
+    const value = room();
+    value.discussions = [
+      { id: "turn", status: "running", turns: 1, passedDucks: [], requests: [] },
+    ];
+    value.messages.push({
+      id: "reply",
+      speaker: "Skeptic",
+      duckId: "skeptic",
+      text: "Half an answer",
+      status: "thinking",
+      phase: "discussion",
+      createdAt: new Date().toISOString(),
+    });
+    value.messages.push({
+      id: "later",
+      speaker: "You",
+      text: "Trying again",
+      status: "complete",
+      phase: "conversation",
+      createdAt: new Date().toISOString(),
+    });
+    recoverInterrupted(value);
+    expect(value.discussions[0].status).toBe("stopped");
+    expect(value.messages[0].status).toBe("stopped");
+    // The note closes the cut-off turn, before the message sent after it.
+    expect(value.messages[2].id).toBe("later");
+    expect(value.messages[1]).toMatchObject({
+      duckId: "guide",
+      phase: "guide",
+      status: "stopped",
+    });
+  });
+
+  it("leaves a turn that is still running alone", () => {
+    const value = room();
+    value.discussions = [
+      { id: "turn", status: "running", turns: 0, passedDucks: [], requests: [] },
+    ];
+    activeTurns.set(value.id, new AbortController());
+    try {
+      recoverInterrupted(value);
+    } finally {
+      activeTurns.delete(value.id);
+    }
+    expect(value.discussions[0].status).toBe("running");
+    expect(value.messages).toHaveLength(0);
+  });
 });

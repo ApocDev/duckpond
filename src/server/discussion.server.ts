@@ -11,6 +11,7 @@ import {
   type RoomEvent,
 } from "../lib/room";
 import type { reply } from "./providers.server";
+import { sharedNotes } from "./ponds.server";
 import type { RoomTools } from "./room-tools.server";
 
 export const discussionTurnLimit = 8;
@@ -306,10 +307,15 @@ ${room.ducks.map((duck) => `${duck.name} (@${duck.id}): ${duck.instructions.spli
               const authorization = room.messages.find(
                 (message) => message.id === value.authorizationId,
               );
-              if (!authorization || authorization.duckId || authorization.speaker !== "You")
-                throw new Error(
-                  "authorizationId must reference the human message approving this scope, not a duck's suggestion.",
+              if (!authorization || authorization.duckId || authorization.speaker !== "You") {
+                // Name the valid ID, so a wrong guess is fixed on the next call instead of giving up.
+                const latest = room.messages.findLast(
+                  (message) => !message.duckId && message.speaker === "You",
                 );
+                throw new Error(
+                  `authorizationId must be the ID of the person's message approving this work, not a duck's suggestion. The person's latest message ID is ${latest?.id}.`,
+                );
+              }
               if (
                 value.actionId &&
                 !["pending", "blocked"].includes(findAction(value.actionId).status)
@@ -420,7 +426,7 @@ ${room.ducks.map((duck) => `${duck.name} (@${duck.id}): ${duck.instructions.spli
                 mediator,
                 messages,
                 "discussion",
-                room.notes,
+                sharedNotes(room),
                 room.ducks,
                 false,
               );

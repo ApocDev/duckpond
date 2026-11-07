@@ -15,7 +15,7 @@ import {
   listRooms,
   saveRoom,
 } from "./store.server";
-import { activeTurns, liveRooms } from "./conversation.server";
+import { activeTurns, liveRooms, recoverInterrupted } from "./conversation.server";
 import { providerStatus } from "./providers.server";
 import { requireAllowedRequest } from "./access.server";
 import { resolveApproval } from "./approvals.server";
@@ -27,16 +27,14 @@ export const loadRooms = createServerFn({ method: "GET" })
   .handler(({ data }) => {
     requireAllowedRequest(getRequest());
     const rooms = listRooms().map((stored) => {
-      const room = liveRooms.get(stored.id)?.room ?? stored;
+      const room = liveRooms.get(stored.id)?.room ?? recoverInterrupted(stored);
       return {
         ...room,
         messages: room.messages.map((message) =>
-          message.status === "thinking" && !activeTurns.has(room.id)
-            ? { ...message, status: "stopped" as const }
-            : message.status === "thinking" &&
-                (data?.streamText !== true || "PASS".startsWith(message.text.trim()))
-              ? { ...message, text: "", written: message.text.length }
-              : message,
+          message.status === "thinking" &&
+          (data?.streamText !== true || "PASS".startsWith(message.text.trim()))
+            ? { ...message, text: "", written: message.text.length }
+            : message,
         ),
       };
     });
@@ -60,11 +58,22 @@ export const newRoom = createServerFn({ method: "POST" })
   });
 export const reusableDucks = createServerFn({ method: "GET" }).handler(() => {
   requireAllowedRequest(getRequest());
+  const ponds = listPonds();
+  // A conversation's title alone doesn't say which project it belongs to, so name its pond too.
+  const pondNames = new Map(
+    listRooms().map((room) => [
+      room.id,
+      ponds.find((pond) => pond.id === room.pondId)?.name ?? "General",
+    ]),
+  );
   return [
-    ...listPonds()
+    ...ponds
       .filter((pond) => !pond.error)
       .map((pond) => ({ id: pond.id, title: `${pond.name} defaults`, ducks: pond.ducks })),
-    ...listDuckGroups(),
+    ...listDuckGroups().map((group) => {
+      const pond = pondNames.get(group.id);
+      return pond ? { ...group, title: `${group.title} in ${pond}` } : group;
+    }),
   ];
 });
 export const removeRoom = createServerFn({ method: "POST" })

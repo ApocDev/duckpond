@@ -671,8 +671,13 @@ textarea:focus {
   color: var(--danger);
 }
 .duck-message .message-text,
-.round-reply .message-text {
+.round-reply .message-text,
+.round-reply .changed-files,
+.duck-message:not(.host-message) .changed-files {
   padding-left: 34px;
+}
+.round-reply .show-more {
+  margin-left: 32px;
 }
 .host-message {
   padding: 14px 16px;
@@ -1766,8 +1771,13 @@ fieldset.duck-editor-fields {
     max-width: 92%;
   }
   .duck-message .message-text,
-  .round-reply .message-text {
+  .round-reply .message-text,
+  .round-reply .changed-files,
+  .duck-message:not(.host-message) .changed-files {
     padding-left: 0;
+  }
+  .round-reply .show-more {
+    margin-left: 0;
   }
   .round-replies {
     margin-left: 4px;
@@ -1992,9 +2002,18 @@ details[open] > summary::before {
     grid-template-columns: repeat(2, 1fr);
     width: 100%;
   }
-  /* Notes keeps its label on phones; only its height grows to a full touch target. */
-  .room-notes > .secondary-button {
+  /* Notes keeps its label on phones; Summarize shows only its icon. Both grow to touch size. */
+  .room-notes > .secondary-button,
+  .summarize-button {
     height: 44px;
+  }
+  .summarize-button {
+    width: 44px;
+    justify-content: center;
+    padding: 0;
+  }
+  .summarize-button span {
+    display: none;
   }
 }
 
@@ -2063,27 +2082,33 @@ details[open] > summary::before {
 }
 .message-action {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 4px 16px;
   margin: 10px 0 0;
   font-size: var(--text-sm);
 }
-.message-action.done {
+.message-action .done {
+  display: inline-flex;
+  align-items: center;
   gap: 5px;
   color: var(--text-3);
 }
-.notes-summary {
+.notes-field {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  gap: 4px;
 }
-.notes-summary small {
+.notes-field + .notes-field {
+  margin-top: 12px;
+}
+.notes-label {
   font-size: var(--text-xs);
   color: var(--text-3);
+}
+.notes-label strong {
+  color: var(--text-2);
+  font-weight: 600;
 }
 .composer-status {
   display: flex;
@@ -2171,4 +2196,43 @@ details[open] > summary::before {
   .popover-actions button {
     min-height: 44px;
   }
+}
+
+/* Independent answers: open the rest of one answer, or skip to Mediator's summary. */
+.show-more {
+  margin-top: 4px;
+}
+.round-jump {
+  align-self: flex-start;
+  margin-bottom: -4px;
+}
+
+/* Files a reply changed, each opening to its diff. */
+.changed-files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+.changed-files code {
+  overflow-wrap: anywhere;
+}
+.diff {
+  margin: 6px 0 0;
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+}
+.diff .added {
+  color: var(--success);
+}
+.diff .removed {
+  color: var(--danger);
 }

@@ -203,7 +203,7 @@ function Suggest({
         {workspace
           ? "Reads this pond's docs and code and proposes up to five ducks that would help here."
           : hasContext
-            ? "Reads this conversation and its notes and proposes up to five perspectives it's missing."
+            ? "Reads the whole conversation, including stopped requests, and its notes, then proposes up to five perspectives it's missing."
             : "Suggestions read the conversation, so there's nothing to go on yet. Send a message or add notes first, or use Describe."}
       </p>
       <div className="row">

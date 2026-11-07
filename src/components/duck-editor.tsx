@@ -97,6 +97,46 @@ export function DuckEditor({
           />
           <small>Mention as @{mentionHandle(duck, ducks)}</small>
         </label>
+        {/* Outfit sits near the top, so it stays in view above a long perspective. */}
+        <div className="field">
+          <span>Outfit</span>
+          <div className="outfit-options" role="group" aria-label={`${duck.name} outfit`}>
+            {avatarSchema.options.map((avatar) => (
+              <button
+                key={avatar}
+                type="button"
+                aria-label={`${avatar} outfit`}
+                aria-pressed={duckAvatar(duck) === avatar}
+                onClick={() => onChange({ avatar })}
+              >
+                <DuckAvatar avatar={avatar} />
+              </button>
+            ))}
+            {duck.avatar?.startsWith("generated-") && (
+              <button type="button" aria-label="Generated outfit" aria-pressed>
+                <DuckAvatar avatar={duck.avatar} />
+              </button>
+            )}
+          </div>
+          {open &&
+            (!roomId ? (
+              <small>
+                {inPond
+                  ? "Draw custom outfits from a conversation's Ducks."
+                  : "Send a message first to draw a custom outfit."}
+              </small>
+            ) : drawing ? (
+              <OutfitGenerator
+                roomId={roomId}
+                duck={duck}
+                onUse={(avatar) => onChange({ avatar })}
+              />
+            ) : (
+              <button type="button" className="text-button" onClick={() => setDrawing(true)}>
+                <Sparkles size={14} /> Draw a custom outfit…
+              </button>
+            ))}
+        </div>
         <div className="field-grid model-fields">
           <div className="field">
             <span>Provider</span>
@@ -177,45 +217,6 @@ export function DuckEditor({
               </button>
             )}
           </small>
-        </div>
-        <div className="field">
-          <span>Outfit</span>
-          <div className="outfit-options" role="group" aria-label={`${duck.name} outfit`}>
-            {avatarSchema.options.map((avatar) => (
-              <button
-                key={avatar}
-                type="button"
-                aria-label={`${avatar} outfit`}
-                aria-pressed={duckAvatar(duck) === avatar}
-                onClick={() => onChange({ avatar })}
-              >
-                <DuckAvatar avatar={avatar} />
-              </button>
-            ))}
-            {duck.avatar?.startsWith("generated-") && (
-              <button type="button" aria-label="Generated outfit" aria-pressed>
-                <DuckAvatar avatar={duck.avatar} />
-              </button>
-            )}
-          </div>
-          {open &&
-            (!roomId ? (
-              <small>
-                {inPond
-                  ? "Draw custom outfits from a conversation's Ducks."
-                  : "Send a message first to draw a custom outfit."}
-              </small>
-            ) : drawing ? (
-              <OutfitGenerator
-                roomId={roomId}
-                duck={duck}
-                onUse={(avatar) => onChange({ avatar })}
-              />
-            ) : (
-              <button type="button" className="text-button" onClick={() => setDrawing(true)}>
-                <Sparkles size={14} /> Draw a custom outfit…
-              </button>
-            ))}
         </div>
         <div className="duck-editor-footer">
           <button

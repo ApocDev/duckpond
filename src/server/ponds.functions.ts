@@ -3,7 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { pondSchema } from "../lib/pond";
 import { requireAllowedRequest } from "./access.server";
-import { getPond, listPonds, openPond, updatePond } from "./ponds.server";
+import { getPond, listPonds, openPond, updatePond, writePondNotes } from "./ponds.server";
 import { getRoom, saveRoom } from "./store.server";
 import { activeTurns, liveRooms } from "./conversation.server";
 
@@ -22,6 +22,12 @@ export const savePond = createServerFn({ method: "POST" })
   .handler(({ data }) => {
     requireAllowedRequest(getRequest());
     return updatePond(data.id, data.revision, data.name, data.ducks);
+  });
+export const savePondNotes = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().uuid(), notes: pondSchema.shape.notes }))
+  .handler(({ data }) => {
+    requireAllowedRequest(getRequest());
+    return writePondNotes(data.id, data.notes);
   });
 export const moveToPond = createServerFn({ method: "POST" })
   .validator(z.object({ roomId: z.string().uuid(), pondId: z.string().uuid().nullable() }))

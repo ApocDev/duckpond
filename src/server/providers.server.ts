@@ -223,8 +223,36 @@ export async function reply(
             editTools.has(name) &&
             !!path &&
             `${resolve(cwd, path)}${sep}`.startsWith(`${cwd}${sep}`);
+          // An edit shows what it removes as well as what it adds.
+          const preview =
+            isString(input.old_string) && isString(input.new_string)
+              ? [
+                  ...input.old_string.split("\n").map((line) => `- ${line}`),
+                  ...input.new_string.split("\n").map((line) => `+ ${line}`),
+                ].join("\n")
+              : [input.content, input.new_source].find(isString);
+          // Allowed edits are recorded on the reply, so the person can check them without leaving.
+          const changed = () => {
+            if (editTools.has(name) && path)
+              emit({
+                type: "change",
+                duckId: duck.id,
+                path: resolve(cwd, path),
+                // A new file's content is all added lines.
+                diff:
+                  preview === undefined || isString(input.old_string)
+                    ? (preview ?? "")
+                    : preview
+                        .split("\n")
+                        .map((line) => `+ ${line}`)
+                        .join("\n"),
+              });
+          };
           // "Allow edits this turn" covers this duck's later edits inside the folder, until it replies.
-          if (editsInFolder && editsAllowed) return { behavior: "allow", updatedInput: input };
+          if (editsInFolder && editsAllowed) {
+            changed();
+            return { behavior: "allow", updatedInput: input };
+          }
           const response = await askApproval(
             {
               duck: duck.name,
@@ -232,14 +260,7 @@ export async function reply(
               command: typeof input.command === "string" ? input.command : undefined,
               path,
               editsInFolder,
-              // An edit shows what it removes as well as what it adds.
-              preview:
-                isString(input.old_string) && isString(input.new_string)
-                  ? [
-                      ...input.old_string.split("\n").map((line) => `- ${line}`),
-                      ...input.new_string.split("\n").map((line) => `+ ${line}`),
-                    ].join("\n")
-                  : [input.content, input.new_source].find(isString),
+              preview,
               reason: typeof input.description === "string" ? input.description : undefined,
               cwd,
               remember:
@@ -252,6 +273,7 @@ export async function reply(
             emit,
           );
           if (editsInFolder && response.remember) editsAllowed = true;
+          if (response.approved) changed();
           return response.approved
             ? {
                 behavior: "allow",

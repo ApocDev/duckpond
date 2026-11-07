@@ -13,7 +13,8 @@ import {
   type Mode,
 } from "../lib/room";
 import { reply } from "./providers.server";
-import { saveRoom } from "./store.server";
+import { getRoom, saveRoom } from "./store.server";
+import { sharedNotes } from "./ponds.server";
 import {
   createDiscussion,
   participantInstructions,
@@ -23,6 +24,76 @@ import {
 export const liveRooms = new Map<string, { room: Room; approvals: Approval[] }>();
 export const activeTurns = new Map<string, AbortController>();
 type Runner = typeof reply;
+
+/**
+ * A turn cut off by a server restart stays saved as running. When no turn is running here, close
+ * it like a stopped one, so the round offers Edit and ask again and Summarize instead of looking done.
+ */
+export function recoverInterrupted(room: Room) {
+  if (activeTurns.has(room.id)) return room;
+  const discussions = room.discussions?.filter((item) => item.status === "running") ?? [];
+  const thinking = room.messages.filter((message) => message.status === "thinking");
+  if (!discussions.length && !thinking.length) return room;
+  for (const discussion of discussions) discussion.status = "stopped";
+  for (const message of thinking) message.status = "stopped";
+  for (const action of room.actions ?? [])
+    if (action.status === "running") action.status = "pending";
+  // The note ends the cut-off turn: it goes before your next message if you kept going after it.
+  const start = Math.min(
+    ...discussions.map((item) => room.messages.findIndex((message) => message.id === item.id)),
+    ...thinking.map((message) => room.messages.indexOf(message)),
+  );
+  const next = room.messages.findIndex((message, index) => index > start && !message.duckId);
+  room.messages.splice(next === -1 ? room.messages.length : next, 0, {
+    id: crypto.randomUUID(),
+    speaker: guide.name,
+    duckId: guide.id,
+    avatar: guide.avatar,
+    text: "The server restarted during this turn. Completed replies are saved.",
+    status: "stopped",
+    phase: "guide",
+    createdAt: new Date().toISOString(),
+  });
+  saveRoom(room);
+  return room;
+}
+
+/**
+ * Names a conversation from its first message and reply, in place of the cut-off first message.
+ * A rename made meanwhile wins, and a failed call keeps the first-message title.
+ */
+export async function nameConversation(roomId: string, first: string) {
+  let title = "";
+  try {
+    const answer =
+      getRoom(roomId).messages.find(
+        (message) => message.duckId && message.status === "complete" && message.text.trim(),
+      )?.text ?? "";
+    await reply(
+      { ...guide, reasoning: "low" },
+      "You name conversations. Reply with only a title of two to six words that says what the conversation is about. No quotes, no ending period.",
+      `First message:\n${first.slice(0, 2000)}\n\nFirst reply:\n${answer.slice(0, 2000)}`,
+      AbortSignal.timeout(60000),
+      (chunk) => {
+        title += chunk;
+      },
+      () => {},
+    );
+  } catch {
+    return;
+  }
+  title = title
+    .trim()
+    .split("\n")[0]
+    .replace(/^["'*#\s]+|["'.*\s]+$/g, "");
+  if (!title) return;
+  // A turn that started meanwhile saves its own copy of the room, so the title goes on that copy.
+  const live = liveRooms.get(roomId)?.room;
+  const room = live ?? getRoom(roomId);
+  if (room.title !== shortTitle(first)) return;
+  room.title = shortTitle(title);
+  if (!live) saveRoom(room);
+}
 
 /** Review inputs are frozen before any duck speaks; discussion sees all completed reviews. */
 export async function runConversation(
@@ -106,7 +177,7 @@ export async function runConversation(
           duck,
           messages,
           phase,
-          room.notes,
+          sharedNotes(room),
           room.ducks,
           phase !== "guide" &&
             !discussion?.assignedTo(duck.id) &&
@@ -142,6 +213,17 @@ export async function runConversation(
           }
         },
         (event) => {
+          if (event.type === "change") {
+            // A file changed twice in one reply keeps both diffs, in order.
+            const earlier = message.changes?.find((change) => change.path === event.path);
+            message.changes = [
+              ...(message.changes ?? []).filter((change) => change !== earlier),
+              {
+                path: event.path,
+                diff: earlier ? `${earlier.diff}\n${event.diff}` : event.diff,
+              },
+            ];
+          }
           if (event.type === "activity") {
             // Unique steps, most recent last, so the last entry is what the duck is doing now.
             message.tools = [

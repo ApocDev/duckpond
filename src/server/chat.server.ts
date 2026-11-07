@@ -2,7 +2,7 @@ import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { turnSchema, type RoomStream, type Approval } from "../lib/room";
 import { requireAllowedRequest } from "./access.server";
 import { getRoom } from "./store.server";
-import { activeTurns, liveRooms, runConversation } from "./conversation.server";
+import { activeTurns, liveRooms, nameConversation, runConversation } from "./conversation.server";
 
 export async function createChatResponse(request: Request) {
   try {
@@ -21,6 +21,7 @@ export async function createChatResponse(request: Request) {
   } catch {
     return new Response("Conversation not found", { status: 404 });
   }
+  const first = !room.messages.length;
   const controller = new AbortController();
   activeTurns.set(roomId, controller);
   const approvals: Approval[] = [];
@@ -50,6 +51,7 @@ export async function createChatResponse(request: Request) {
         activeTurns.delete(roomId);
         liveRooms.delete(roomId);
       }
+      if (first && !signal.aborted) void nameConversation(roomId, text);
     },
     onError: () =>
       "The conversation stopped unexpectedly. Your saved messages are still available.",

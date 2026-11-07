@@ -3,18 +3,18 @@ import { createFileRoute, replaceEqualDeep } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Menu, Pencil, Square, X } from "lucide-react";
+import { ArrowUp, ListChecks, Menu, Pencil, Square, X } from "lucide-react";
 import { AppSettings } from "../components/app-settings";
 import { DeleteDialog, MoveDialog, RenameDialog } from "../components/conversation-dialogs";
 import { DuckBar, type Target } from "../components/duck-bar";
 import { DuckSettings } from "../components/duck-settings";
 import { MentionInput } from "../components/mention-input";
 import { PondDialog } from "../components/pond-dialog";
-import { RoomNotes } from "../components/room-notes";
+import { RoomNotes, type NotesField } from "../components/room-notes";
 import { Sidebar } from "../components/sidebar";
 import { Transcript } from "../components/transcript";
 import { ConversationMessages, clock, listNames, useNow } from "../components/chat-message";
-import { loadPonds, moveToPond, savePond } from "../server/ponds.functions";
+import { loadPonds, moveToPond, savePond, savePondNotes } from "../server/ponds.functions";
 import type { Pond } from "../lib/pond";
 import {
   answerApproval,
@@ -474,6 +474,10 @@ function Home() {
     const active = await ensureRoom();
     receiveRoom(await updateRoom({ data: { id: active.id, notes } }));
   }
+  async function savePondNotesFor(id: string, notes: string) {
+    const saved = await savePondNotes({ data: { id, notes } });
+    setPonds((current) => current.map((item) => (item.id === id ? { ...item, ...saved } : item)));
+  }
   async function send(kind: "message" | "summary") {
     const text = kind === "summary" ? summaryRequest : input.trim();
     const mode: Mode =
@@ -565,17 +569,62 @@ function Home() {
           : undefined
       : reply.duckId;
     if (retarget) setTargets((current) => ({ ...current, [key]: retarget }));
+    // In a Mediator round the duck was answering Mediator's question to it, not your message.
+    const handoff =
+      duck && reply.phase === "discussion"
+        ? turn.findLast(
+            (message) => message.duckId === "mediator" && message.text.startsWith(`@${duck.id}`),
+          )
+        : undefined;
+    // Other ducks it names become plain names, so they aren't sent the question too.
+    const asking = handoff
+      ? handoff.text
+          .replace(/^@[\w-]+:?\s*/, "")
+          .split("\n\nDeliverable:")[0]
+          .replace(
+            /@([\w-]+)/g,
+            (mention, id: string) =>
+              ducks.find((item) => item.id === id || mentionHandle(item, ducks) === id)?.name ??
+              mention,
+          )
+      : question.text;
     // The duck is now the recipient, so a mention of it in the old text would be redundant.
     const text = duck
-      ? question.text
+      ? asking
           .replace(new RegExp(`@(${duck.id}|${mentionHandle(duck, ducks)})\\b[,:]?\\s*`, "gi"), "")
           .trim()
-      : question.text;
+      : asking;
     if (!input.trim()) setInput(text);
     requestAnimationFrame(() =>
       document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(),
     );
   }
+  const summarizeBlocked = !room?.messages.length
+    ? "Send a message first."
+    : composerLocked
+      ? "Available when the replies finish."
+      : undefined;
+  // The pond's notes, which every conversation in it inherits, sit above this conversation's.
+  const notesFields: NotesField[] = [
+    ...(pond
+      ? [
+          {
+            key: `pond:${pond.id}`,
+            label: "This pond",
+            hint: `Every conversation in ${pond.name} reads these.`,
+            value: pond.notes,
+            save: (notes: string) => savePondNotesFor(pond.id, notes),
+          },
+        ]
+      : []),
+    {
+      key: room?.id ?? newKey,
+      label: "This conversation",
+      hint: "Only this conversation reads these.",
+      value: room?.notes ?? "",
+      save: saveNotes,
+    },
+  ];
   // Who a direct message reaches: the selected duck plus anyone mentioned in the draft.
   const replying = targetDuck
     ? selectDucks(ducks, input, targetDuck.id).map((duck) => duck.name)
@@ -595,7 +644,7 @@ function Home() {
   ) : target === "everyone" ? (
     "Every duck answers without seeing the others, then Mediator sums up."
   ) : (
-    `${replying.length > 1 ? `${listNames(replying)} answer separately` : `Only ${targetDuck?.name} replies`}. Type @ to add a duck.`
+    `${replying.length > 1 ? `${listNames(replying)} answer separately, with no Mediator summary` : `Only ${targetDuck?.name} replies`}. Type @ to add a duck.`
   );
   const offline = (["claude", "codex"] as const)
     .filter(
@@ -672,19 +721,24 @@ function Home() {
               Mediator
             </span>
           </div>
+          <button
+            type="button"
+            className="secondary-button compact summarize-button"
+            aria-label="Summarize"
+            title={
+              summarizeBlocked ??
+              "Mediator recaps where things landed, what's still disagreed, and the next question."
+            }
+            disabled={!!summarizeBlocked}
+            onClick={() => void send("summary")}
+          >
+            <ListChecks size={15} />
+            <span>Summarize</span>
+          </button>
           <RoomNotes
             conversation={room?.id ?? newKey}
-            notes={room?.notes ?? ""}
+            fields={notesFields}
             disabled={saving || dictating}
-            onSave={saveNotes}
-            summarizeBlocked={
-              !room?.messages.length
-                ? "Send a message first."
-                : composerLocked
-                  ? "Available when the replies finish."
-                  : undefined
-            }
-            onSummarize={() => void send("summary")}
           />
         </header>
         <Transcript key={selected} messages={room?.messages}>
@@ -694,10 +748,15 @@ function Home() {
                 messages={room.messages}
                 ducks={room.ducks}
                 notes={room.notes}
+                workspace={room.workspace}
                 onRetry={busy ? undefined : retry}
                 onSumUp={busy ? undefined : () => void send("summary")}
-                onAddToNotes={(text) =>
-                  saveNotes(room.notes.trim() ? `${room.notes.trim()}\n\n${text}` : text)
+                onAddToNotes={(text) => saveNotes(appended(room.notes, text))}
+                pondNotes={
+                  pond && {
+                    notes: pond.notes,
+                    add: (text) => savePondNotesFor(pond.id, appended(pond.notes, text)),
+                  }
                 }
               />
             </div>
@@ -715,7 +774,8 @@ function Home() {
                   each other, then Mediator sums up. Good for a blind second opinion.
                 </li>
                 <li>
-                  <strong>One duck</strong> answers alone. Type @ to bring in another.
+                  <strong>One duck</strong> answers alone. Type @ to bring in another; each answers
+                  on its own, with no Mediator summary.
                 </li>
               </ul>
               <p className="muted">
@@ -835,8 +895,7 @@ function Home() {
       )}
       {dialog?.kind === "new-pond" && (
         <PondDialog
-          ducks={ducks}
-          from={pond?.name ?? "General"}
+          ponds={ponds}
           onClose={() => setDialog(null)}
           onCreated={async (created) => {
             setPonds(await loadPonds());
@@ -1042,4 +1101,9 @@ function ApprovalCard({ approval }: { approval: Approval }) {
       </div>
     </form>
   );
+}
+
+/** Notes with `text` added as a new paragraph. */
+function appended(notes: string, text: string) {
+  return notes.trim() ? `${notes.trim()}\n\n${text}` : text;
 }

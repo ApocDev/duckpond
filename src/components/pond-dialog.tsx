@@ -1,23 +1,23 @@
 import { useState } from "react";
 import type { Pond } from "../lib/pond";
-import type { Duck } from "../lib/room";
+import { defaults, type Duck } from "../lib/room";
 import { createPond } from "../server/ponds.functions";
 import { Dialog } from "./dialog";
+import { Select } from "./select";
 
 /** Creates a pond in a folder, or opens the pond already saved there. */
 export function PondDialog({
-  ducks,
-  from,
+  ponds,
   onCreated,
   onClose,
 }: {
-  /** The ducks the new pond starts with: the open pond's. */
-  ducks: Duck[];
-  /** Name of the pond those ducks come from. */
-  from: string;
+  /** Ponds whose default ducks the new pond can copy instead of the app's defaults. */
+  ponds: { id: string; name: string; ducks: Duck[] }[];
   onCreated: (pond: Pond) => Promise<void>;
   onClose: () => void;
 }) {
+  const [source, setSource] = useState("");
+  const ducks = ponds.find((pond) => pond.id === source)?.ducks ?? defaults;
   const [name, setName] = useState("");
   const [workspace, setWorkspace] = useState("");
   const [saving, setSaving] = useState(false);
@@ -90,10 +90,25 @@ export function PondDialog({
             An existing absolute path on this machine. If it already has a pond, that pond opens.
           </small>
         </label>
-        <p className="field-hint">
-          Starts with {from}'s ducks: {ducks.map((duck) => duck.name).join(", ")}. You can change
-          them after.
-        </p>
+        <div className="field">
+          <span>Starting ducks</span>
+          <Select
+            label="Starting ducks"
+            value={source}
+            disabled={saving}
+            options={[
+              { value: "", label: "Default ducks" },
+              ...ponds
+                .filter((pond) => pond.ducks.length)
+                .map((pond) => ({ value: pond.id, label: `Copy ${pond.name}'s ducks` })),
+            ]}
+            onChange={setSource}
+          />
+          <small>
+            {ducks.map((duck) => duck.name).join(", ")}. You can change them after. An existing pond
+            keeps its own ducks.
+          </small>
+        </div>
         {error && (
           <p role="alert" className="banner error">
             {error}
