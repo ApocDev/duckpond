@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react";
-import { AtSign, Mic, Square } from "lucide-react";
-import { duckAvatar, type Duck } from "../lib/room";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Mic, Square } from "lucide-react";
+import { duckAvatar, duckRole, type Duck } from "../lib/room";
 import { insertMention, mentionAt, mentionHandle } from "../lib/mentions";
+import { rosterColors } from "../lib/duck-colors";
 import { DuckAvatar } from "./duck-avatar";
 import { useDictation } from "./use-dictation";
 
@@ -9,16 +10,22 @@ export function MentionInput({
   value,
   onChange,
   ducks,
+  placeholder,
+  exclude,
   onSend,
   onDictatingChange,
 }: {
   value: string;
   onChange: (value: string) => void;
   ducks: Duck[];
+  placeholder: string;
+  /** A duck already receiving the message, so mentioning it would add nothing. */
+  exclude?: string;
   onSend: () => void;
   onDictatingChange: (active: boolean) => void;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
+  const colors = useMemo(() => rosterColors(ducks), [ducks]);
   const dictation = useDictation(value, onChange, onDictatingChange);
   useLayoutEffect(() => {
     const element = input.current;
@@ -44,8 +51,12 @@ export function MentionInput({
   const [active, setActive] = useState(0);
   const range = dismissed ? null : mentionAt(value, caret);
   const options = range
-    ? ducks.filter((duck) =>
-        `${duck.name} ${duck.id} ${mentionHandle(duck, ducks)}`.toLowerCase().includes(range.query),
+    ? ducks.filter(
+        (duck) =>
+          duck.id !== exclude &&
+          `${duck.name} ${duck.id} ${mentionHandle(duck, ducks)}`
+            .toLowerCase()
+            .includes(range.query),
       )
     : [];
   const open = range !== null;
@@ -63,21 +74,6 @@ export function MentionInput({
     onChange(inserted.text);
     setDismissed(true);
     focusAt(inserted.caret);
-  }
-  function invite() {
-    const start = input.current?.selectionStart ?? value.length;
-    const end = input.current?.selectionEnd ?? start;
-    const current = mentionAt(value, start);
-    if (current) {
-      setDismissed(false);
-      focusAt(start);
-      return;
-    }
-    const prefix = value.slice(0, start) + (start > 0 && !/\s/.test(value[start - 1]) ? " @" : "@");
-    onChange(prefix + value.slice(end));
-    setDismissed(false);
-    setActive(0);
-    focusAt(prefix.length);
   }
   return (
     <div
@@ -104,12 +100,11 @@ export function MentionInput({
                 tabIndex={-1}
                 onClick={() => choose(duck)}
               >
-                <DuckAvatar avatar={duckAvatar(duck)} />
+                <DuckAvatar avatar={duckAvatar(duck)} color={colors.get(duck.id)} />
                 <span>
-                  {duck.name}
+                  <strong style={{ color: colors.get(duck.id) }}>{duck.name}</strong>
                   <small>
-                    @{mentionHandle(duck, ducks)} ·{" "}
-                    {duck.provider === "claude" ? "Claude" : "Codex"}
+                    @{mentionHandle(duck, ducks)} · {duckRole(duck.instructions)}
                   </small>
                 </span>
               </button>
@@ -138,7 +133,7 @@ export function MentionInput({
           setActive(0);
         }}
         onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
-        placeholder="Think out loud, or @ a duck..."
+        placeholder={placeholder}
         rows={1}
         enterKeyHint="enter"
         maxLength={20000}
@@ -180,16 +175,10 @@ export function MentionInput({
       />
       <div className="input-tools">
         <button
-          className="mention-trigger"
+          className="icon-button dictation-trigger"
           type="button"
-          onClick={invite}
-          disabled={dictation.active}
-        >
-          <AtSign size={15} /> Invite a duck
-        </button>
-        <button
-          className="mention-trigger dictation-trigger"
-          type="button"
+          aria-label={dictation.active ? "Stop dictation" : "Dictate"}
+          title={dictation.active ? "Stop dictation" : "Dictate"}
           aria-pressed={dictation.active}
           disabled={dictation.phase === "stopping"}
           onClick={() => {
@@ -198,12 +187,7 @@ export function MentionInput({
             dictation.toggle();
           }}
         >
-          {dictation.active ? <Square size={14} /> : <Mic size={15} />}
-          {dictation.phase === "stopping"
-            ? "Finishing…"
-            : dictation.active
-              ? "Stop dictation"
-              : "Dictate"}
+          {dictation.active ? <Square size={14} /> : <Mic size={16} />}
         </button>
       </div>
       {dictation.active && (
@@ -212,7 +196,7 @@ export function MentionInput({
             ? "Waiting for the microphone…"
             : dictation.phase === "stopping"
               ? "Finishing your words…"
-              : "Listening… Tap Stop dictation to edit or send."}
+              : "Listening… Tap the square to stop."}
         </div>
       )}
       {dictation.error && (

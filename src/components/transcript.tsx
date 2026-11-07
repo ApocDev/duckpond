@@ -1,8 +1,16 @@
+import { ArrowDown } from "lucide-react";
 import { Component, createRef, type ReactNode } from "react";
 import type { Message } from "../lib/room";
 
 type Anchor = { element: Element; top: number };
 type TranscriptProps = { children: ReactNode; messages?: Message[] };
+
+/** Changes when a message is added or grows, but not when the same messages are reloaded. */
+const progress = (messages?: Message[]) =>
+  messages?.map((message) => `${message.id}:${message.status}:${message.text.length}`).join();
+
+/** The id of your latest message, so sending one can bring the view back down. */
+const lastSent = (messages?: Message[]) => messages?.findLast((message) => !message.duckId)?.id;
 
 /** Capture the reading position before React grows any of the streaming replies. */
 export class Transcript extends Component<TranscriptProps, { unread: boolean }> {
@@ -46,6 +54,10 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
       return;
     const viewport = this.viewport.current;
     if (!viewport) return;
+    if (lastSent(this.props.messages) !== lastSent(previousProps.messages)) {
+      this.following = true;
+      if (this.state.unread) this.setState({ unread: false });
+    }
     if (this.following) {
       viewport.scrollTop = viewport.scrollHeight;
     } else {
@@ -53,7 +65,14 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
       if (anchor) viewport.scrollTop += anchor.element.getBoundingClientRect().top - anchor.top;
     }
     this.lastTop = viewport.scrollTop;
-    if (!this.following && previousProps.messages !== this.props.messages && !this.state.unread)
+    // Already at the bottom after the update: nothing new is out of view, so keep following.
+    if (!this.following && viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 48)
+      this.following = true;
+    if (
+      !this.following &&
+      progress(previousProps.messages) !== progress(this.props.messages) &&
+      !this.state.unread
+    )
       this.setState({ unread: true });
   }
 
@@ -69,9 +88,10 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
   private onScroll = () => {
     const viewport = this.viewport.current;
     if (!viewport || viewport.scrollTop === this.lastTop) return;
-    this.following =
-      viewport.scrollTop >= this.lastTop &&
-      viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 48;
+    const fromBottom = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop;
+    // Content shrinking (a round folding up) pulls scrollTop down while the view stays at the
+    // bottom; only a move up away from the bottom means you scrolled to read.
+    this.following = fromBottom <= 1 || (viewport.scrollTop >= this.lastTop && fromBottom < 48);
     this.lastTop = viewport.scrollTop;
     if (this.following && this.state.unread) this.setState({ unread: false });
   };
@@ -94,7 +114,9 @@ export class Transcript extends Component<TranscriptProps, { unread: boolean }> 
         </div>
         {this.state.unread && (
           <div className="transcript-jump">
-            <button onClick={this.jumpToLatest}>↓ New replies</button>
+            <button onClick={this.jumpToLatest}>
+              <ArrowDown size={14} /> New replies
+            </button>
           </div>
         )}
       </>

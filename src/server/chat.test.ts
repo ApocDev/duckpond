@@ -17,7 +17,6 @@ beforeEach(() => {
     ducks: structuredClone(defaults),
     messages: [],
     notes: "",
-    observe: false,
     updatedAt: "",
   };
   vi.mocked(getRoom).mockReturnValue(room);

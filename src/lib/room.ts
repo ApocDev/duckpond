@@ -16,12 +16,15 @@ export const duckSchema = z.object({
   model: z.string().trim().max(120),
   reasoning: z.string().trim().max(32).optional(),
   avatar: outfitSchema.optional(),
+  /** Index into the name-color palette, kept so a duck's color survives roster changes. */
+  color: z.number().int().min(0).max(9).optional(),
   instructions: z.string().trim().min(1).max(4000),
 });
 export type Duck = z.infer<typeof duckSchema>;
+/** Writes round summaries and catch-ups. It shares Mediator's name and outfit so the room has one host. */
 export const guide: Duck = {
   id: "guide",
-  name: "Guide",
+  name: "Mediator",
   provider: "codex",
   model: "gpt-5.6-luna",
   reasoning: "medium",
@@ -85,7 +88,15 @@ export const messageSchema = z.object({
   avatar: outfitSchema.optional(),
   text: z.string(),
   tools: z.array(z.string()).optional(),
-  status: z.enum(["thinking", "complete", "stopped", "error"]),
+  /** Files this reply changed, each with the lines it removed (-) and added (+). */
+  changes: z.array(z.object({ path: z.string(), diff: z.string() })).optional(),
+  // Characters written so far, sent in place of the text while a reply's text stays hidden.
+  written: z.number().int().nonnegative().optional(),
+  /** Who your message went to: "mediator", "everyone", or duck ids. Shown above it. */
+  to: z.array(z.string()).optional(),
+  // "passed" keeps a visible record of a duck that was asked and had nothing to add.
+  status: z.enum(["thinking", "complete", "passed", "stopped", "error"]),
+  // "observer" only appears in transcripts saved before observers were removed.
   phase: z.enum(["conversation", "review", "discussion", "observer", "guide"]),
   createdAt: z.string(),
 });
@@ -132,7 +143,6 @@ export const roomSchema = z.object({
   ducks: ducksSchema,
   messages: z.array(messageSchema),
   notes: z.string().max(20000),
-  observe: z.boolean(),
   discussions: z.array(discussionSchema).optional(),
   actions: z.array(actionSchema).optional(),
   updatedAt: z.string(),
@@ -147,7 +157,6 @@ export function isUntouchedRoom(room: Room) {
     room.title === "New conversation" &&
     !room.messages.length &&
     !room.notes &&
-    !room.observe &&
     !room.discussions?.length &&
     !room.actions?.length &&
     JSON.stringify(room.ducks) === JSON.stringify(defaults)
@@ -186,7 +195,8 @@ export type RoomEvent =
   | { type: "error"; message: string }
   | { type: "approval"; approval: Approval }
   | { type: "resolved"; id: string }
-  | { type: "activity"; duckId: Duck["id"]; label: string };
+  | { type: "activity"; duckId: Duck["id"]; label: string }
+  | { type: "change"; duckId: Duck["id"]; path: string; diff: string };
 export type Approval = {
   id: string;
   duck: string;
@@ -195,6 +205,12 @@ export type Approval = {
   input: boolean;
   reason?: string;
   command?: string;
+  /** The file or folder a file tool wants to read, write, or search. */
+  path?: string;
+  /** The text a write or edit would put in that file. */
+  preview?: string;
+  /** A file edit inside the project folder, which can be allowed for the rest of this turn. */
+  editsInFolder?: boolean;
   cwd?: string;
   remember?: { id: string; provider: string; command: string; cwd: string };
   fields?: ApprovalField[];
@@ -202,15 +218,37 @@ export type Approval = {
 };
 export type RoomStream = UIMessage<never, { room: RoomEvent }>;
 
-/** Explicit mentions take precedence over the selected conversation partner. */
+/**
+ * A persona's first sentence, reworded for the person picking a duck: "You protect the room from…"
+ * becomes "Protects the room from…". Sentences that don't start with "You <verb>" stay as written.
+ */
+export function duckRole(instructions: string) {
+  const first = instructions.split(/(?<=[.!?])\s/)[0];
+  const [, verb, rest] = first.match(/^You ([a-z]+)\b([\s\S]*)$/) ?? [];
+  if (!verb) return first;
+  const irregular: Record<string, string> = { are: "is", have: "has", do: "does", go: "goes" };
+  const third =
+    irregular[verb] ??
+    (/(s|x|z|ch|sh)$/.test(verb)
+      ? `${verb}es`
+      : /[^aeiou]y$/.test(verb)
+        ? `${verb.slice(0, -1)}ies`
+        : `${verb}s`);
+  return `${third[0].toUpperCase()}${third.slice(1)}${rest}`;
+}
+
+/** What Summarize sends; the transcript shows it as an action rather than as your words. */
+export const summaryRequest =
+  "Summarize this conversation so far: where we landed, what's still disagreed, and the one question worth answering next.";
+
+/** The selected duck plus anyone mentioned, in roster order. */
 export function selectDucks(ducks: Duck[], text: string, target: Duck["id"]): Duck[] {
   const mentions = new Set([...text.matchAll(/@([\w-]+)/g)].map((match) => match[1].toLowerCase()));
   const selected = ducks.filter(
-    (duck) => mentions.has(duck.id) || mentions.has(mentionHandle(duck, ducks)),
+    (duck) =>
+      duck.id === target || mentions.has(duck.id) || mentions.has(mentionHandle(duck, ducks)),
   );
-  return selected.length
-    ? selected
-    : [ducks.find((duck) => duck.id === target) ?? ducks[0]].filter((duck): duck is Duck => !!duck);
+  return selected.length ? selected : ducks.slice(0, 1);
 }
 
 export function makePrompt(
@@ -225,23 +263,27 @@ export function makePrompt(
     `You are ${duck.name}, one participant in Duckpond, a shared conversation with a person and other AI ducks.`,
     `Your current persona supersedes earlier versions: ${duck.instructions}`,
     "Speak from your own priorities, not as a general assistant answering every part of the topic. Express enthusiasm, frustration, doubt, or conviction naturally when warranted. First-person judgments and direct disagreement are welcome; insults, invented lived experience, and theatrical conflict are not. You need not mirror the person's or Mediator's opinion. Preserve an unresolved position until its reason is addressed. If you change your mind, identify the argument, evidence, or priority that changed it. Do not open with agreement and recap by habit. When peers' replies are visible, add only a new consequence, alternative, correction, or unresolved objection. Agreement with nothing to add is PASS when passing is allowed. Do not pad a contribution with the room's shared checklist. These style rules do not reduce an explicitly assigned deliverable.",
-    "Talk to the person naturally. Use the shortest response that helps. One sentence is enough for a small point; write more only when the decision requires it. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Existing authorization persists: when the person has approved a proposed task, do that work without asking them to approve it again. Read brief approvals such as 'Sure' together with the proposal they answer. Distinguish that approved scope from later suggestions. Cite sources when researching. Never claim a tool result you haven't obtained.",
+    "Talk to the person naturally. Use the shortest response that helps. When the person sets a length or format, such as one line or two sentences, keep to it. One sentence is enough for a small point; write more only when the decision requires it. Ask at most one question at a time. Distinguish guesses from facts. Don't invent consensus. You can use your tools, skills, and MCPs when helpful. A discussion is not permission to change files or external systems: get explicit permission for actions beyond the person's request. Existing authorization persists: when the person has approved a proposed task, do that work without asking them to approve it again. Read brief approvals such as 'Sure' together with the proposal they answer. Distinguish that approved scope from later suggestions. Cite sources when researching. Never claim a tool result you haven't obtained.",
   ].join("\n\n");
   const turnInstruction = [
     "Markdown tables and fenced mermaid diagrams render in the chat. Use them when they clarify a comparison or flow.",
     `Current phase: ${phase}. These turn instructions supersede earlier turn instructions.`,
+    ...(phase === "conversation"
+      ? [
+          "Any other duck the person mentioned answers at the same time and won't see your reply, so make your own point instead of handing the floor to them.",
+        ]
+      : []),
+    // Personas fade over long sessions; restating the core keeps each duck's angle distinct.
+    `Stay ${duck.name}: ${duck.instructions.split(/(?<=[.!?])\s/)[0]}`,
     `Current participants: ${ducks.map((item) => `${item.name} (@${item.id})`).join(", ")}. You may suggest asking another participant for a perspective. Mentions in your reply do not automatically trigger another turn.`,
     allowPass
       ? "Before responding, decide whether your perspective adds something useful to the current question. If you have no relevant, substantive contribution, reply exactly PASS and nothing else. Your persona is a perspective, not an obligation to find an angle on every topic. Do not invent concerns, repeat others, offer generic advice, or expand into unrelated topics just to participate. For example, a duck focused on in-game economics should pass on Unity versus Unreal unless a concrete economic requirement actually affects that choice. Passing is not agreement. If you pass, do not call room tools or explain why you are passing."
       : "Do not PASS this turn. Complete the assigned task, report a concrete blocker, or provide the requested synthesis.",
     phase === "review"
-      ? "Other ducks' assessments for this round are intentionally hidden. Assess only what your role makes you especially qualified to notice. A shared review prompt is context, not a requirement that every duck produce the same complete answer, roadmap, or checklist. Lead with your most useful specific contribution; leave the whole-room synthesis to Mediator. If the prompt includes asks for named roles, answer yours. Do not guess what other ducks will say."
+      ? "Other ducks' assessments for this round are intentionally hidden. Assess only what your role makes you especially qualified to notice. A shared review prompt is context, not a requirement that every duck produce the same complete answer, roadmap, or checklist. Open with a one-sentence answer in bold, then the one concern or reason only your role adds, so your answer can be compared with the others at a glance. Leave the whole-room synthesis to Mediator. If the prompt includes asks for named roles, answer yours. Do not guess what other ducks will say."
       : "",
     phase === "discussion"
       ? "Answer the specific invitation: give an opening idea, challenge the named claim, or respond to an objection. Contribute what your perspective adds. Do not repeat the shared proposal or turn an exploratory question into a smallest-first implementation plan. If there is no new contribution, PASS is valid when allowed."
-      : "",
-    phase === "observer"
-      ? "You are observing. Respond ONLY if you have a consequential point or question that hasn't been covered. Otherwise reply exactly PASS. Don't join just to agree."
       : "",
   ]
     .filter(Boolean)
@@ -269,4 +311,13 @@ export function visibleMessages(messages: Message[], phase: Message["phase"]) {
       message.status === "stopped" ||
       ((phase === "guide" || phase === "discussion") && message.status === "error"),
   );
+}
+
+/** A conversation title from its first message, cut at a word boundary. */
+export function shortTitle(text: string, limit = 60) {
+  const line = text.trim().split("\n")[0];
+  if (line.length <= limit) return line;
+  const cut = line.slice(0, limit);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > limit / 2 ? cut.slice(0, space) : cut).replace(/[\s,.;:]+$/, "")}…`;
 }

@@ -15,7 +15,7 @@ import {
   listRooms,
   saveRoom,
 } from "./store.server";
-import { activeTurns, liveRooms } from "./conversation.server";
+import { activeTurns, liveRooms, recoverInterrupted } from "./conversation.server";
 import { providerStatus } from "./providers.server";
 import { requireAllowedRequest } from "./access.server";
 import { resolveApproval } from "./approvals.server";
@@ -27,16 +27,14 @@ export const loadRooms = createServerFn({ method: "GET" })
   .handler(({ data }) => {
     requireAllowedRequest(getRequest());
     const rooms = listRooms().map((stored) => {
-      const room = liveRooms.get(stored.id)?.room ?? stored;
+      const room = liveRooms.get(stored.id)?.room ?? recoverInterrupted(stored);
       return {
         ...room,
         messages: room.messages.map((message) =>
-          message.status === "thinking" && !activeTurns.has(room.id)
-            ? { ...message, status: "stopped" as const }
-            : message.status === "thinking" &&
-                (data?.streamText !== true || "PASS".startsWith(message.text.trim()))
-              ? { ...message, text: "" }
-              : message,
+          message.status === "thinking" &&
+          (data?.streamText !== true || "PASS".startsWith(message.text.trim()))
+            ? { ...message, text: "", written: message.text.length }
+            : message,
         ),
       };
     });
@@ -60,11 +58,22 @@ export const newRoom = createServerFn({ method: "POST" })
   });
 export const reusableDucks = createServerFn({ method: "GET" }).handler(() => {
   requireAllowedRequest(getRequest());
+  const ponds = listPonds();
+  // A conversation's title alone doesn't say which project it belongs to, so name its pond too.
+  const pondNames = new Map(
+    listRooms().map((room) => [
+      room.id,
+      ponds.find((pond) => pond.id === room.pondId)?.name ?? "General",
+    ]),
+  );
   return [
-    ...listPonds()
+    ...ponds
       .filter((pond) => !pond.error)
       .map((pond) => ({ id: pond.id, title: `${pond.name} defaults`, ducks: pond.ducks })),
-    ...listDuckGroups(),
+    ...listDuckGroups().map((group) => {
+      const pond = pondNames.get(group.id);
+      return pond ? { ...group, title: `${group.title} in ${pond}` } : group;
+    }),
   ];
 });
 export const removeRoom = createServerFn({ method: "POST" })
@@ -128,18 +137,26 @@ export const updateRoom = createServerFn({ method: "POST" })
   .validator(
     z.object({
       id: z.string().uuid(),
-      ducks: ducksSchema,
-      notes: z.string().max(20000),
-      observe: z.boolean(),
+      ducks: ducksSchema.optional(),
+      notes: z.string().max(20000).optional(),
+      title: z.string().trim().min(1).max(80).optional(),
     }),
   )
   .handler(async ({ data }) => {
     requireAllowedRequest(getRequest());
+    // Notes and the title can change mid-turn: the running turn holds the live room object and
+    // saves it as it goes, so edit that object and later speakers read the new notes.
+    const live = liveRooms.get(data.id);
+    if (live && !data.ducks) {
+      if (data.notes !== undefined) live.room.notes = data.notes;
+      if (data.title !== undefined) live.room.title = data.title;
+      return saveRoom(live.room);
+    }
     if (activeTurns.has(data.id))
-      throw new Error("Stop the current replies before changing the room.");
+      throw new Error("Stop the current replies before changing the ducks.");
     const room = getRoom(data.id);
     await Promise.all(
-      data.ducks.map(async (duck) => {
+      (data.ducks ?? []).map(async (duck) => {
         const previous = room.ducks.find((item) => item.id === duck.id);
         if (
           previous?.provider === duck.provider &&
@@ -153,8 +170,14 @@ export const updateRoom = createServerFn({ method: "POST" })
     );
     // Discovery can take time; a conversation may have started while it was running.
     if (activeTurns.has(data.id))
-      throw new Error("Stop the current replies before changing the room.");
-    return saveRoom({ ...getRoom(data.id), ...data });
+      throw new Error("Stop the current replies before changing the ducks.");
+    const current = getRoom(data.id);
+    return saveRoom({
+      ...current,
+      ducks: data.ducks ?? current.ducks,
+      notes: data.notes ?? current.notes,
+      title: data.title ?? current.title,
+    });
   });
 export const stopRoom = createServerFn({ method: "POST" })
   .validator(z.string().uuid())
@@ -197,7 +220,7 @@ export const loadContext = createServerFn({ method: "GET" })
     return [
       ...room.ducks,
       { id: "mediator", name: "Mediator" },
-      { id: "guide", name: "Guide" },
+      { id: "guide", name: "Mediator (summaries)" },
     ].map((duck) => {
       const session = z
         .object({ context: contextStatusSchema.optional() })

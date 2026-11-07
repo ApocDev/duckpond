@@ -1,4 +1,5 @@
 import { commandPermission } from "./command-permissions.server";
+import { activityLabel } from "../lib/activity";
 import { codexUsageTracker, type NativeSession } from "./sessions.server";
 import { connectCodex, type CodexPacket } from "./codex-client.server";
 import { z } from "zod";
@@ -6,6 +7,12 @@ import { questionFields, mcpFields } from "../lib/approval";
 import { askApproval } from "./approvals.server";
 import { callRoomTool, type RoomTools } from "./room-tools.server";
 import type { Duck, RoomEvent } from "../lib/room";
+
+/** A finished Codex file change: each file's path and diff. Declined or failed changes are skipped. */
+const fileChanges = z.object({
+  status: z.literal("completed"),
+  changes: z.array(z.object({ path: z.string(), diff: z.string() })),
+});
 
 /** App Server preserves native tool access and lets the UI answer permission requests. */
 export async function codexReply(
@@ -133,11 +140,18 @@ export async function codexReply(
           item.data.text
         )
           onText(item.data.text);
+        if (packet.method === "item/completed" && item.data.type === "fileChange")
+          for (const change of fileChanges.safeParse(item.data).data?.changes ?? [])
+            emit({ type: "change", duckId: duck.id, path: change.path, diff: change.diff });
         if (!["agentMessage", "userMessage", "reasoning"].includes(item.data.type))
           emit({
             type: "activity",
             duckId: duck.id,
-            label: item.data.tool ?? item.data.command ?? item.data.type,
+            label: activityLabel({
+              name: item.data.tool ?? item.data.type,
+              input: item.data,
+              command: item.data.command,
+            }),
           });
       }
     }

@@ -74,7 +74,6 @@ export function createRoom(ducks: Duck[] = defaults, pond?: { id: string; worksp
     ducks: structuredClone(ducks),
     messages: [],
     notes: "",
-    observe: false,
     updatedAt: new Date().toISOString(),
   });
 }

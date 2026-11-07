@@ -17,7 +17,11 @@ it("replaces a mention in the middle without discarding the rest of the message"
 });
 it("routes added ducks by stable handle and falls back when a selected duck was removed", () => {
   const duck = { ...defaults[0], id: "play-tester", name: "Play Tester" };
-  expect(selectDucks([defaults[0], duck], "@play-tester thoughts?", "explorer")).toEqual([duck]);
+  expect(selectDucks([defaults[0], duck], "@play-tester thoughts?", "explorer")).toEqual([
+    defaults[0],
+    duck,
+  ]);
+  expect(selectDucks([defaults[0], duck], "@play-tester thoughts?", duck.id)).toEqual([duck]);
   expect(selectDucks([duck], "A new thought", "explorer")).toEqual([duck]);
   expect(ducksSchema.safeParse([duck, duck]).success).toBe(false);
   expect(ducksSchema.safeParse([]).success).toBe(false);
@@ -41,10 +45,11 @@ it("selects a generated duck through its readable name without changing its ID",
   const { selectDucks, defaults } = await import("./room");
   const duck = { ...defaults[0], id: "duck-c276f40c", name: "Technical Director" };
   expect(mentionHandle(duck, [duck])).toBe("technical-director");
-  expect(
-    selectDucks([defaults[0], duck], "@technical-director please review", defaults[0].id),
-  ).toEqual([duck]);
+  expect(selectDucks([defaults[0], duck], "@technical-director please review", duck.id)).toEqual([
+    duck,
+  ]);
   expect(selectDucks([defaults[0], duck], "@duck-c276f40c please review", defaults[0].id)).toEqual([
+    defaults[0],
     duck,
   ]);
 });

@@ -11,6 +11,8 @@ export const pondSchema = z.object({
   name: pondManifestSchema.shape.name,
   workspace: z.string().min(1),
   ducks: ducksSchema,
+  /** Notes every duck reads in every conversation in this pond, from `.duckpond/notes.md`. */
+  notes: z.string().max(20000).default(""),
   revision: z.string(),
 });
 export type Pond = z.infer<typeof pondSchema>;

@@ -1,8 +1,9 @@
 import { commandPermission } from "./command-permissions.server";
+import { activityLabel } from "../lib/activity";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, realpath, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { createClaudeCode, createSdkMcpServer, tool } from "ai-sdk-provider-claude-code";
 import { streamText } from "ai";
 import { z } from "zod";
@@ -17,6 +18,22 @@ import { callRoomTool, type RoomTools } from "./room-tools.server";
 
 const exec = promisify(execFile);
 const claude = createClaudeCode();
+/** Plain titles for the approval card; other tools show their own name. */
+const toolTitles: Record<string, string> = {
+  Bash: "Run a command",
+  Read: "Read a file",
+  Write: "Write a file",
+  Edit: "Edit a file",
+  MultiEdit: "Edit a file",
+  NotebookEdit: "Edit a notebook",
+  Glob: "Find files",
+  Grep: "Search files",
+  WebFetch: "Open a web page",
+  WebSearch: "Search the web",
+};
+const isString = (value: unknown): value is string => typeof value === "string";
+/** Claude tools that change files; inside the pond folder they can be allowed for a whole turn. */
+const editTools = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 const agentDirectory = join(dataDirectory, "agent");
 export async function getAgentDirectory(workspace?: string) {
   if (workspace) {
@@ -68,7 +85,12 @@ export async function reply(
   context?: ReplyContext,
 ): Promise<void> {
   const cwd = await getAgentDirectory(context?.workspace);
+  // Claude's SDK prompt doesn't name the working folder, so ducks in a pond are told where the
+  // project is instead of searching the whole machine for files the person mentions.
+  if (context?.workspace)
+    system = `${system}\n\nYour working folder is ${cwd}. It is the project this conversation is about: files the person mentions are in it, so read them there instead of searching elsewhere.`;
   const session = prepareReply(duck, system, prompt, cwd, roomTools, context);
+  let editsAllowed = false;
   let status: "complete" | "error" | "stopped" = "error";
   try {
     signal.throwIfAborted();
@@ -196,11 +218,49 @@ export async function reply(
         canUseTool: async (name, input) => {
           if (roomTools?.definitions.some((definition) => name === `mcp__room__${definition.name}`))
             return { behavior: "allow", updatedInput: input };
+          const path = [input.file_path, input.notebook_path, input.path].find(isString);
+          const editsInFolder =
+            editTools.has(name) &&
+            !!path &&
+            `${resolve(cwd, path)}${sep}`.startsWith(`${cwd}${sep}`);
+          // An edit shows what it removes as well as what it adds.
+          const preview =
+            isString(input.old_string) && isString(input.new_string)
+              ? [
+                  ...input.old_string.split("\n").map((line) => `- ${line}`),
+                  ...input.new_string.split("\n").map((line) => `+ ${line}`),
+                ].join("\n")
+              : [input.content, input.new_source].find(isString);
+          // Allowed edits are recorded on the reply, so the person can check them without leaving.
+          const changed = () => {
+            if (editTools.has(name) && path)
+              emit({
+                type: "change",
+                duckId: duck.id,
+                path: resolve(cwd, path),
+                // A new file's content is all added lines.
+                diff:
+                  preview === undefined || isString(input.old_string)
+                    ? (preview ?? "")
+                    : preview
+                        .split("\n")
+                        .map((line) => `+ ${line}`)
+                        .join("\n"),
+              });
+          };
+          // "Allow edits this turn" covers this duck's later edits inside the folder, until it replies.
+          if (editsInFolder && editsAllowed) {
+            changed();
+            return { behavior: "allow", updatedInput: input };
+          }
           const response = await askApproval(
             {
               duck: duck.name,
-              title: name === "Bash" ? "Run a command" : name,
+              title: toolTitles[name] ?? name,
               command: typeof input.command === "string" ? input.command : undefined,
+              path,
+              editsInFolder,
+              preview,
               reason: typeof input.description === "string" ? input.description : undefined,
               cwd,
               remember:
@@ -212,6 +272,8 @@ export async function reply(
             signal,
             emit,
           );
+          if (editsInFolder && response.remember) editsAllowed = true;
+          if (response.approved) changed();
           return response.approved
             ? {
                 behavior: "allow",
@@ -220,7 +282,11 @@ export async function reply(
                     ? { ...input, answers: response.answer ? JSON.parse(response.answer) : {} }
                     : input,
               }
-            : { behavior: "deny", message: "The user declined this request." };
+            : {
+                behavior: "deny",
+                message:
+                  "The person declined this request. Don't ask for it again this turn; continue without it, or say what you'd need instead.",
+              };
         },
       }),
       system,
@@ -228,10 +294,22 @@ export async function reply(
       abortSignal: signal,
       maxRetries: 0,
     });
+    // Claude can answer in several text blocks around tool calls; keep them apart as paragraphs.
+    let textBlock: string | undefined;
+    let wrote = false;
     for await (const part of result.fullStream) {
-      if (part.type === "text-delta") onText(part.text);
+      if (part.type === "text-delta") {
+        if (wrote && part.id !== textBlock) onText("\n\n");
+        textBlock = part.id;
+        wrote = true;
+        onText(part.text);
+      }
       if (part.type === "tool-call")
-        emit({ type: "activity", duckId: duck.id, label: part.toolName });
+        emit({
+          type: "activity",
+          duckId: duck.id,
+          label: activityLabel({ name: part.toolName, input: part.input }),
+        });
       if (part.type === "error") throw part.error;
     }
     status = "complete";

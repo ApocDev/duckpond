@@ -11,6 +11,7 @@ import {
   type RoomEvent,
 } from "../lib/room";
 import type { reply } from "./providers.server";
+import { sharedNotes } from "./ponds.server";
 import type { RoomTools } from "./room-tools.server";
 
 export const discussionTurnLimit = 8;
@@ -29,9 +30,9 @@ Use start_review only when separate initial judgments are specifically useful, s
 
 When there is little new to add, finish. Preserve a specific unresolved disagreement and the value or evidence behind it. Agreement is not independent proof. A pass means no useful contribution, not agreement. Do not invite a duck that passed again without a new specifically relevant question. Acknowledge changed assumptions once; omit repeated requirements, roll calls, generic deferrals, and unchanged recaps. Do not label an already resolved correction as a remaining disagreement. If the latest duck already answered well, keep your conclusion to the useful decision or unresolved point. Ask at most one question, only if the person needs to choose or supply missing information.
 
-For already approved work, use assign_action to give a named owner a concrete deliverable and run it now. Cite the human message granting permission, reading short approvals with the preceding proposal. Do not ask for that permission again or turn suggestions into approval. Recover unfinished actions. An owner must report the result and evidence or a concrete blocker with report_action. Inspect the result, evidence, and tool activity before accepting it with review_action. A promise, plan, PASS, or redundant permission question is not a deliverable. Do not demand tools for an in-chat deliverable; for file changes or research, inspect actual paths or sources as needed. Respect blockers and changed scope; do not retry without new information. Execution has its own budget, separate from opinion replies.
+For already approved work, use assign_action to give a named owner a concrete deliverable and run it now. Cite the human message granting permission, reading short approvals with the preceding proposal. Do not ask for that permission again or turn suggestions into approval. Recover unfinished actions. An owner must report the result and evidence or a concrete blocker with report_action. Inspect the result, evidence, and tool activity before accepting it with review_action. A promise, plan, PASS, or redundant permission question is not a deliverable. Do not demand tools for an in-chat deliverable; for file changes or research, inspect actual paths or sources as needed. Respect blockers and changed scope; do not retry without new information. Once you accept an action's result, finish and report it unless the person asked for review; do not gather opinions on finished work. When a duck asks the person a question or the person declines a request, pass that on; do not answer for the person or ask again. Execution has its own budget, separate from opinion replies.
 
-Use one scheduling tool exactly once per invocation, then end. A tool's accepted result means the app will run that decision; do not call more tools or narrate the decision afterward. Your ordinary text is internal coordination; finish_discussion supplies the result shown to the person. Account for every open request before finishing. Addressed means responded to, not necessarily resolved. Preserve incomplete work, dissent, and failed or stopped replies. Never use native subagents to impersonate or run the room's ducks. The app runs them with their own provider and model.`,
+Use one scheduling tool exactly once per invocation, then end. A tool's accepted result means the app will run that decision; do not call more tools or narrate the decision afterward. Your ordinary text is internal coordination; finish_discussion supplies the result shown to the person. Account for every open request before finishing. Addressed means responded to, not necessarily resolved. Preserve incomplete work, dissent, and failed or stopped replies. Treat requirements the person or the project's files state as fixed: if a duck's idea changes one, present it as a proposed change and ask before recommending it. Report what each duck says it verified and what it didn't; never turn unverified work into verified. Never use native subagents to impersonate or run the room's ducks. The app runs them with their own provider and model.`,
 };
 const text = z.string().trim().min(1).max(4000);
 const askSchema = z.object({ duckId: z.string(), question: text, replyTo: z.string().optional() });
@@ -105,7 +106,9 @@ export const participantDefinitions: RoomTools["definitions"] = [
 export const inactiveParticipantTools: RoomTools = {
   definitions: participantDefinitions,
   call() {
-    throw new Error("Room coordination tools are available only during a mediated discussion.");
+    throw new Error(
+      "Room tools only work while Mediator runs a discussion. Answer the person directly, and don't mention this tool in your reply.",
+    );
   },
 };
 
@@ -304,10 +307,15 @@ ${room.ducks.map((duck) => `${duck.name} (@${duck.id}): ${duck.instructions.spli
               const authorization = room.messages.find(
                 (message) => message.id === value.authorizationId,
               );
-              if (!authorization || authorization.duckId || authorization.speaker !== "You")
-                throw new Error(
-                  "authorizationId must reference the human message approving this scope, not a duck's suggestion.",
+              if (!authorization || authorization.duckId || authorization.speaker !== "You") {
+                // Name the valid ID, so a wrong guess is fixed on the next call instead of giving up.
+                const latest = room.messages.findLast(
+                  (message) => !message.duckId && message.speaker === "You",
                 );
+                throw new Error(
+                  `authorizationId must be the ID of the person's message approving this work, not a duck's suggestion. The person's latest message ID is ${latest?.id}.`,
+                );
+              }
               if (
                 value.actionId &&
                 !["pending", "blocked"].includes(findAction(value.actionId).status)
@@ -418,7 +426,7 @@ ${room.ducks.map((duck) => `${duck.name} (@${duck.id}): ${duck.instructions.spli
                 mediator,
                 messages,
                 "discussion",
-                room.notes,
+                sharedNotes(room),
                 room.ducks,
                 false,
               );

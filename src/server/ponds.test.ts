@@ -6,7 +6,8 @@ import { defaults } from "../lib/room";
 
 const directory = mkdtempSync(join(tmpdir(), "duckpond-pond-tests-"));
 vi.stubEnv("DUCKPOND_DATA_DIR", join(directory, "data"));
-const { openPond, getPond, listPonds, updatePond } = await import("./ponds.server");
+const { openPond, getPond, listPonds, updatePond, writePondNotes, sharedNotes } =
+  await import("./ponds.server");
 const { createRoom, getRoom } = await import("./store.server");
 afterAll(() => {
   vi.unstubAllEnvs();
@@ -67,7 +68,10 @@ it("reports broken ponds individually and refuses to overwrite an unrelated .duc
   writeFileSync(join(unrelated, ".duckpond/user-file"), "User-owned");
   expect(() => openPond("New", unrelated, defaults)).toThrow("contains files");
   expect(readFileSync(join(unrelated, ".duckpond/user-file"), "utf8")).toBe("User-owned");
-  expect(() => openPond("Relative", "relative/path", defaults)).toThrow("absolute");
+  expect(() => openPond("Relative", "relative/path", defaults)).toThrow("full path");
+  expect(() => openPond("Missing", join(unrelated, "missing"), defaults)).toThrow(
+    "That folder doesn't exist",
+  );
 });
 
 it("validates manifest handles and refuses to write through persona symlinks", () => {
@@ -88,4 +92,17 @@ it("validates manifest handles and refuses to write through persona symlinks", (
   manifest.ducks[0].id = "../../outside";
   writeFileSync(manifestPath, JSON.stringify(manifest));
   expect(() => getPond(pond.id)).toThrow();
+});
+
+it("keeps pond notes in the folder, outside the revision, and gives them to every conversation", () => {
+  const path = workspace();
+  const pond = openPond("Notes", path, defaults);
+  const saved = writePondNotes(pond.id, "  Use SQLite.  ");
+  expect(readFileSync(join(path, ".duckpond/notes.md"), "utf8")).toBe("Use SQLite.\n");
+  expect(saved).toMatchObject({ notes: "Use SQLite.", revision: pond.revision });
+  const conversation = { ...createRoom(pond.ducks, pond), notes: "Due dates are optional." };
+  expect(sharedNotes(conversation)).toContain("Use SQLite.");
+  expect(sharedNotes(conversation)).toContain("Due dates are optional.");
+  writePondNotes(pond.id, "");
+  expect(sharedNotes(conversation)).toBe("Due dates are optional.");
 });

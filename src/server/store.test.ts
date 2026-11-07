@@ -21,7 +21,6 @@ describe("conversation storage", () => {
 
     const changes = [
       { notes: "Keep the tutorial short" },
-      { observe: true },
       { ducks: [{ ...defaults[0], instructions: "Focus on game design" }] },
       {
         messages: [

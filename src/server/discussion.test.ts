@@ -20,7 +20,6 @@ function setup() {
     ducks: structuredClone(defaults),
     messages: [message],
     notes: "",
-    observe: false,
     updatedAt: "",
   };
   const signal = new AbortController();

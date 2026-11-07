@@ -17,7 +17,7 @@ vp install
 vp run dev
 ```
 
-Duckpond uses `127.0.0.1:3998`, with strict port checking. The launch command sets `PORT` explicitly so an inherited value from another dev server cannot redirect it.
+The dev server uses `127.0.0.1:3999` and the production server (`vp run start`) uses `127.0.0.1:3998`, both with strict port checking. Each command sets `PORT` explicitly so an inherited value from another dev server cannot redirect it.
 
 For a built version:
 
@@ -42,90 +42,104 @@ To remove only Duckpond's Tailscale endpoint:
 tailscale serve --https=3998 off
 ```
 
-## Conversations
+## How it works
 
-Choose a pond in the sidebar. **New conversation** starts with that pond's default ducks. **Choose other ducks** lets you pick individual ducks or a previous room's whole group. A conversation's menu also has **New conversation with these ducks**. Names, instructions, outfits, models, and reasoning settings carry over; messages, shared notes, and provider sessions start fresh. Editing a conversation's duck affects only that conversation.
+- A **pond** is a project folder plus the ducks new conversations start with. **General** is the pond with no folder.
+- A **conversation** is one thread with its own copy of its ducks and its own shared notes. It also reads its pond's notes.
+- A **duck** is a persona with a provider, model, reasoning level, and outfit.
+- **Mediator** hosts every conversation. It is always available and isn't part of the roster.
 
-Conversations are saved when you send a message or save room settings. Untouched empty rooms disappear when you leave them, and other unused empty rooms are cleaned up when you open the app. Draft messages stay in this browser when you switch conversations or reload. Customized rooms are kept even without messages.
+### Sending a message
 
-Use a conversation's menu to delete it after confirming. Stop any active replies first. Deleting removes the conversation and its provider session references from Duckpond. Its ducks remain available in the picker. Native CLI transcripts and usage records are retained.
+Each message you send shows who it went to, such as "To Mediator" or "To Skeptic and Simplifier". The **To** row above the message box picks who answers: **Mediator**, **Each separately**, or one duck from the **One duck** picker. It remembers your choice per conversation until you change it. In narrow windows and on phones it shrinks to one button that opens the full list.
 
-### Ponds and workspaces
+- **Mediator** (the default when a conversation has more than one duck, and always available) reads your message, answers clarifications itself, or brings in the ducks who can help. They can push back on each other, and Mediator then reports the recommendation, remaining disagreements, and at most one question for you.
+- **Each separately** sends your message to every duck at once. Nobody sees the others' answers while writing, then Mediator sums up.
+- **A duck** gets your message directly. Type `@` to bring another duck into the same message; the selected duck still replies, and the line under the box lists everyone who will. They answer at the same time, so they don't see each other's replies, and Mediator doesn't sum them up.
+- **Stop** cancels the turn's provider calls and pending approvals. Completed and partial messages stay saved.
 
-**New pond** creates or opens a pond in an existing absolute workspace directory. A new pond starts with the currently displayed ducks. **Edit pond** changes its name and default ducks. Existing conversations stay in General until you use **Move to pond** in their menu. Moving preserves their messages and personas; subsequent replies run in the destination workspace with a fresh native session when the directory changes.
+A new conversation is titled with its first message until the first reply finishes. Mediator's model then gives it a short title, unless you renamed it first. Click the title to rename it.
 
-The workspace contains `.duckpond/pond.json` with the pond ID, name, and duck settings. Each duck's instructions live in `.duckpond/ducks/<duck-id>.md`. The manifest's duck list determines which personas are active. You can edit and version these files in Git. Duckpond reads them when opening the pond editor or starting a new conversation. It rejects a stale editor save if the files changed externally. Removing a duck from the manifest leaves its Markdown file intact. Opening an existing pond reads its files without replacing them.
+While ducks work, each running reply shows what it's doing and for how long, such as "reading docs/plan.md · 1:42". After a minute without new text or steps it says "no update for 1:10" instead. A running reply round names who is still working. The line under the message box names the phase, such as "Mediator is choosing who answers" or "Mediator is weighing the replies", next to the total time since you sent the message. Finished replies keep a collapsible list of the steps they took. A failed or stopped reply offers **Edit and ask <duck> again**, which puts back the message that reply answered and sends it to that duck alone. In a Mediator round, that's Mediator's question to the duck, with other ducks' handles turned into plain names. A stopped or failed Mediator message offers **Edit and ask again**, which puts that message back with the To choice it used, and **Summarize**, which recaps the replies that finished. A stopped Summarize runs again instead. A turn cut off by a server restart is closed the same way the next time the conversation loads, with a note that says so.
 
-Conversations remain in Duckpond's SQLite database with their own roster and workspace. Changing pond defaults affects future conversations. Unsent drafts are kept separately for each pond in the browser. A missing or malformed pond file marks that pond unavailable instead of silently substituting defaults.
+When a duck changes files, its reply lists each one under **Changed <file>**, which opens to the lines removed and added. Mediator's report repeats the list for its round, so it stays visible when the round folds. Claude ducks record the edits you allow and Codex ducks record their file changes. Files a Codex duck writes with a shell command aren't listed.
 
-In **Edit pond**, **Suggest ducks for this workspace** inspects the folder structure, project instructions, and a sample of docs and code. It suggests up to five personas with reasons tied to the files it read, accounting for the pond's existing ducks. Inspection uses a read-only command sandbox with MCP, app, plugin, and web tools disabled. Select suggestions, edit the added ducks, and **Save pond** to keep them. You can cancel inspection; it does not change the workspace or add personas automatically.
+You can switch conversations and ponds while a turn runs, and send in another conversation. In the sidebar, a yellow dot marks conversations that are still replying, and **needs you** marks one where a duck is waiting for your answer. A hidden tab's title changes to "Waiting for you" or "Replies ready". Notes stay editable during a turn. Ducks are view-only until the replies finish or you press Stop.
 
-All conversation participants, Guide, Mediator, and persona generation use the pond's workspace as their working directory. Claude loads user, project, and local settings. Codex starts its App Server in that workspace and passes the directory to its threads. Project instructions, skills, MCP configuration, trust, and permissions follow each native provider's rules. Duckpond does not create or change those provider files. General uses `DUCKPOND_AGENT_CWD` when set, otherwise `.data/agent`. To use another directory, create or open a pond there.
+A duck that has nothing relevant to add replies `PASS`. The duck you pick in To always answers; ducks you @-mention may pass. The transcript shows it as "had nothing to add," so you can tell a quiet duck from one that wasn't asked. Passes still use that duck's subscription. Once Mediator reports on a finished round, the round collapses to one line, such as "Mediator consulted Skeptic · 2 passed"; **Show** expands it. Inside, Mediator's instructions to each duck fold to one line, such as "Mediator asked Skeptic: …", and expand on click. Each separately's independent answers and direct replies from several ducks start expanded, since they're what you asked for; **Hide** folds them. Independent answers open with a one-sentence answer in bold, and each shows only its opening until you press **Show all** on it, so you can compare them. **Jump to Mediator's summary** at the top of the round skips to the summary. A round that is still running, failed, or was stopped stays expanded. Finished steps read in the past tense, such as "ran wc -l".
 
-- **Conversation:** the selected duck replies. An explicit `@explorer`, `@skeptic`, or `@simplifier` overrides that selection. Multiple mentions invite multiple ducks.
-- **Independent review:** all ducks receive the same conversation snapshot. They do not see each other's current reviews while writing their own. Guide summarizes their input afterward and asks at most one next question.
-- **Discuss together:** Mediator reads your message first. It answers clarifications directly, invites one relevant duck to open, or assigns already-approved work to an owner. It then invites another perspective for a specific alternative, objection, or missing point when that would help. Ducks ask each other questions and request follow-ups through room tools. Mediator assigns one speaker at a time, then presents the recommendation, remaining disagreements, and at most one question for you.
-- **Guided conversation:** Guide replies alone, even if observers are enabled or you mention another duck. It helps work through unresolved choices one question at a time. Switch to Independent review to get everyone's input again.
-- **Observers:** opt in from room settings. Unaddressed ducks check completed replies and speak only if they have something to add. These checks consume subscription usage even when they stay quiet.
-- **Stop:** cancels the room's provider calls and pending approval requests. Completed and partial messages remain saved.
+### Shared notes
 
-Discuss together uses a dedicated Mediator running GPT-5.6-Luna with Medium reasoning. Each duck retains the published transcript in its provider session and receives unseen room messages when it speaks. Mediator reads short approvals together with the proposal they answer and proceeds within that approved scope. The Mediator sees each duck's stated priority when choosing speakers. Opinion discussions normally use one or two participant replies, with a hard limit of three including passes and independent assessments. A third reply can defend or revise a challenged position. An optional independent assessment is limited to two contrasting perspectives and counts against that same limit. Use Independent review mode to poll the full roster. Waiting ducks make no provider calls. Approved work retains an eight-turn execution/follow-up limit, and all turns retain the 15-minute timeout.
+**Notes** in the header holds text every duck reads before it replies. In a pond it has two parts: **This pond**, which every conversation in the pond reads, and **This conversation**. Pond notes live in the pond's folder as `.duckpond/notes.md`, so you can edit or commit them like the duck files. **Save notes** saves whichever part changed and shows "Saved". Closing the panel or switching conversations keeps unsaved edits for when you come back.
 
-Ducks check whether their perspective is relevant before contributing. If they have nothing substantive to add, they return `PASS` and no reply is shown. A small useful point can be one sentence. Passing does not mean agreement or count as answering an assigned question. Mediator sees which ducks passed and invites them again only if a new issue needs their expertise. The initial relevance checks still use the ducks' subscriptions.
+**Summarize** in the header asks Mediator to recap where things landed, what's still disagreed, and the one question worth answering next. The recap appears in the conversation without changing who you're talking to, after a line that says you asked for it. Hovering it says why it's unavailable before the first message or while replies run. Every Mediator report, including recaps, has **Add to notes** and, in a pond, **Add to pond notes**. Each appends the report and saves (the button then reads "Saved to notes"); if the panel holds unsaved edits, the added text joins them.
 
-The room tools are scoped to the current room and speaker:
+### Ducks
+
+**Ducks** at the end of the To row opens the conversation's duck list. It says whether the list matches the pond's defaults. Mediator hosts every conversation and isn't part of the list. Click a duck to edit its name, outfit, model, and perspective, or to remove it. The outfit sits near the top, so it stays in view above a long perspective. Long perspectives start capped; **Show all** expands them. **Save to this conversation** changes only this conversation; earlier messages stay as they are. Each duck keeps its name color when others are added or removed. Check **Also start new <pond> conversations with these ducks** to save the list as the pond's starting ducks too; the button then reads **Save to conversation and pond**. Pickers describe each duck from its perspective's first sentence, such as "Protects possibility…". Closing with unsaved changes asks before discarding them. While replies run, the list is view-only.
+
+**Add a duck** at the top of the list has four options:
+
+- **Suggest** reads this whole conversation, including stopped requests, and its notes, then proposes up to five missing perspectives, each with a reason. A single suggestion comes pre-selected. It needs a message or notes first; until then Add a duck opens on Describe. In pond settings it reads the pond's docs and code instead, in a read-only sandbox.
+- **Describe** turns a short description into a full persona you can edit before adding.
+- **Reuse** copies ducks from your other conversations and pond defaults. Each persona appears once, with where it's from, such as "Shelf storage plan in Shelf"; ducks already in the list are left out.
+- **Write your own** adds a blank duck for you to fill in.
+
+Suggestions use GPT-5.6-Sol with Medium reasoning in one read-only Codex call. They never change the conversation. Requests can be cancelled and time out after two minutes (three for workspace inspection). Added ducks start with the first duck's provider and model.
+
+**Draw a custom outfit…** in a duck's editor opens a generator that makes a custom duck picture with Codex image generation. It needs the conversation to be saved once. You can close the dialog while it draws.
+
+Personas define a priority, temperament, limits, and what would change their mind. Example personas live in `design/personas/game-room.json`.
+
+### Ponds
+
+Pick a pond in the sidebar. **New pond…** at the bottom of that list creates a pond in an existing absolute folder, or opens the pond already saved there. Its name defaults to the folder's name. **Starting ducks** picks the default ducks or a copy of another pond's. The pond's folder shows under the picker in short form, such as `~/code/shelf`, next to **Pond settings**, which opens its name and the ducks new conversations start with. **New conversation** starts with the pond's defaults. Existing conversations keep their own ducks. Use a conversation's **⋯** menu in the sidebar to rename it, move it to another pond, or delete it; moving keeps its messages and ducks, and later replies run in the new pond's folder. A search box appears above the list once a pond has more than six conversations.
+
+The folder holds `.duckpond/pond.json` with the pond's ID, name, and duck settings, `.duckpond/ducks/<duck-id>.md` with each persona, and `.duckpond/notes.md` with the pond's notes once you save some. You can edit and commit these files. Duckpond reads them when you open pond defaults or start a conversation, and rejects a stale save if they changed meanwhile. A missing or malformed file marks the pond unavailable instead of silently using built-in ducks.
+
+All ducks, Mediator, and suggestions run with the pond's folder as their working directory. Claude loads user, project, and local settings. Codex starts its App Server in that folder. Project instructions, skills, MCP configuration, trust, and permissions follow each provider's own rules; Duckpond doesn't create or change those files. General uses `DUCKPOND_AGENT_CWD` when set, otherwise `.data/agent`.
+
+Conversations are saved when you send a message, save notes, or save ducks. An empty conversation you never touched disappears when you leave it. Drafts and your To choice stay in this browser.
+
+### Settings
+
+The gear at the bottom of the sidebar shows whether Claude and Codex are signed in and lists commands you chose to always allow, with a way to revoke each.
+
+### The message box
+
+The box grows as you type. On desktop, Enter sends and Shift+Enter adds a line. On phones, Return adds a line and the arrow sends. The microphone uses the browser's speech recognition: speech appends to your draft, nothing sends automatically, and editing pauses while it listens. It needs a supported browser and a secure page, such as the Tailscale HTTPS address or localhost. Duckpond doesn't record audio; the browser may use an online speech service.
+
+Messages render Markdown, including tables. Fenced `mermaid` blocks become diagrams once a reply completes; invalid diagrams fall back to their source. The transcript follows new replies while you're at the bottom. Scroll up to pause; **New replies** jumps back. On phones and narrow windows, replies appear when each duck finishes; desktop streams text live.
+
+### How Mediator runs a discussion
+
+Mediator uses GPT-5.6-Luna with Medium reasoning. It sees each duck's stated priority when choosing speakers. Opinion discussions usually take one or two duck replies, with a hard limit of three including passes and independent assessments. Approved work has an eight-turn limit, and every turn has a 15-minute timeout. Ducks that aren't asked make no provider calls.
+
+Room tools are scoped to the current conversation and speaker:
 
 - `ask_duck` records a question for a named peer. `request_turn` records a concern the speaker wants to discuss.
-- `start_review` lets Mediator request independent judgments from at most two ducks before any other replies. Each gets a different focused question in the shared prompt.
-- `assign_action` records a task, owner, deliverable, and authorizing human message, then runs that owner. An existing action ID resumes unfinished work.
-- `report_action` lets the assigned owner submit a result with evidence or a concrete blocker.
-- `review_action` lets Mediator accept a reported deliverable or send it back for correction. The app checks that the owner finished its reply and supplied evidence. Mediator evaluates whether the evidence supports completion.
-- `give_floor` lets Mediator choose one duck for an opening contribution, a specific challenge, or a response, along with the open requests it should address. It queues a decision; the app starts that duck only after Mediator finishes its invocation.
-- `finish_discussion` publishes the result. Mediator must explicitly defer every unanswered request with a reason. Pending work must run and reported results must be reviewed before finishing. Blocked or budget-exhausted work remains listed as unfinished. Deferred requests appear in the result. A completed response marks its assigned requests as addressed, which does not imply agreement or resolution.
+- `start_review` lets Mediator collect independent judgments from up to two ducks before anyone else replies.
+- `assign_action` records a task, owner, deliverable, and the message that authorized it, then runs that owner. An existing action ID resumes unfinished work. A wrong authorizing message ID is rejected with the ID of your latest message, so Mediator can correct it.
+- `report_action` lets the owner submit a result with evidence or a concrete blocker.
+- `review_action` lets Mediator accept a result or send it back.
+- `give_floor` picks one duck for an opening contribution, a specific challenge, or a response.
+- `finish_discussion` publishes the result. Mediator must defer every unanswered request with a reason, and pending work must run before it finishes.
 
-Requests, actions, evidence, review decisions, and published responses remain saved with the conversation. Actions persist across turns. A pass, interrupted reply, or offer to work cannot complete an action. After a server restart, a running action becomes pending when the next discussion starts; its owner must inspect partial work before resuming. Failed or stopped answers leave their assigned requests open. The full exchange stays in the expandable reply group, with Mediator's result expanded. Guide remains the partner for Guided conversation and summaries of Independent review.
+Requests, actions, evidence, and reviews stay saved with the conversation. After a server restart, a running action becomes pending; its owner checks partial work before resuming. Room tools use [Codex App Server dynamic tools](https://developers.openai.com/codex/app-server) and [Claude's in-process MCP tools](https://code.claude.com/docs/en/agent-sdk/custom-tools). They only coordinate the conversation, so they need no approval. Native tools keep their usual approval prompts, which appear above the message box.
 
-Room tools use [Codex App Server dynamic tools](https://developers.openai.com/codex/app-server) and [Claude's in-process MCP tools](https://code.claude.com/docs/en/agent-sdk/custom-tools). They do not need user approval because they only coordinate the conversation. Native tools and their existing approval controls remain available.
+Model lists come from the connected providers: Claude Agent SDK model discovery and Codex App Server `model/list`. Reasoning options depend on the selected model. Lists cache for five minutes; **Refresh model lists** in Settings reloads them. A blank model uses the provider default. Unsupported model/effort combinations are rejected when changed.
 
-Room settings add and remove ducks, and edit their names, perspectives, outfits, provider, model, and reasoning level. Keep at least one duck in a room. Removal preserves earlier messages. Changes apply when you save the room.
-
-In room settings, **Describe a duck** turns your idea into one complete persona using the same model as **Suggest a duck**. It works without conversation history. Review or edit the generated name and instructions, click **Add to room**, then choose its model and outfit and save the room. Generation supports cancellation and does not add the duck automatically.
-
-Personas define a priority, temperament, limits, and what would change their mind. Reviews ask each duck for its own contribution; Mediator preserves consequential dissent instead of requesting repeated whole-room plans. The game-room persona examples live in `design/personas/game-room.json`. Existing rooms keep their saved instructions; edit their perspectives in room settings to customize them.
-
-Type `@` or tap **Invite a duck** to choose participants. The picker inserts a readable handle such as `@technical-director`. Stored duck IDs and provider sessions stay unchanged. Existing ID mentions still work, and chat messages display the duck's name. Renaming a duck updates its readable handle. Keyboard users can filter, move with arrow keys, select with Enter or Tab, and dismiss with Escape.
-
-The message box starts at one line and grows as you type, up to a scrollable height. On mobile, Return inserts a new line and the arrow button sends the message. On desktop, Enter sends and Shift+Enter adds a new line.
-
-Tap **Dictate** beside **Invite a duck** to use the browser's speech recognition. Allow microphone access when prompted. Speech appends to the current draft, with interim words updated as recognition improves. Tap **Stop dictation** to edit or send; dictation never sends automatically. If the browser stops listening or reports an error, recognized text stays in the draft. Tap Dictate again to continue. Editing and sending pause while dictation is active so later speech results cannot overwrite edits or spill into another message.
-
-Dictation needs a supported browser and a secure page, such as the Tailscale HTTPS address or localhost. Duckpond does not record or upload audio itself. The browser handles recognition and may use an online speech service. See [browser speech recognition support](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition).
-
-Parallel replies appear in an expandable round, with 64px duck avatars and each duck's status visible. Mediator has a thinking row immediately while deciding its next step. Long work assignments show a short first sentence with the full instructions under Full assignment. Tap a row to read its full response. Guide summaries stay expanded. Existing conversations use this layout without changing their saved messages.
-
-On phones, touch tablets, and narrow windows, replies appear when each duck finishes. Thinking status and tool approval questions still arrive immediately, and Stop reveals any partial reply. Desktop keeps live text streaming. Closed reply rows only render their Markdown when opened. Unchanged messages stay rendered while you type or reconnect.
-
-Messages render Markdown tables, including tables already saved in conversations. Wide tables scroll within the message on mobile. Fenced `mermaid` code blocks become diagrams after a reply completes and the diagram enters view. Mermaid loads on demand, uses strict security, and has animations disabled. Diagram source stays available; invalid diagrams fall back to readable code. Plain code blocks stay code.
-
-The transcript follows replies while you are at the bottom. Scrolling up or opening a duck's reply pauses following and preserves your reading position when other replies grow above it. **New replies** returns to the bottom and resumes following.
-
-**Summarize and guide** catches up on the current conversation and switches to Guided conversation. It preserves any unsent draft. Guide uses GPT-5.6-Luna with Medium reasoning through Codex, reads the transcript and shared notes, and separates decisions from suggestions and disagreements. Its summaries use an additional provider call after each Independent review round. Discuss together uses Mediator calls to direct the exchange and produce its result. Guide keeps native tool access and the same approval controls as the other ducks. Stopping a round skips its remaining replies and automatic summary.
-
-**Suggest a duck**, in room settings, asks GPT-5.6-Sol with Medium reasoning for up to five distinct missing perspectives in one call. Each option explains why it would help. Pick any combination and click Add selected to add editable draft cards, then Save room to keep them. Added ducks inherit the first duck's provider/model settings, which you can edit. When no extra perspective helps, the helper explains why and returns no suggestions. Regeneration includes the last 25 suggested names from this settings session to discourage repeats. The helper uses a read-only Codex session and does not change the conversation. Its prompt stays within 60,000 characters, retaining shared notes and the roster while selecting recent discussion, Mediator summaries, and human messages. The helper is told when history is omitted. A request can be cancelled and has a two-minute limit.
-
-Model lists come from the connected providers: Claude Agent SDK model discovery and Codex App Server `model/list`. Reasoning options depend on the selected model. Lists cache for five minutes and can be refreshed from settings. A blank model uses the provider default. Unsupported model/effort combinations are rejected when changed.
-
-Conversations, settings, notes, and completed or stopped responses are stored in `.data/duckpond.sqlite`. The `.data/` directory and `.env` files stay local and are excluded from Git. Leaving or closing the browser tab does not cancel a turn. The server continues until the replies finish, you press Stop, or the 15-minute turn limit expires. Returning to the tab, reconnecting, or reloading refreshes the room and its pending approval requests. While reconnecting to a running turn, the app polls its progress every two seconds. It does not resend the message. If a submission never reached the server, the app restores it to an empty draft for you to retry. A server restart stops active work. Saved provider sessions remain available for the next turn; the app does not automatically rerun an interrupted task.
+Conversations, settings, notes, and completed or stopped responses are stored in `.data/duckpond.sqlite` (`.data-dev/` for `vp run dev`, so development never touches the data the built app uses). These directories and `.env` files stay local and are excluded from Git. Leaving or closing the browser tab does not cancel a turn. The server continues until the replies finish, you press Stop, or the 15-minute turn limit expires. Returning to the tab, reconnecting, or reloading refreshes the room and its pending approval requests. While reconnecting to a running turn, the app polls its progress every two seconds. It does not resend the message. If a submission never reached the server, the app restores it to an empty draft for you to retry. A server restart stops active work. Saved provider sessions remain available for the next turn; the app does not automatically rerun an interrupted task.
 
 ## Provider access
 
 Claude uses `ai-sdk-provider-claude-code` with the Vercel AI SDK. Codex uses its local App Server protocol; AI SDK's UI stream carries both providers' updates.
 
-Ducks retain native tools, skills, and MCP configuration. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests show the reason, command, and project directory, with raw provider data under Technical details. Allow once approves one request. Always allow in this project saves the exact command, directory, provider, and requested access for future requests from any duck. Different commands, projects, providers, or requested privileges require another approval. Saved command permissions persist across restarts and can be revoked in room settings. Revoking affects future requests, not already-running commands. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported in this POC.
+Ducks retain native tools, skills, and MCP configuration. In a pond, each duck is told that the pond folder is its working folder and the project being discussed. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests show the reason, the command or the file a file tool wants (paths that may be outside the project folder are pointed out, including ones built from variables like `$TMPDIR`), the text a write would put there or the lines an edit removes and adds, and the project directory, with raw provider data under Technical details. Allow once approves one request. For a file edit inside the project folder, **Allow edits this turn** lets that duck change files there without asking again until it replies; nothing is saved. A declined duck is told not to ask for the same thing again that turn. Always allow here saves the exact command, directory, provider, and requested access for future requests from any duck. Different commands, projects, providers, or requested privileges require another approval. Saved command permissions persist across restarts and can be revoked in Settings. Revoking affects future requests, not already-running commands. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported yet.
 
 `DUCKPOND_AGENT_CWD` selects the working directory for both providers and their project-specific tools/settings. The default is `.data/agent`. Set it to a project directory when you want that project's configuration. `DUCKPOND_CLAUDE_BIN` can specify an absolute Claude executable path for a bundled build.
 
-Each room keeps one native provider session per duck, including Guide and Mediator. Claude resumes its saved session ID; Codex resumes its saved thread across App Server connections. SQLite stores the IDs and delivered-message hashes. Native conversation files stay in the providers' local storage, so back those up alongside Duckpond's database.
+Each conversation keeps one native provider session per duck, plus one for Mediator's discussions and one for its summaries. Claude resumes its saved session ID; Codex resumes its saved thread across App Server connections. SQLite stores the IDs and delivered-message hashes. Native conversation files stay in the providers' local storage, so back those up alongside Duckpond's database.
 
 The first call for a duck sends the room history once, using an archived handoff if it exceeds the request budget. Later calls append unseen or changed published messages. The provider already retains its own replies. Independent reviews receive only the frozen room snapshot, so they cannot see peers' current reviews. Persona instructions and room-tool definitions stay stable across conversation modes; current mode, roster, notes, assignments, and passing rules arrive with the next turn. Room coordination tools only execute during a mediated discussion.
 
@@ -135,7 +149,7 @@ Session reuse supports prefix caching, but does not guarantee a cache hit. Cache
 
 ## Usage
 
-`GET /api/usage` returns recorded input, output, cache-read, cache-write, and reasoning tokens. It includes call counts, resumed calls, failures, stopped calls, and unfinished calls, grouped by room, duck, selected provider/model, and reasoning setting. Guide, Mediator, observer checks, passes, and Suggest a duck all count. The endpoint uses the same hostname checks as the rest of the app.
+`GET /api/usage` returns recorded input, output, cache-read, cache-write, and reasoning tokens. It includes call counts, resumed calls, failures, stopped calls, and unfinished calls, grouped by room, duck, selected provider/model, and reasoning setting. Mediator, passes, and duck suggestions all count. The endpoint uses the same hostname checks as the rest of the app.
 
 - `/api/usage?roomId=ROOM_ID` filters one room.
 - `/api/usage?provider=claude` filters one provider.
@@ -153,7 +167,7 @@ vp test
 vp run build
 ```
 
-Tests cover independent review context, sequential mediation, question ownership and deferral, discussion limits, Guide summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, silent observers, cancellation, approvals across browser disconnects, duck suggestions, persisted provider sessions, incremental context, and token accounting.
+Tests cover independent review context, sequential mediation, question ownership and deferral, discussion limits, summaries and follow-ups, message grouping, mentions, model and reasoning validation, provider failures, recorded passes, cancellation, approvals across browser disconnects, duck suggestions, persisted provider sessions, incremental context, and token accounting.
 
 Provider integration tests are opt-in and use the local subscriptions. Set `DUCKPOND_DATA_DIR` and `DUCKPOND_AGENT_CWD` to a temporary directory. Set `DUCKPOND_PROVIDER_INTEGRATION=1` to verify both room-tool bridges, `DUCKPOND_DISCUSSION_INTEGRATION=1` for a complete discussion, or `DUCKPOND_ACTION_INTEGRATION=1` for a real file inspection with assignment and result review, then run `vp test src/server/room-tools.integration.test.ts`.
 
@@ -161,11 +175,11 @@ Provider integration tests are opt-in and use the local subscriptions. Set `DUCK
 
 The UI uses the base duck and four outfits in `public/brand/`. Their source artwork and generation prompts live in `design/duck-avatars/v1/`. Each duck chooses an outfit independently of its provider or persona.
 
-## Generate an outfit
+## Draw an outfit
 
-Open Edit room, expand a duck, and choose Generate outfit. Enter a hat and clothing description, or leave it blank for Codex to choose from the duck's perspective. The generator uses Sol 5.6 Medium with the native imagegen skill and `design/duck-avatars/v1/base.png`. It does not use an API-key fallback. Native image generation must be available in the signed-in Codex account.
+Open Ducks, expand a duck, and choose Draw outfit. Enter a hat and clothing description, or leave it blank for Codex to choose from the duck's perspective. The generator uses Sol 5.6 Medium with the native imagegen skill and `design/duck-avatars/v1/base.png`. It does not use an API-key fallback. Native image generation must be available in the signed-in Codex account.
 
-Generation continues when settings or the browser tab closes. Reopen the duck to see its saved previews. Choose Use outfit, then Save room. Existing replies keep their original outfit. Only one outfit generates at a time. If the generated PNG is opaque, the same session attempts one background correction using the supplied cleanup prompt. Both turns count toward usage. An outfit must contain actual transparent pixels before it is offered for use. A server restart interrupts an unfinished generation and shows an error so you can try again.
+Generation continues when settings or the browser tab closes. Reopening the duck shows a drawing that is still running or finished but not yet used. Choose Use outfit, then Save. Existing replies keep their original outfit. Only one outfit generates at a time. If the generated PNG is opaque, the same session attempts one background correction using the supplied cleanup prompt. Both turns count toward usage. An outfit must contain actual transparent pixels before it is offered for use. A server restart interrupts an unfinished generation and shows an error so you can try again.
 
 Generated PNGs and job records live in `.data/avatars`, or under `DUCKPOND_DATA_DIR` when configured. Each job also saves its prompt. Back up this directory with the database. Reported Codex token usage appears in the usage endpoint; it does not measure remaining image-generation quota.
 
@@ -177,4 +191,4 @@ Sessions survive changes to prompt wording, tool descriptions, and string-length
 
 Duckpond bounds new room-context batches to 32,000 characters. Oversized batches start a fresh native session with selected original messages, prioritizing the latest human message, its preceding proposal, and recent replies. The full visible transcript stays under `.data/context` for native file-tool lookup. A replacement session is saved only after the provider accepts its input; a failed handoff preserves the working session. Short updates continue using the existing session and its cache, even when its accumulated context is large. The 32,000-character limit covers the app's input text, not provider instructions, tools, retained native history, or a token/spending limit. This handoff is a selection of original messages, not a generated summary. It identifies omitted history and requires checking original decisions and authorizing messages before acting. Oversized individual messages remain intact in the archive. Independent reviewers only receive archives of messages visible to their review.
 
-Open Agent context in the duck sidebar for each agent's last reported input tokens and recorded compactions. Codex also reports the model's context window. Claude input counts include cached tokens, but no window percentage is shown without a reported capacity. These figures are separate from cumulative usage. Native compaction remains managed by the provider. Handoffs preserve published conversation history; earlier native tool output is not copied, so ducks must reopen cited files when those details matter.
+Open Context usage at the bottom of a conversation's Ducks dialog for each agent's last reported input tokens and recorded compactions. Codex also reports the model's context window. Claude input counts include cached tokens, but no window percentage is shown without a reported capacity. These figures are separate from cumulative usage. Native compaction remains managed by the provider. Handoffs preserve published conversation history; earlier native tool output is not copied, so ducks must reopen cited files when those details matter.
