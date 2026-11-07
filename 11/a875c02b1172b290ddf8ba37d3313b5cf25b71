@@ -1,0 +1,57 @@
+README.md
+  s_105d2118509069::t_8e7647e0bba6eb 48,58,61,63-65,69,73,75,79,83,85,96,98,122
+src/components/add-ducks.tsx
+  s_105d2118509069::t_ddd08bd8abad04 206
+src/components/chat-message.tsx
+  s_105d2118509069::t_69636d556af379 3,17-21,31-32,37,41,51-59,61,71-98,102-107,158,160-164,189,209-222,249,252-256,273-278,283-307,391,466,470-471,477,499-501,509-551,553-563,566,568-570,573,581-582,587,590
+src/components/duck-editor.tsx
+  s_105d2118509069::t_7171eb35124f4e 100-139
+src/components/pond-dialog.tsx
+  s_105d2118509069::t_09072a62da7788 3,6,10,14-15,19-20,93-111
+src/lib/pond.ts
+  s_105d2118509069::t_44ee6df62894b1 14-15
+src/lib/room.ts
+  s_105d2118509069::t_aa2f66636974bb 91-92,198-199,283
+src/routes/index.tsx
+  s_105d2118509069::t_412c8559875522 6,13,17,477-480,572-590,593,596,602-627,647,724-737,740,751,754-759,777-778,898,1105-1109
+src/server/chat.server.ts
+  s_105d2118509069::t_0032fbbeb771ab 5,24,54
+src/server/codex.server.ts
+  s_105d2118509069::t_ead52ab02ff2c6 11-16,143-145
+src/server/conversation.test.ts
+  s_105d2118509069::t_e6c922ec227c74 5,524,750-800
+src/server/discussion.server.ts
+  s_105d2118509069::t_39f6ceb192c0d5 14,310-314,316,318,429
+src/server/ponds.functions.ts
+  s_105d2118509069::t_9aba4f7f028b90 6,26-31
+src/server/ponds.server.ts
+  s_105d2118509069::t_ef75f5b0a3a838 16,37-40,59,73,134-162
+src/server/ponds.test.ts
+  s_105d2118509069::t_3c83605db9b2f3 9-10,96-108
+src/server/providers.server.ts
+  s_105d2118509069::t_2566ac18f6965e 226-250,252-255,263,276
+src/server/rooms.functions.ts
+  s_105d2118509069::t_6a446863702738 18,30,34-37,61-68,70,73-76
+src/styles.css
+  s_105d2118509069::t_ce7c9475c42219 674-676,679-681,1774-1776,1779-1781,2005-2007,2010-2017,2085,2087,2091-2093,2097,2100-2102,2105,2109-2112,2200-2238
+src/components/room-notes.tsx
+  s_105d2118509069::t_0e7bfc86d0abba 2,5-14,16-17,21,24,26,33,37-38,40,52,54-62,64-67,70,72,78-83,100,106,114-137,144,153-154,161
+src/server/conversation.server.ts
+  s_105d2118509069::t_a2dbd762fc8a26 16-17,28-97,180,216-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "11a875c02b1172b290ddf8ba37d3313b5cf25b71",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "unknown"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
