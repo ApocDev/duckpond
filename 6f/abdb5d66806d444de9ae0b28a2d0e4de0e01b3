@@ -1,0 +1,47 @@
+.env.example
+  s_105d2118509069::t_688124476d0833 7-8
+README.md
+  s_105d2118509069::t_e6bb4b0820a74f 29-41
+src/components/panel-ducks.tsx
+  s_105d2118509069::t_eddef58e110500 1-203
+src/components/panel-turn.tsx
+  s_105d2118509069::t_10a94719c9979f 1-498
+src/lib/panel.ts
+  s_105d2118509069::t_2975f6b898bc72 1-215
+src/routes/panel.tsx
+  s_105d2118509069::t_d5400deb296883 1-546
+src/server/openrouter.server.ts
+  s_105d2118509069::t_7ab66cfc9d7444 1-68
+src/server/panel.server.ts
+  s_105d2118509069::t_a31df4024920d3 1-321
+src/server/panel.test.ts
+  s_105d2118509069::t_133b6ceb771027 1-108
+src/server/store.server.ts
+  s_105d2118509069::t_7ffb4c9ede01ba 16
+src/styles.css
+  s_105d2118509069::t_0392e0ad911f43 2239-2975
+vite.config.ts
+  s_105d2118509069::t_44e88d0ded03c3 10
+src/routeTree.gen.ts
+  s_105d2118509069::t_7b012f7d666e67 13,23-27,46,53,61,68,70-71,76,91-97,124
+src/server/panel-store.server.ts
+  s_105d2118509069::t_edf0dba57e303a 1-138
+src/server/panel.functions.ts
+  s_105d2118509069::t_2d64a714698e15 1-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6fabdb5d66806d444de9ae0b28a2d0e4de0e01b3",
+  "prompts": {},
+  "sessions": {
+    "s_105d2118509069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71f29ab9-3739-4e09-a49b-06140338279e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
