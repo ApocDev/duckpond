@@ -1,0 +1,32 @@
+.env.example
+  h_3ea7e994213848 7-10
+README.md
+  h_3ea7e994213848 33,35-36,40
+src/components/panel-ducks.tsx
+  h_3ea7e994213848 9,11-12,151
+src/lib/panel.ts
+  h_3ea7e994213848 14
+src/routes/panel.tsx
+  h_3ea7e994213848 184-185
+src/server/gateway.server.ts
+  h_3ea7e994213848 8-20,23-26,28,32,39-40,44-45,49-50,53,58,66,86-100
+src/server/panel-store.server.ts
+  h_3ea7e994213848 35,44,62,71,80
+src/server/panel.functions.ts
+  h_3ea7e994213848 7,43
+src/server/panel.server.ts
+  h_3ea7e994213848 21,30,33,52,99,161,261
+vite.config.ts
+  h_3ea7e994213848 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b3fe057eb1b094a93f28d2793edaec4d02b523c0",
+  "prompts": {},
+  "humans": {
+    "h_3ea7e994213848": {
+      "author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
