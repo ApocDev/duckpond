@@ -18,7 +18,7 @@ import {
   type PanelDuck,
   type Reply,
 } from "../lib/panel";
-import { openRouter } from "./openrouter.server";
+import { chat, claudeGatewayEnv } from "./gateway.server";
 import { getPanel, listDucks, mutatePanel } from "./panel-store.server";
 import { getPond } from "./ponds.server";
 import { claudeExecutable } from "./providers.server";
@@ -27,10 +27,10 @@ import { dataDirectory } from "./store.server";
 /** Running turns by panel ID, and running research jobs by research ID. */
 export const activeTurns = new Map<string, AbortController>();
 const activeResearch = new Map<string, AbortController>();
-const mediatorModel = "anthropic/claude-sonnet-5.5";
+const mediatorModel = "claude-sonnet-5-5";
 const researchTimeout = 15 * 60 * 1000;
 
-type Ask = typeof openRouter;
+type Ask = typeof chat;
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 function turnOf(panel: Panel, turnId: string) {
@@ -49,7 +49,7 @@ export async function runTurn(
   panelId: string,
   turnId: string,
   {
-    ask = openRouter,
+    ask = chat,
     research = startResearch,
   }: { ask?: Ask; research?: (panelId: string, turnId: string, question: string) => void } = {},
 ) {
@@ -96,6 +96,7 @@ export async function runTurn(
               model: duck.model,
               system: duckSystem(duck),
               prompt: prompt(duck),
+              session: panelId,
               signal,
             });
             const passed = isPass(text);
@@ -157,6 +158,7 @@ export async function runTurn(
               model: mediatorModel,
               system: mediatorSystem,
               prompt: mediatorPrompt(panel, turn.text, rounds, names),
+              session: panelId,
               signal,
               json: { name: "brief", schema: briefSchema },
             });
@@ -256,7 +258,7 @@ export function startResearch(panelId: string, turnId: string, question: string)
           persistSession: false,
           cwd,
           abortController: controller,
-          env: { ...process.env, ANTHROPIC_API_KEY: undefined, ANTHROPIC_AUTH_TOKEN: undefined },
+          env: claudeGatewayEnv(panelId),
           pathToClaudeCodeExecutable: await claudeExecutable(),
         },
       })) {

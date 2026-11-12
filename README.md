@@ -30,14 +30,14 @@ vp run start
 
 `/panel` is a second take on Duckpond: a panel of perspectives that helps you make decisions. It runs next to the classic app and doesn't change it.
 
-- **Ducks** come from one shared library (the Ducks button). Each duck is an **adviser**, who weighs what's best for you, or a **person**, who says what they'd do, buy, or skip. Each one replies through OpenRouter using its own model and has no tools, so it knows only the conversation.
+- **Ducks** come from one shared library (the Ducks button). Each duck is an **adviser**, who weighs what's best for you, or a **person**, who says what they'd do, buy, or skip. Each one replies through the AI gateway using its own model and has no tools, so it knows only the conversation. A bare model name such as `claude-sonnet-5-5` runs on a subscription through CLIProxyAPI. A `provider/model` name such as `deepseek/deepseek-v4.1-flash` runs through LiteLLM and is paid. The brief's cost counts only paid calls.
 - **Ask the panel** and every duck answers blind. Ducks with nothing to add reply PASS. When two or more answer, they react to each other in rounds that start with CHANGED, STILL DISAGREE, or NOTHING TO ADD. Rounds stop when nobody changes their mind, or after three reaction rounds.
-- **Mediator** (Claude Sonnet 5.5 on OpenRouter) writes a brief: where the panel landed, what everyone agrees, facts in dispute, the trade-offs that are your call, and one question for you. The board under the brief shows each duck's position by round. Click a cell to read the full reply.
-- **Research** answers one factual question with a read-only Claude Code job on your subscription (Opus, high effort). It can read files and the web, and nothing else. Mediator's research question starts automatically, and "Look this up" on a fact in dispute starts another. The job reads the project folder of the pond you pick for the conversation. Without a pond, it uses the web only. Ducks see finished research in later turns.
+- **Mediator** (Claude Sonnet 5.5 on the subscription) writes a brief: where the panel landed, what everyone agrees, facts in dispute, the trade-offs that are your call, and one question for you. The board under the brief shows each duck's position by round. Click a cell to read the full reply.
+- **Research** answers one factual question with a read-only Claude Code job on the Claude subscription through the gateway (Opus, high effort). It can read files and the web, and nothing else. Mediator's research question starts automatically, and "Look this up" on a fact in dispute starts another. The job reads the project folder of the pond you pick for the conversation. Without a pond, it uses the web only. Ducks see finished research in later turns.
 - **Ask one duck** from the To menu and you get a plain reply with no rounds.
 - **Decisions** you save stay in the rail, and every duck reads them in later turns. A question with a saved decision folds to one line. Ducks see earlier questions as briefs, decisions, research, and their own replies, not every past reply, so prompts stay short in long conversations.
 
-Set `OPENROUTER_API_KEY` in `.env`. The dev server and the production start script both read it.
+Set `DUCKPOND_AI_GATEWAY_URL` and `DUCKPOND_AI_GATEWAY_KEY` in `.env`. The dev server and the production start script both read them. Every call sends `x-ai-app: duckpond` and `x-ai-session: <conversation ID>`, so the gateway's archive groups usage by conversation.
 
 ## Remote access
 

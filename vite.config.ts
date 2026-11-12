@@ -7,7 +7,7 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 const config = defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), ["DUCKPOND_", "OPENROUTER_"]);
+  const env = loadEnv(mode, process.cwd(), "DUCKPOND_");
   for (const [key, value] of Object.entries(env)) process.env[key] ??= value;
   return {
     server: { allowedHosts: (process.env.DUCKPOND_ALLOWED_HOSTS ?? "").split(",").filter(Boolean) },

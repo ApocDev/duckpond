@@ -181,8 +181,8 @@ function PanelPage() {
         </div>
         {!app.hasKey && (
           <p className="pn-banner">
-            OPENROUTER_API_KEY isn't set on the server, so the ducks can't reply. Add it to .env and
-            restart.
+            DUCKPOND_AI_GATEWAY_URL or DUCKPOND_AI_GATEWAY_KEY isn't set on the server, so the ducks
+            can't reply. Add them to .env and restart.
           </p>
         )}
         {error && <p className="pn-banner error">{error}</p>}

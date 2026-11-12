@@ -4,7 +4,7 @@ import { z } from "zod";
 import { panelDuckSchema } from "../lib/panel";
 import { shortTitle } from "../lib/room";
 import { requireAllowedRequest } from "./access.server";
-import { hasOpenRouterKey } from "./openrouter.server";
+import { hasGateway } from "./gateway.server";
 import {
   deleteDuck,
   deletePanel,
@@ -40,7 +40,7 @@ export const loadPanelApp = createServerFn({ method: "GET" }).handler(() => {
     ponds: listPonds()
       .filter((pond) => !pond.error)
       .map((pond) => ({ id: pond.id, name: pond.name })),
-    hasKey: hasOpenRouterKey(),
+    hasKey: hasGateway(),
   };
 });
 

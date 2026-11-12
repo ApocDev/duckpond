@@ -6,10 +6,10 @@ import type { PanelDuck } from "../lib/panel";
 
 /** Models that played personas well in the persona tests, with a rough cost per panel. */
 const suggestedModels = [
-  ["qwen/qwen3.8-max-0902", "Qwen 3.8 Max · good at people · about $0.05 a panel"],
+  ["qwen/qwen3.8-max-prime", "Qwen 3.8 Max Prime · good at people"],
   ["deepseek/deepseek-v4.1-flash", "DeepSeek V4.1 Flash · argues hardest · under $0.01"],
-  ["anthropic/claude-sonnet-5.5", "Claude Sonnet 5.5 · natural, polite · about $0.05"],
-  ["openai/gpt-6.1-sol", "GPT-6.1 Sol · sounds like a consultant · about $0.04"],
+  ["claude-sonnet-5-5", "Claude Sonnet 5.5 · natural, polite · subscription"],
+  ["gpt-6.1-sol", "GPT-6.1 Sol · sounds like a consultant · subscription"],
   ["z-ai/glm-5.3", "GLM 5.3 · cheap · under $0.01"],
   ["moonshotai/kimi-k3.1-pro", "Kimi K3.1 Pro · about $0.06"],
   ["meta/muse-wonder", "Muse Wonder · great people, pricey · about $0.27"],
@@ -148,7 +148,7 @@ export function DuckLibrary({
           />
         </label>
         <label className="field">
-          <span>Model (OpenRouter ID)</span>
+          <span>Model (gateway ID: bare names are subscription, provider/model is paid)</span>
           <input
             list="pn-models"
             required

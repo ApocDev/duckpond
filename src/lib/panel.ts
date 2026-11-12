@@ -11,7 +11,7 @@ export const panelDuckSchema = z.object({
   kind: z.enum(["adviser", "person"]),
   /** Who the duck is, written to the duck ("You are 15…"). */
   brief: z.string().trim().min(1).max(4000),
-  /** OpenRouter model ID. */
+  /** Gateway model ID: a bare name runs on a subscription, `provider/model` is paid. */
   model: z.string().trim().min(1).max(120),
   avatar: outfitSchema,
 });
