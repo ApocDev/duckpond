@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PanelRouteImport } from './routes/panel'
 import { Route as ApiAvatarRouteImport } from './routes/api.avatar'
 import { Route as ApiChatRouteImport } from './routes/api.chat'
 import { Route as ApiUsageRouteImport } from './routes/api.usage'
@@ -17,6 +18,11 @@ import { Route as ApiUsageRouteImport } from './routes/api.usage'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PanelRoute = PanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAvatarRoute = ApiAvatarRouteImport.update({
@@ -37,12 +43,14 @@ const ApiUsageRoute = ApiUsageRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/panel': typeof PanelRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/chat': typeof ApiChatRoute
   '/api/usage': typeof ApiUsageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/panel': typeof PanelRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/chat': typeof ApiChatRoute
   '/api/usage': typeof ApiUsageRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/panel': typeof PanelRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/chat': typeof ApiChatRoute
   '/api/usage': typeof ApiUsageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/avatar' | '/api/chat' | '/api/usage'
+  fullPaths: '/' | '/panel' | '/api/avatar' | '/api/chat' | '/api/usage'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/avatar' | '/api/chat' | '/api/usage'
-  id: '__root__' | '/' | '/api/avatar' | '/api/chat' | '/api/usage'
+  to: '/' | '/panel' | '/api/avatar' | '/api/chat' | '/api/usage'
+  id: '__root__' | '/' | '/panel' | '/api/avatar' | '/api/chat' | '/api/usage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PanelRoute: typeof PanelRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiUsageRoute: typeof ApiUsageRoute
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/panel': {
+      id: '/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof PanelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/avatar': {
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PanelRoute: PanelRoute,
   ApiAvatarRoute: ApiAvatarRoute,
   ApiChatRoute: ApiChatRoute,
   ApiUsageRoute: ApiUsageRoute,

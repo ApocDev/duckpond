@@ -13,7 +13,7 @@ import {
 
 export const dataDirectory = process.env.DUCKPOND_DATA_DIR ?? join(process.cwd(), ".data");
 mkdirSync(dataDirectory, { recursive: true });
-const db = new DatabaseSync(join(dataDirectory, "duckpond.sqlite"));
+export const db = new DatabaseSync(join(dataDirectory, "duckpond.sqlite"));
 db.exec(
   "PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS rooms (id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL)",
 );
