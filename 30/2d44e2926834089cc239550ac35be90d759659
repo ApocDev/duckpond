@@ -1,0 +1,56 @@
+README.md
+  h_3ea7e994213848 36,46,66,92,102,107,115,117,119,157
+src/components/add-ducks.tsx
+  h_3ea7e994213848 14,173,189-191,203,279
+src/components/chat-message.tsx
+  h_3ea7e994213848 67-92,510
+src/components/conversation-dialogs.tsx
+  h_3ea7e994213848 78,122
+src/components/duck-settings.tsx
+  h_3ea7e994213848 186-191
+src/components/pond-dialog.tsx
+  h_3ea7e994213848 8,28,31,38,48,64,85
+src/components/sidebar.tsx
+  h_3ea7e994213848 32,73-74,79-80,90-91,96
+src/lib/panel.ts
+  h_3ea7e994213848 213
+src/lib/pond.ts
+  h_3ea7e994213848 2,4-5,9,11
+src/routes/index.tsx
+  h_3ea7e994213848 441
+src/routes/panel.tsx
+  h_3ea7e994213848 80-81,197,199,253,270,341-347
+src/server/conversation.test.ts
+  h_3ea7e994213848 95
+src/server/panel.functions.ts
+  h_3ea7e994213848 28,51
+src/server/panel.server.ts
+  h_3ea7e994213848 214-215,219,238,240
+src/server/ponds.functions.ts
+  h_3ea7e994213848 6,15,18,38-39
+src/server/ponds.server.ts
+  h_3ea7e994213848 1-4,6,8-12,16-18,22-35,39,43-44,47,49
+src/server/ponds.test.ts
+  h_3ea7e994213848 1-2,9-33,40-44,47-54,57-58,61
+src/server/providers.server.ts
+  h_3ea7e994213848 5,36,39,89
+src/server/rooms.functions.ts
+  h_3ea7e994213848 57,70,99-105,112,115
+src/server/store.server.ts
+  h_3ea7e994213848 5,23-46,48,69,72
+src/server/suggestions.server.ts
+  h_3ea7e994213848 8,10,15,29,32
+src/server/suggestions.test.ts
+  h_3ea7e994213848 10,140,143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "302d44e2926834089cc239550ac35be90d759659",
+  "prompts": {},
+  "humans": {
+    "h_3ea7e994213848": {
+      "author": "ApocDev <apocdev@gmail.com>"
+    }
+  }
+}
