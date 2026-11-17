@@ -77,8 +77,8 @@ function PanelPage() {
     }
   }
 
-  async function startConversation(duckIds: string[], pondId: string | undefined, text: string) {
-    const created = await act(() => createPanel({ data: { duckIds, pondId } }));
+  async function startConversation(duckIds: string[], text: string) {
+    const created = await act(() => createPanel({ data: { duckIds } }));
     if (!created) return;
     const started = await act(() => sendTurn({ data: { panelId: created.id, text, to: "panel" } }));
     await router.invalidate();
@@ -158,11 +158,6 @@ function PanelPage() {
           <strong className="pn-title">
             {view === "ducks" ? "Ducks" : panel ? panel.title : id ? "" : "New question"}
           </strong>
-          {panel && (
-            <span className="pn-note">
-              {app.ponds.find((pond) => pond.id === panel.pondId)?.name ?? "No project folder"}
-            </span>
-          )}
           <span className="spacer" />
           {panel && !running && (
             <button
@@ -199,22 +194,14 @@ function PanelPage() {
             }}
           />
         ) : panel ? (
-          <Conversation
-            panel={panel}
-            ducks={ducks}
-            ponds={app.ponds}
-            onChange={setPanel}
-            act={act}
-          />
+          <Conversation panel={panel} ducks={ducks} onChange={setPanel} act={act} />
         ) : id ? null : (
-          <NewQuestion ducks={app.ducks} ponds={app.ponds} onStart={startConversation} />
+          <NewQuestion ducks={app.ducks} onStart={startConversation} />
         )}
       </main>
     </div>
   );
 }
-
-type Ponds = { id: string; name: string }[];
 
 function DuckPicker({
   ducks,
@@ -258,43 +245,16 @@ function DuckPicker({
   );
 }
 
-function PondSelect({
-  ponds,
-  value,
-  onChange,
-}: {
-  ponds: Ponds;
-  value: string | undefined;
-  onChange: (id: string | undefined) => void;
-}) {
-  return (
-    <label className="field">
-      <span>Project folder for research</span>
-      <select value={value ?? ""} onChange={(event) => onChange(event.target.value || undefined)}>
-        <option value="">None, web only</option>
-        {ponds.map((pond) => (
-          <option key={pond.id} value={pond.id}>
-            {pond.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
 function NewQuestion({
   ducks,
-  ponds,
   onStart,
 }: {
   ducks: PanelDuck[];
-  ponds: Ponds;
-  onStart: (duckIds: string[], pondId: string | undefined, text: string) => Promise<void>;
+  onStart: (duckIds: string[], text: string) => Promise<void>;
 }) {
   const [selected, setSelected] = useState(
     starterPanel.filter((id) => ducks.some((duck) => duck.id === id)),
   );
-  const [pondId, setPondId] = useState<string>();
   return (
     <div className="pn-new">
       <div className="pn-new-body">
@@ -303,12 +263,11 @@ function NewQuestion({
           Advisers weigh what's best for you. People say what they'd do, buy, or skip.
         </p>
         <DuckPicker ducks={ducks} selected={selected} onChange={setSelected} />
-        <PondSelect ponds={ponds} value={pondId} onChange={setPondId} />
       </div>
       <Composer
         placeholder="Ask the panel a question…"
         disabled={!selected.length}
-        onSend={(text) => onStart(selected, pondId, text)}
+        onSend={(text) => onStart(selected, text)}
       />
     </div>
   );
@@ -317,13 +276,11 @@ function NewQuestion({
 function Conversation({
   panel,
   ducks,
-  ponds,
   onChange,
   act,
 }: {
   panel: Panel;
   ducks: Ducks;
-  ponds: Ponds;
   onChange: (panel: Panel) => void;
   act: <T>(task: () => Promise<T>) => Promise<T | undefined>;
 }) {
@@ -381,22 +338,13 @@ function Conversation({
             </button>
           </h4>
           {editing ? (
-            <>
-              <DuckPicker
-                ducks={[...ducks.values()]}
-                selected={panel.duckIds}
-                onChange={(duckIds) =>
-                  duckIds.length && update(() => updatePanel({ data: { id: panel.id, duckIds } }))
-                }
-              />
-              <PondSelect
-                ponds={ponds}
-                value={panel.pondId}
-                onChange={(pondId) =>
-                  update(() => updatePanel({ data: { id: panel.id, pondId: pondId ?? null } }))
-                }
-              />
-            </>
+            <DuckPicker
+              ducks={[...ducks.values()]}
+              selected={panel.duckIds}
+              onChange={(duckIds) =>
+                duckIds.length && update(() => updatePanel({ data: { id: panel.id, duckIds } }))
+              }
+            />
           ) : (
             <ul className="pn-rail-ducks">
               {panel.duckIds.map((duckId) => (

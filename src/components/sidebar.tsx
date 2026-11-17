@@ -29,7 +29,7 @@ export function Sidebar({
   onDelete,
   onSettings,
 }: {
-  ponds: { id: string; name: string; workspace: string; error: string | null }[];
+  ponds: { id: string; name: string }[];
   pondId: string | null;
   rooms: Room[];
   selected: string | null;
@@ -70,22 +70,14 @@ export function Sidebar({
           value={pondId ?? ""}
           disabled={locked}
           options={[
-            { value: "", label: "General", detail: "No project folder" },
-            ...ponds.map((item) => ({
-              value: item.id,
-              label: item.error ? `${item.name} (unavailable)` : item.name,
-              detail: item.workspace,
-            })),
+            { value: "", label: "General" },
+            ...ponds.map((item) => ({ value: item.id, label: item.name })),
             { value: newPond, label: "New pond…", separated: true },
           ]}
           onChange={(value) => (value === newPond ? onNewPond() : onPond(value || null))}
         />
-        <div className="pond-meta">
-          <small className="pond-path" title={pond?.workspace}>
-            {/* bdi keeps the path's own order while the ellipsis trims its start. */}
-            <bdi>{pond ? shortPath(pond.workspace) : "No project folder"}</bdi>
-          </small>
-          {pond && !pond.error && (
+        {pond && (
+          <div className="pond-meta">
             <button
               type="button"
               className="text-button"
@@ -95,14 +87,13 @@ export function Sidebar({
             >
               <Settings2 size={13} /> Pond settings
             </button>
-          )}
-        </div>
-        {pond?.error && <p className="field-error">{pond.error}</p>}
+          </div>
+        )}
       </div>
       <button
         type="button"
         className="secondary-button new-conversation"
-        disabled={locked || !!pond?.error}
+        disabled={locked}
         onClick={onNew}
       >
         <Plus size={16} /> New conversation
@@ -258,15 +249,4 @@ function ConversationRow({
       )}
     </div>
   );
-}
-
-/** "~/code/shelf", or "…/ponds/shelf" for deeper folders, so the sidebar shows which folder. */
-function shortPath(path: string) {
-  const parts = path
-    .replace(/^\/home\/[^/]+/, "~")
-    .split("/")
-    .filter(Boolean);
-  return parts.length > 3
-    ? `…/${parts.slice(-2).join("/")}`
-    : `${path.startsWith("/home/") ? "" : "/"}${parts.join("/")}`;
 }

@@ -20,7 +20,6 @@ import {
 } from "../lib/panel";
 import { chat, claudeEnv } from "./gateway.server";
 import { getPanel, listDucks, mutatePanel } from "./panel-store.server";
-import { getPond } from "./ponds.server";
 import { claudeExecutable } from "./providers.server";
 import { dataDirectory } from "./store.server";
 
@@ -212,13 +211,12 @@ function stepLabel(tool: string, input: Record<string, unknown>, cwd: string) {
 }
 
 /**
- * Starts a read-only Claude Code job that answers one factual question, in the pond's folder
- * when the panel has one. It reads files and the web only, loads the project's settings but not
- * the person's own, and isn't saved to Claude Code's session history.
+ * Starts a read-only Claude Code job that answers one factual question from the web. It loads
+ * project settings but not the person's own, and isn't saved to Claude Code's session history.
  */
 export function startResearch(panelId: string, turnId: string, question: string) {
   const id = crypto.randomUUID();
-  const panel = mutatePanel(panelId, (panel) =>
+  mutatePanel(panelId, (panel) =>
     turnOf(panel, turnId).research.push({
       id,
       question,
@@ -237,10 +235,9 @@ export function startResearch(panelId: string, turnId: string, question: string)
   activeResearch.set(id, controller);
   const timer = setTimeout(() => controller.abort(), researchTimeout);
   void (async () => {
-    let cwd = join(dataDirectory, "research");
+    const cwd = join(dataDirectory, "research");
     try {
-      if (panel.pondId) cwd = getPond(panel.pondId).workspace;
-      else mkdirSync(cwd, { recursive: true });
+      mkdirSync(cwd, { recursive: true });
       const tools = ["Read", "Grep", "Glob", "WebSearch", "WebFetch"];
       let answer: string | undefined;
       for await (const event of query({

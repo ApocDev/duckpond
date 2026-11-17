@@ -87,8 +87,6 @@ export type Decision = z.infer<typeof decisionSchema>;
 export const panelSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
-  /** The pond whose folder research reads. */
-  pondId: z.string().uuid().optional(),
   duckIds: z.array(z.string()).min(1),
   turns: z.array(turnSchema),
   decisions: z.array(decisionSchema),
@@ -212,4 +210,4 @@ export function mediatorPrompt(panel: Panel, question: string, rounds: Reply[][]
   return `Panelist IDs:\n${roster}${decisions}\n\nThe person asked the panel:\n${question}\n\n${transcript(rounds, names)}\n\nSummarize for the person. headline: one sentence on where the panel landed. options: each distinct pick and the panelist IDs who ended on it. agreed: up to 3 points everyone shares. facts: disagreements about what will happen that research could check, with each side's panelist IDs. values: trade-offs only the person can decide, with each side's panelist IDs. question: the one question the person should answer. research: the single most decision-relevant factual question to look up, or null if none.`;
 }
 
-export const researchSystem = `You are a careful researcher answering one factual question for the person running a panel discussion. Read the project files in your working folder when the question is about the project, and use web search for anything else. Every claim needs a source: a file path with line numbers, or a link. If you can't confirm something, write "Couldn't confirm" instead of guessing. Prefer primary sources such as docs, data, and postmortems. Answer in under 200 words: a one-sentence answer first, then the supporting points with sources.`;
+export const researchSystem = `You are a careful researcher answering one factual question for the person running a panel discussion. Use web search. Every claim needs a source link. If you can't confirm something, write "Couldn't confirm" instead of guessing. Prefer primary sources such as docs, data, and postmortems. Answer in under 200 words: a one-sentence answer first, then the supporting points with sources.`;

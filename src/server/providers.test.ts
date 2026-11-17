@@ -2,9 +2,6 @@ import type { ClaudeCodeSettings } from "ai-sdk-provider-claude-code";
 import { beforeEach, expect, it, vi } from "vite-plus/test";
 import type { CodexPacket } from "./codex-client.server";
 import { defaults } from "../lib/room";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 const mocks = vi.hoisted(() => ({
   model: vi.fn((_model: string, _settings: ClaudeCodeSettings) => ({})),
@@ -85,43 +82,6 @@ beforeEach(() => {
   mocks.usage.clear();
   mocks.failResume = false;
 });
-
-it.each(["claude", "codex"] as const)(
-  "runs %s in the pond workspace and starts a new native session when it changes",
-  async (provider) => {
-    const first = mkdtempSync(join(tmpdir(), "duckpond-provider-pond-"));
-    const second = mkdtempSync(join(tmpdir(), "duckpond-provider-pond-"));
-    try {
-      for (const workspace of [first, second]) {
-        await reply(
-          { ...defaults[0], provider },
-          "system",
-          "prompt",
-          new AbortController().signal,
-          () => {},
-          () => {},
-          undefined,
-          { roomId: "pond-room", workspace, messages: [], makePrompt: () => "prompt" },
-        );
-      }
-      if (provider === "claude") {
-        expect(mocks.model.mock.calls.map((call) => call[1].cwd)).toEqual([first, second]);
-        expect(mocks.model.mock.calls[1][1].resume).toBeUndefined();
-        expect(mocks.model.mock.calls[1][1].settingSources).toEqual(["user", "project", "local"]);
-      } else {
-        expect(
-          mocks.request.mock.calls
-            .filter(([method]) => method === "thread/start")
-            .map((call) => call[1].cwd),
-        ).toEqual([first, second]);
-        expect(mocks.request.mock.calls.some(([method]) => method === "thread/resume")).toBe(false);
-      }
-    } finally {
-      rmSync(first, { recursive: true, force: true });
-      rmSync(second, { recursive: true, force: true });
-    }
-  },
-);
 
 it("passes a duck's Claude model and effort to the native provider", async () => {
   await reply(

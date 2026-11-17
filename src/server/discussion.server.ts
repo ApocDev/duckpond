@@ -442,7 +442,6 @@ ${room.ducks.map((duck) => `${duck.name} (@${duck.id}): ${duck.instructions.spli
               observedTools,
               {
                 roomId: room.id,
-                workspace: room.workspace,
                 messages: visibleMessages(room.messages, "discussion"),
                 makePrompt: buildPrompt,
               },

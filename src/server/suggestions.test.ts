@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   request: vi.fn(),
   close: vi.fn(),
   connect: vi.fn(),
-  directory: vi.fn(async (workspace?: string) => workspace ?? "/agent"),
+  directory: vi.fn(async () => "/agent"),
 }));
 vi.mock("./codex-client.server", () => ({ connectCodex: mocks.connect }));
 vi.mock("./providers.server", () => ({
@@ -137,11 +137,10 @@ it("returns a reviewable suggestion without mutating the roster and forwards can
   const lastTurn = mocks.request.mock.calls.filter(([method]) => method === "turn/start").at(-1);
   expect(lastTurn?.[1].input[0].text.length).toBeLessThanOrEqual(60000);
 
-  const empty = { ducks: defaults, notes: "", messages: [], workspace: "/project/game" };
+  const empty = { ducks: defaults, notes: "", messages: [] };
   const idea = "A game designer who challenges boring realism";
   await expect(suggestParticipant(empty, signal, [], idea)).resolves.toEqual(output);
-  expect(mocks.directory).toHaveBeenLastCalledWith("/project/game");
-  expect(mocks.connect).toHaveBeenLastCalledWith("/project/game", signal, expect.any(Function));
+  expect(mocks.connect).toHaveBeenLastCalledWith("/agent", signal, expect.any(Function));
   const generated = mocks.request.mock.calls
     .filter(([method]) => method === "turn/start")
     .at(-1)?.[1];
@@ -169,91 +168,6 @@ it("accepts five options, rejects six, and includes previous names to discourage
   expect(suggestionContext(context, ["Playtester"])).toContain(
     '"previouslySuggestedNames":["Playtester"]',
   );
-});
-
-it.each([true, false])(
-  "requires actual workspace inspection before returning suggestions: %s",
-  async (inspected) => {
-    const request = vi.fn();
-    const close = vi.fn();
-    const output = {
-      reason: "The README describes a tactics game.",
-      suggestions: [
-        {
-          name: "Playtester",
-          instructions: "Protect meaningful tactical decisions.",
-          reason: "README.md calls for short, replayable battles.",
-        },
-      ],
-    };
-    mocks.connect.mockImplementation(
-      (_cwd: string, _signal: AbortSignal, receive: (packet: CodexPacket) => void) => {
-        request.mockImplementation(async (method: string) => {
-          if (method === "config/read")
-            return { config: { mcp_servers: { editor: { command: "editor-mcp" } } } };
-          if (method === "thread/start") return { thread: { id: "workspace-thread" } };
-          if (method === "turn/start") {
-            if (inspected)
-              receive({
-                method: "item/completed",
-                params: { item: { type: "commandExecution", exitCode: 0 } },
-              });
-            receive({
-              method: "item/completed",
-              params: { item: { type: "agentMessage", text: JSON.stringify(output) } },
-            });
-            receive({ method: "turn/completed", params: { turn: { status: "completed" } } });
-          }
-          return {};
-        });
-        return {
-          initialize: async () => {},
-          request,
-          close,
-          disconnected: new Promise<never>(() => {}),
-        };
-      },
-    );
-    const room = {
-      ducks: structuredClone(defaults),
-      notes: "",
-      messages: [],
-      workspace: "/project/game",
-    };
-    const result = suggestParticipant(room, new AbortController().signal, [], undefined, true);
-    if (inspected) await expect(result).resolves.toEqual(output);
-    else await expect(result).rejects.toThrow("wasn't inspected");
-    expect(request).toHaveBeenCalledWith("config/read", {
-      cwd: room.workspace,
-      includeLayers: false,
-    });
-    expect(request).toHaveBeenCalledWith(
-      "thread/start",
-      expect.objectContaining({
-        cwd: room.workspace,
-        sandbox: "read-only",
-        approvalPolicy: "never",
-        ephemeral: true,
-        config: expect.objectContaining({
-          mcp_servers: { editor: { enabled: false } },
-          "features.apps": false,
-          "features.plugins": false,
-          "features.hooks": false,
-          web_search: "disabled",
-        }),
-      }),
-    );
-    expect(room.ducks).toEqual(defaults);
-    expect(close).toHaveBeenCalled();
-  },
-);
-
-it("rejects workspace suggestions without a workspace before starting a provider", async () => {
-  const count = mocks.connect.mock.calls.length;
-  await expect(
-    suggestParticipant(context, new AbortController().signal, [], undefined, true),
-  ).rejects.toThrow("Choose a pond workspace");
-  expect(mocks.connect).toHaveBeenCalledTimes(count);
 });
 
 it("bounds large-room suggestions while preserving current context and roster", () => {

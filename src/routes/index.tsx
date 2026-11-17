@@ -428,10 +428,6 @@ function Home() {
   }
   async function startNew() {
     await guard(async () => {
-      const current = await loadPonds();
-      setPonds(current);
-      const fresh = current.find((item) => item.id === selectedPond);
-      if (fresh?.error) throw new Error(fresh.error);
       if (!drafts[newKey]?.trim())
         setNewRosters((current) => without(current, selectedPond ?? "general"));
       await switchRoom(null);
@@ -442,7 +438,7 @@ function Home() {
       const current = await loadPonds();
       setPonds(current);
       const fresh = current.find((item) => item.id === selectedPond);
-      if (!fresh || fresh.error) throw new Error(fresh?.error ?? "Pond not found");
+      if (!fresh) throw new Error("Pond not found");
       setDialog({ kind: "pond-defaults", pond: fresh });
     }, "Couldn't read the pond.");
   }
@@ -748,7 +744,6 @@ function Home() {
                 messages={room.messages}
                 ducks={room.ducks}
                 notes={room.notes}
-                workspace={room.workspace}
                 onRetry={busy ? undefined : retry}
                 onSumUp={busy ? undefined : () => void send("summary")}
                 onAddToNotes={(text) => saveNotes(appended(room.notes, text))}

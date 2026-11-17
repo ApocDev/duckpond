@@ -54,7 +54,7 @@ export const newRoom = createServerFn({ method: "POST" })
   .handler(({ data }) => {
     requireAllowedRequest(getRequest());
     const pond = data?.pondId ? getPond(data.pondId) : undefined;
-    return createRoom(data?.ducks ?? pond?.ducks, pond);
+    return createRoom(data?.ducks ?? pond?.ducks, pond?.id);
   });
 export const reusableDucks = createServerFn({ method: "GET" }).handler(() => {
   requireAllowedRequest(getRequest());
@@ -67,9 +67,7 @@ export const reusableDucks = createServerFn({ method: "GET" }).handler(() => {
     ]),
   );
   return [
-    ...ponds
-      .filter((pond) => !pond.error)
-      .map((pond) => ({ id: pond.id, title: `${pond.name} defaults`, ducks: pond.ducks })),
+    ...ponds.map((pond) => ({ id: pond.id, title: `${pond.name} defaults`, ducks: pond.ducks })),
     ...listDuckGroups().map((group) => {
       const pond = pondNames.get(group.id);
       return pond ? { ...group, title: `${group.title} in ${pond}` } : group;
@@ -98,35 +96,26 @@ export const loadModels = createServerFn({ method: "GET" })
   });
 export const suggestDuck = createServerFn({ method: "POST" })
   .validator(
-    z
-      .object({
-        roomId: z.string().uuid().optional(),
-        pondId: z.string().uuid().optional(),
-        ducks: ducksSchema,
-        previouslySuggestedNames: z.array(z.string().max(32)).max(25).default([]),
-        idea: z.string().trim().min(1).max(2000).optional(),
-        inspectWorkspace: z.boolean().default(false),
-        notes: z.string().max(20000),
-      })
-      .refine((data) => !data.inspectWorkspace || (!!data.pondId && !data.idea && !data.roomId), {
-        message:
-          "Workspace suggestions require a pond and cannot include a conversation or persona idea.",
-      }),
+    z.object({
+      roomId: z.string().uuid().optional(),
+      ducks: ducksSchema,
+      previouslySuggestedNames: z.array(z.string().max(32)).max(25).default([]),
+      idea: z.string().trim().min(1).max(2000).optional(),
+      notes: z.string().max(20000),
+    }),
   )
   .handler(async ({ data }) => {
     const request = getRequest();
     requireAllowedRequest(request);
     const room = data.roomId ? getRoom(data.roomId) : undefined;
     const messages = room?.messages ?? [];
-    const workspace = room?.workspace ?? (data.pondId ? getPond(data.pondId).workspace : undefined);
-    const timeout = AbortSignal.timeout(data.inspectWorkspace ? 180000 : 120000);
+    const timeout = AbortSignal.timeout(120000);
     try {
       return await suggestParticipant(
-        { id: data.roomId, messages, ducks: data.ducks, notes: data.notes, workspace },
+        { id: data.roomId, messages, ducks: data.ducks, notes: data.notes },
         AbortSignal.any([request.signal, timeout]),
         data.previouslySuggestedNames,
         data.idea,
-        data.inspectWorkspace,
       );
     } catch (error) {
       if (timeout.aborted) throw new Error("The suggestion took too long. Try again.");

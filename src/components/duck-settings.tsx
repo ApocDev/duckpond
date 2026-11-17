@@ -155,10 +155,6 @@ export function DuckSettings({
               maxLength={80}
               onChange={(event) => setPondName(event.target.value)}
             />
-            <small>
-              Folder: {scope.pond.workspace}. Settings are saved in its .duckpond/ folder, so you
-              can commit them.
-            </small>
           </label>
         )}
         <div className="section-heading">
@@ -187,10 +183,12 @@ export function DuckSettings({
             ducks={draft}
             modelName={(duck) => findModel(catalogs[duck.provider]?.models ?? [], duck.model)?.name}
             roomId={roomId}
-            pondId={scope.pond?.id}
-            notes={room?.notes ?? `Pond: ${pondName}`}
-            workspace={scope.kind === "pond"}
-            hasContext={scope.kind === "pond" || !!room?.messages.length || !!room?.notes.trim()}
+            notes={
+              room?.notes ?? [`Pond: ${pondName}`, scope.pond?.notes].filter(Boolean).join("\n\n")
+            }
+            hasContext={
+              !!room?.messages.length || !!room?.notes.trim() || !!scope.pond?.notes.trim()
+            }
             onAdd={(added) => {
               if (!added.length) return;
               setDraft((current) => withColors([...current, ...added]));

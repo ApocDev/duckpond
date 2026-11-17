@@ -2,7 +2,7 @@ import { commandPermission } from "./command-permissions.server";
 import { activityLabel } from "../lib/activity";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, realpath, stat } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { createClaudeCode, createSdkMcpServer, tool } from "ai-sdk-provider-claude-code";
 import { streamText } from "ai";
@@ -33,16 +33,10 @@ const toolTitles: Record<string, string> = {
   WebSearch: "Search the web",
 };
 const isString = (value: unknown): value is string => typeof value === "string";
-/** Claude tools that change files; inside the pond folder they can be allowed for a whole turn. */
+/** Claude tools that change files; inside the working folder they can be allowed for a whole turn. */
 const editTools = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 const agentDirectory = join(dataDirectory, "agent");
-export async function getAgentDirectory(workspace?: string) {
-  if (workspace) {
-    const directory = await realpath(workspace);
-    if (!(await stat(directory)).isDirectory())
-      throw new Error("The pond workspace is not a directory.");
-    return directory;
-  }
+export async function getAgentDirectory() {
   await mkdir(agentDirectory, { recursive: true });
   return process.env.DUCKPOND_AGENT_CWD ?? agentDirectory;
 }
@@ -92,11 +86,7 @@ export async function reply(
   roomTools?: RoomTools,
   context?: ReplyContext,
 ): Promise<void> {
-  const cwd = await getAgentDirectory(context?.workspace);
-  // Claude's SDK prompt doesn't name the working folder, so ducks in a pond are told where the
-  // project is instead of searching the whole machine for files the person mentions.
-  if (context?.workspace)
-    system = `${system}\n\nYour working folder is ${cwd}. It is the project this conversation is about: files the person mentions are in it, so read them there instead of searching elsewhere.`;
+  const cwd = await getAgentDirectory();
   const session = prepareReply(duck, system, prompt, cwd, roomTools, context);
   let editsAllowed = false;
   let status: "complete" | "error" | "stopped" = "error";

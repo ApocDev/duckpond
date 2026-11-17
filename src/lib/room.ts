@@ -138,7 +138,6 @@ export type Action = z.infer<typeof actionSchema>;
 export const roomSchema = z.object({
   id: z.string().uuid(),
   pondId: z.string().uuid().optional(),
-  workspace: z.string().optional(),
   title: z.string(),
   ducks: ducksSchema,
   messages: z.array(messageSchema),

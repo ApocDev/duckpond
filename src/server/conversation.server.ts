@@ -243,7 +243,6 @@ export async function runConversation(
         roomTools,
         {
           roomId: room.id,
-          workspace: room.workspace,
           messages: visibleMessages(history, phase),
           responseId: message.id,
           makePrompt: buildPrompt,

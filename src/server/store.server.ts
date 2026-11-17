@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { pondSchema } from "../lib/pond";
 import {
   defaults,
   duckGroupSchema,
@@ -19,33 +20,32 @@ db.exec(
 );
 const rowSchema = z.object({ payload: z.string() });
 
-// Only the location is indexed here. Pond settings and personas are read from the workspace.
-db.exec(
-  "CREATE TABLE IF NOT EXISTS pond_locations (id TEXT PRIMARY KEY, name TEXT NOT NULL, workspace TEXT NOT NULL UNIQUE)",
-);
-const pondLocationSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  workspace: z.string(),
-});
-export function listPondLocations() {
-  return db
-    .prepare("SELECT * FROM pond_locations ORDER BY name")
-    .all()
-    .map((row) => pondLocationSchema.parse(row));
-}
-export function registerPond(pond: z.infer<typeof pondLocationSchema>) {
-  const locations = listPondLocations();
-  const previous = locations.find((item) => item.id === pond.id);
-  if (previous && previous.workspace !== pond.workspace)
-    throw new Error("This pond is already open from another directory.");
-  if (locations.some((item) => item.workspace === pond.workspace && item.id !== pond.id))
-    throw new Error(
-      "This directory is already registered to a different pond. Restore its pond.json.",
+db.exec("CREATE TABLE IF NOT EXISTS ponds (id TEXT PRIMARY KEY, payload TEXT NOT NULL)");
+// Ponds used to live in project folders, indexed by pond_locations. Each one moves into the
+// database once, with the ducks of its most recent conversation, since its folder may not be on
+// this machine.
+if (
+  db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'pond_locations'").get()
+) {
+  const rooms = listRooms();
+  const locations = z
+    .array(z.object({ id: z.string(), name: z.string() }))
+    .parse(db.prepare("SELECT id, name FROM pond_locations").all());
+  const insert = db.prepare("INSERT OR IGNORE INTO ponds VALUES (?, ?)");
+  db.exec("BEGIN");
+  for (const { id, name } of locations)
+    insert.run(
+      id,
+      JSON.stringify(
+        pondSchema.parse({
+          id,
+          name,
+          ducks: rooms.find((room) => room.pondId === id)?.ducks ?? defaults,
+          revision: crypto.randomUUID(),
+        }),
+      ),
     );
-  db.prepare(
-    "INSERT INTO pond_locations VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name",
-  ).run(pond.id, pond.name, pond.workspace);
+  db.exec("DROP TABLE pond_locations; COMMIT");
 }
 
 export function listRooms() {
@@ -66,10 +66,10 @@ export function saveRoom(room: Room) {
   ).run(room.id, JSON.stringify(room), room.updatedAt);
   return room;
 }
-export function createRoom(ducks: Duck[] = defaults, pond?: { id: string; workspace: string }) {
+export function createRoom(ducks: Duck[] = defaults, pondId?: string) {
   return saveRoom({
     id: crypto.randomUUID(),
-    ...(pond ? { pondId: pond.id, workspace: pond.workspace } : {}),
+    pondId,
     title: "New conversation",
     ducks: structuredClone(ducks),
     messages: [],

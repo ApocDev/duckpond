@@ -33,7 +33,7 @@ vp run start
 - **Ducks** come from one shared library (the Ducks button). Each duck is an **adviser**, who weighs what's best for you, or a **person**, who says what they'd do, buy, or skip. Each one replies through the AI gateway using its own model and has no tools, so it knows only the conversation. A bare model name such as `claude-sonnet-5-5` runs on a subscription through CLIProxyAPI. A `provider/model` name such as `deepseek/deepseek-v4.1-flash` runs through LiteLLM and is paid. The brief's cost counts only paid calls.
 - **Ask the panel** and every duck answers blind. Ducks with nothing to add reply PASS. When two or more answer, they react to each other in rounds that start with CHANGED, STILL DISAGREE, or NOTHING TO ADD. Rounds stop when nobody changes their mind, or after three reaction rounds.
 - **Mediator** (Claude Sonnet 5.5 on the subscription) writes a brief: where the panel landed, what everyone agrees, facts in dispute, the trade-offs that are your call, and one question for you. The board under the brief shows each duck's position by round. Click a cell to read the full reply.
-- **Research** answers one factual question with a read-only Claude Code job on the Claude subscription through the gateway (Opus, high effort). It can read files and the web, and nothing else. Mediator's research question starts automatically, and "Look this up" on a fact in dispute starts another. The job reads the project folder of the pond you pick for the conversation. Without a pond, it uses the web only. Ducks see finished research in later turns.
+- **Research** answers one factual question with a read-only Claude Code job on the Claude subscription through the gateway (Opus, high effort). It uses the web and nothing else. Mediator's research question starts automatically, and "Look this up" on a fact in dispute starts another. Ducks see finished research in later turns.
 - **Ask one duck** from the To menu and you get a plain reply with no rounds.
 - **Decisions** you save stay in the rail, and every duck reads them in later turns. A question with a saved decision folds to one line. Ducks see earlier questions as briefs, decisions, research, and their own replies, not every past reply, so prompts stay short in long conversations.
 
@@ -43,7 +43,7 @@ The panel needs `DUCKPOND_AI_GATEWAY_URL` and `DUCKPOND_AI_GATEWAY_KEY`. See [AI
 
 The `Dockerfile` builds the app with the `claude` and `codex` commands installed. Pushes to `main` publish `ghcr.io/apocdev/duckpond:latest`. The container listens on port 3998 and keeps everything under `/data`: the database and outfits in `/data/duckpond`, and Claude and Codex session files in `/data/home`. It has no local logins, so set the [AI gateway](#ai-gateway) variables and `DUCKPOND_ALLOWED_HOSTS`.
 
-Codex runs commands in a `bwrap` sandbox, which needs user namespaces. Default container seccomp and AppArmor profiles block them, so run the container with both unconfined (`--security-opt seccomp=unconfined --security-opt apparmor=unconfined` in Docker). Ponds need folders inside the container.
+Codex runs commands in a `bwrap` sandbox, which needs user namespaces. Default container seccomp and AppArmor profiles block them, so run the container with both unconfined (`--security-opt seccomp=unconfined --security-opt apparmor=unconfined` in Docker).
 
 ## Remote access
 
@@ -63,7 +63,7 @@ tailscale serve --https=3998 off
 
 ## How it works
 
-- A **pond** is a project folder plus the ducks new conversations start with. **General** is the pond with no folder.
+- A **pond** groups conversations about one project. They share its notes and start with its ducks. **General** holds conversations outside any pond.
 - A **conversation** is one thread with its own copy of its ducks and its own shared notes. It also reads its pond's notes.
 - A **duck** is a persona with a provider, model, reasoning level, and outfit.
 - **Mediator** hosts every conversation. It is always available and isn't part of the roster.
@@ -89,7 +89,7 @@ A duck that has nothing relevant to add replies `PASS`. The duck you pick in To 
 
 ### Shared notes
 
-**Notes** in the header holds text every duck reads before it replies. In a pond it has two parts: **This pond**, which every conversation in the pond reads, and **This conversation**. Pond notes live in the pond's folder as `.duckpond/notes.md`, so you can edit or commit them like the duck files. **Save notes** saves whichever part changed and shows "Saved". Closing the panel or switching conversations keeps unsaved edits for when you come back.
+**Notes** in the header holds text every duck reads before it replies. In a pond it has two parts: **This pond**, which every conversation in the pond reads, and **This conversation**. **Save notes** saves whichever part changed and shows "Saved". Closing the panel or switching conversations keeps unsaved edits for when you come back.
 
 **Summarize** in the header asks Mediator to recap where things landed, what's still disagreed, and the one question worth answering next. The recap appears in the conversation without changing who you're talking to, after a line that says you asked for it. Hovering it says why it's unavailable before the first message or while replies run. Every Mediator report, including recaps, has **Add to notes** and, in a pond, **Add to pond notes**. Each appends the report and saves (the button then reads "Saved to notes"); if the panel holds unsaved edits, the added text joins them.
 
@@ -99,12 +99,12 @@ A duck that has nothing relevant to add replies `PASS`. The duck you pick in To 
 
 **Add a duck** at the top of the list has four options:
 
-- **Suggest** reads this whole conversation, including stopped requests, and its notes, then proposes up to five missing perspectives, each with a reason. A single suggestion comes pre-selected. It needs a message or notes first; until then Add a duck opens on Describe. In pond settings it reads the pond's docs and code instead, in a read-only sandbox.
+- **Suggest** reads this whole conversation, including stopped requests, and its notes, then proposes up to five missing perspectives, each with a reason. A single suggestion comes pre-selected. It needs a message or notes first; until then Add a duck opens on Describe. In pond settings it reads the pond's notes instead.
 - **Describe** turns a short description into a full persona you can edit before adding.
 - **Reuse** copies ducks from your other conversations and pond defaults. Each persona appears once, with where it's from, such as "Shelf storage plan in Shelf"; ducks already in the list are left out.
 - **Write your own** adds a blank duck for you to fill in.
 
-Suggestions use GPT-5.6-Sol with Medium reasoning in one read-only Codex call. They never change the conversation. Requests can be cancelled and time out after two minutes (three for workspace inspection). Added ducks start with the first duck's provider and model.
+Suggestions use GPT-5.6-Sol with Medium reasoning in one read-only Codex call. They never change the conversation. Requests can be cancelled and time out after two minutes. Added ducks start with the first duck's provider and model.
 
 **Draw a custom outfit…** in a duck's editor opens a generator that makes a custom duck picture with Codex image generation. It needs the conversation to be saved once. You can close the dialog while it draws.
 
@@ -112,11 +112,11 @@ Personas define a priority, temperament, limits, and what would change their min
 
 ### Ponds
 
-Pick a pond in the sidebar. **New pond…** at the bottom of that list creates a pond in an existing absolute folder, or opens the pond already saved there. Its name defaults to the folder's name. **Starting ducks** picks the default ducks or a copy of another pond's. The pond's folder shows under the picker in short form, such as `~/code/shelf`, next to **Pond settings**, which opens its name and the ducks new conversations start with. **New conversation** starts with the pond's defaults. Existing conversations keep their own ducks. Use a conversation's **⋯** menu in the sidebar to rename it, move it to another pond, or delete it; moving keeps its messages and ducks, and later replies run in the new pond's folder. A search box appears above the list once a pond has more than six conversations.
+Pick a pond in the sidebar. **New pond…** at the bottom of that list creates one with a name and **Starting ducks**: the default ducks or a copy of another pond's. **Pond settings** under the picker opens its name and the ducks new conversations start with. **New conversation** starts with the pond's defaults. Existing conversations keep their own ducks. Use a conversation's **⋯** menu in the sidebar to rename it, move it to another pond, or delete it; moving keeps its messages and ducks. A search box appears above the list once a pond has more than six conversations.
 
-The folder holds `.duckpond/pond.json` with the pond's ID, name, and duck settings, `.duckpond/ducks/<duck-id>.md` with each persona, and `.duckpond/notes.md` with the pond's notes once you save some. You can edit and commit these files. Duckpond reads them when you open pond defaults or start a conversation, and rejects a stale save if they changed meanwhile. A missing or malformed file marks the pond unavailable instead of silently using built-in ducks.
+Ponds live in the database. Saving pond settings fails if someone else saved them after you opened the editor, so two open editors can't overwrite each other.
 
-All ducks, Mediator, and suggestions run with the pond's folder as their working directory. Claude loads user, project, and local settings. Codex starts its App Server in that folder. Project instructions, skills, MCP configuration, trust, and permissions follow each provider's own rules; Duckpond doesn't create or change those files. General uses `DUCKPOND_AGENT_CWD` when set, otherwise `.data/agent`.
+Every duck, Mediator, and suggestion runs in `DUCKPOND_AGENT_CWD` when set, otherwise `.data/agent`. Claude loads user, project, and local settings from there, and Codex starts its App Server there.
 
 Conversations are saved when you send a message, save notes, or save ducks. An empty conversation you never touched disappears when you leave it. Drafts and your To choice stay in this browser.
 
@@ -154,7 +154,7 @@ Conversations, settings, notes, and completed or stopped responses are stored in
 
 Claude uses `ai-sdk-provider-claude-code` with the Vercel AI SDK. Codex uses its local App Server protocol; AI SDK's UI stream carries both providers' updates.
 
-Ducks retain native tools, skills, and MCP configuration. In a pond, each duck is told that the pond folder is its working folder and the project being discussed. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests show the reason, the command or the file a file tool wants (paths that may be outside the project folder are pointed out, including ones built from variables like `$TMPDIR`), the text a write would put there or the lines an edit removes and adds, and the project directory, with raw provider data under Technical details. Allow once approves one request. For a file edit inside the project folder, **Allow edits this turn** lets that duck change files there without asking again until it replies; nothing is saved. A declined duck is told not to ask for the same thing again that turn. Always allow here saves the exact command, directory, provider, and requested access for future requests from any duck. Different commands, projects, providers, or requested privileges require another approval. Saved command permissions persist across restarts and can be revoked in Settings. Revoking affects future requests, not already-running commands. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported yet.
+Ducks retain native tools, skills, and MCP configuration. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests show the reason, the command or the file a file tool wants (paths that may be outside the working folder are pointed out, including ones built from variables like `$TMPDIR`), the text a write would put there or the lines an edit removes and adds, and the project directory, with raw provider data under Technical details. Allow once approves one request. For a file edit inside the working folder, **Allow edits this turn** lets that duck change files there without asking again until it replies; nothing is saved. A declined duck is told not to ask for the same thing again that turn. Always allow here saves the exact command, directory, provider, and requested access for future requests from any duck. Different commands, projects, providers, or requested privileges require another approval. Saved command permissions persist across restarts and can be revoked in Settings. Revoking affects future requests, not already-running commands. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported yet.
 
 ### AI gateway
 

@@ -14,8 +14,6 @@ const DuckColors = createContext(new Map<string, string>());
 const Retry = createContext<((messageId: string) => void) | undefined>(undefined);
 /** Runs Summarize, offered when a Mediator turn stopped before its report. */
 const SumUp = createContext<(() => void) | undefined>(undefined);
-/** The pond's folder, so changed files show as paths inside it. */
-const Workspace = createContext<string | undefined>(undefined);
 type NotesTarget = { notes: string; add: (text: string) => Promise<void> };
 /** The conversation's notes, and the pond's when it has one, so reports can be added to them. */
 const Notes = createContext<{ conversation?: NotesTarget; pond?: NotesTarget }>({});
@@ -29,12 +27,10 @@ export const ConversationMessages = memo(function ConversationMessages({
   onSumUp,
   onAddToNotes,
   pondNotes,
-  workspace,
 }: {
   messages: Message[];
   ducks: Duck[];
   notes: string;
-  workspace?: string;
   onRetry?: (messageId: string) => void;
   onSumUp?: () => void;
   onAddToNotes: (text: string) => Promise<void>;
@@ -68,34 +64,32 @@ export const ConversationMessages = memo(function ConversationMessages({
     messages.filter((message) => message.text === summaryRequest).map((message) => message.id),
   );
   return (
-    <Workspace.Provider value={workspace}>
-      <Notes.Provider value={notesValue}>
-        <Retry.Provider value={onRetry}>
-          <SumUp.Provider value={onSumUp}>
-            <DuckColors.Provider value={colors}>
-              <DuckNames.Provider value={names}>
-                {groups.map((group, index) =>
-                  group.kind === "message" ? (
-                    <ChatMessage
-                      key={group.id}
-                      message={group.message}
-                      canSumUp={!summaries.has(asked[index] ?? "")}
-                      roundChanges={isReport(group) ? roundChanges(groups[index - 1]) : undefined}
-                    />
-                  ) : (
-                    <ReplyRound
-                      key={group.id}
-                      messages={group.messages}
-                      reported={isReport(groups[index + 1])}
-                    />
-                  ),
-                )}
-              </DuckNames.Provider>
-            </DuckColors.Provider>
-          </SumUp.Provider>
-        </Retry.Provider>
-      </Notes.Provider>
-    </Workspace.Provider>
+    <Notes.Provider value={notesValue}>
+      <Retry.Provider value={onRetry}>
+        <SumUp.Provider value={onSumUp}>
+          <DuckColors.Provider value={colors}>
+            <DuckNames.Provider value={names}>
+              {groups.map((group, index) =>
+                group.kind === "message" ? (
+                  <ChatMessage
+                    key={group.id}
+                    message={group.message}
+                    canSumUp={!summaries.has(asked[index] ?? "")}
+                    roundChanges={isReport(group) ? roundChanges(groups[index - 1]) : undefined}
+                  />
+                ) : (
+                  <ReplyRound
+                    key={group.id}
+                    messages={group.messages}
+                    reported={isReport(groups[index + 1])}
+                  />
+                ),
+              )}
+            </DuckNames.Provider>
+          </DuckColors.Provider>
+        </SumUp.Provider>
+      </Retry.Provider>
+    </Notes.Provider>
   );
 });
 
@@ -508,18 +502,12 @@ const ChatMessage = memo(function ChatMessage({
 
 /** Files a reply changed. Each opens to the lines it removed and added. */
 function ChangedFiles({ changes }: { changes: NonNullable<Message["changes"]> }) {
-  const workspace = useContext(Workspace);
   return (
     <div className="changed-files">
       {changes.map((change) => (
         <details key={change.path}>
           <summary>
-            <FileText size={13} aria-hidden /> Changed{" "}
-            <code>
-              {workspace && change.path.startsWith(`${workspace}/`)
-                ? change.path.slice(workspace.length + 1)
-                : change.path}
-            </code>
+            <FileText size={13} aria-hidden /> Changed <code>{change.path}</code>
           </summary>
           {change.diff && (
             <pre className="diff">

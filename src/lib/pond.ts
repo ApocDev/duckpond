@@ -1,18 +1,14 @@
 import { z } from "zod";
-import { duckSchema, ducksSchema } from "./room";
+import { ducksSchema } from "./room";
 
-export const pondManifestSchema = z.object({
+/** A named group of conversations with shared notes and the ducks new conversations start with. */
+export const pondSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(80),
-  ducks: z.array(duckSchema.omit({ instructions: true })).min(1),
-});
-export const pondSchema = z.object({
-  id: pondManifestSchema.shape.id,
-  name: pondManifestSchema.shape.name,
-  workspace: z.string().min(1),
   ducks: ducksSchema,
-  /** Notes every duck reads in every conversation in this pond, from `.duckpond/notes.md`. */
+  /** Notes every duck reads in every conversation in this pond. */
   notes: z.string().max(20000).default(""),
+  /** Changes on every save of the name or ducks, so two editors can't overwrite each other. */
   revision: z.string(),
 });
 export type Pond = z.infer<typeof pondSchema>;

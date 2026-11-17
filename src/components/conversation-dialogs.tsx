@@ -75,7 +75,7 @@ export function MoveDialog({
   onClose,
 }: {
   room: Room;
-  ponds: { id: string; name: string; error: string | null }[];
+  ponds: { id: string; name: string }[];
   onMove: (pondId: string | null) => Promise<void>;
   onClose: () => void;
 }) {
@@ -119,7 +119,7 @@ export function MoveDialog({
           disabled={saving}
           options={[
             { value: "", label: "General" },
-            ...ponds.map((pond) => ({ value: pond.id, label: pond.name, disabled: !!pond.error })),
+            ...ponds.map((pond) => ({ value: pond.id, label: pond.name })),
           ]}
           onChange={setSelected}
         />

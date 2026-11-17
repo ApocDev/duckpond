@@ -16,7 +16,6 @@ import {
   savePanel,
 } from "./panel-store.server";
 import { activeTurns, recoverPanel, runTurn, startResearch, stopPanel } from "./panel.server";
-import { listPonds } from "./ponds.server";
 
 const allowed = () => requireAllowedRequest(getRequest());
 const id = z.string().uuid();
@@ -26,7 +25,7 @@ function loadPanel(panelId: string) {
   return recoverPanel(panel) ? savePanel(panel) : panel;
 }
 
-/** Everything the panel page needs on load: conversations, the duck library, and ponds. */
+/** Everything the panel page needs on load: conversations and the duck library. */
 export const loadPanelApp = createServerFn({ method: "GET" }).handler(() => {
   allowed();
   return {
@@ -37,9 +36,6 @@ export const loadPanelApp = createServerFn({ method: "GET" }).handler(() => {
       running: activeTurns.has(panel.id),
     })),
     ducks: listDucks(),
-    ponds: listPonds()
-      .filter((pond) => !pond.error)
-      .map((pond) => ({ id: pond.id, name: pond.name })),
     hasKey: hasGateway(),
   };
 });
@@ -52,13 +48,12 @@ export const fetchPanel = createServerFn({ method: "GET" })
   });
 
 export const createPanel = createServerFn({ method: "POST" })
-  .validator(z.object({ duckIds: z.array(z.string()).min(1), pondId: id.optional() }))
+  .validator(z.object({ duckIds: z.array(z.string()).min(1) }))
   .handler(({ data }) => {
     allowed();
     return savePanel({
       id: crypto.randomUUID(),
       title: "New conversation",
-      pondId: data.pondId,
       duckIds: data.duckIds,
       turns: [],
       decisions: [],
@@ -71,7 +66,6 @@ export const updatePanel = createServerFn({ method: "POST" })
     z.object({
       id,
       duckIds: z.array(z.string()).min(1).optional(),
-      pondId: id.nullable().optional(),
       title: z.string().trim().min(1).max(80).optional(),
     }),
   )
@@ -79,7 +73,6 @@ export const updatePanel = createServerFn({ method: "POST" })
     allowed();
     return mutatePanel(data.id, (panel) => {
       if (data.duckIds) panel.duckIds = data.duckIds;
-      if (data.pondId !== undefined) panel.pondId = data.pondId ?? undefined;
       if (data.title) panel.title = data.title;
     });
   });

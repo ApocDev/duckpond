@@ -11,16 +11,14 @@ type Method = "suggest" | "describe" | "reuse" | "write";
 type Persona = Pick<Duck, "name" | "instructions">;
 
 /**
- * Ways to add ducks to a roster draft: AI suggestions from the conversation or workspace, a
+ * Ways to add ducks to a roster draft: AI suggestions from the conversation or notes, a
  * persona written from a description, copies of ducks from other conversations, or one you write
  * yourself. Without a conversation to read, Suggest moves to the end and Reuse opens first.
  */
 export function AddDucks({
   ducks,
   roomId,
-  pondId,
   notes,
-  workspace,
   hasContext,
   modelName,
   onAdd,
@@ -29,10 +27,7 @@ export function AddDucks({
   /** The catalog's name for a duck's model, so lists match the duck editor. */
   modelName: (duck: Duck) => string | undefined;
   roomId?: string;
-  pondId?: string;
   notes: string;
-  /** Suggest from the pond's files instead of the conversation. */
-  workspace: boolean;
   /** Suggestions read the conversation or notes, so they need one of them first. */
   hasContext: boolean;
   onAdd: (ducks: Duck[]) => void;
@@ -82,9 +77,7 @@ export function AddDucks({
         <Suggest
           ducks={ducks}
           roomId={roomId}
-          pondId={pondId}
           notes={notes}
-          workspace={workspace}
           hasContext={hasContext}
           onAdd={(personas) => onAdd(personas.map((persona) => fromPersona(persona, ducks)))}
         />
@@ -93,7 +86,6 @@ export function AddDucks({
         <Describe
           ducks={ducks}
           roomId={roomId}
-          pondId={pondId}
           notes={notes}
           onAdd={(persona) => onAdd([fromPersona(persona, ducks)])}
         />
@@ -162,17 +154,13 @@ function useSuggestion() {
 function Suggest({
   ducks,
   roomId,
-  pondId,
   notes,
-  workspace,
   hasContext,
   onAdd,
 }: {
   ducks: Duck[];
   roomId?: string;
-  pondId?: string;
   notes: string;
-  workspace: boolean;
   hasContext: boolean;
   onAdd: (personas: Persona[]) => void;
 }) {
@@ -182,11 +170,9 @@ function Suggest({
   const seen = useRef<string[]>([]);
   async function suggest() {
     const value = await suggestion.run({
-      roomId: workspace ? undefined : roomId,
-      pondId,
+      roomId,
       ducks,
       notes,
-      inspectWorkspace: workspace,
       previouslySuggestedNames: seen.current,
     });
     if (!value) return;
@@ -200,11 +186,9 @@ function Suggest({
   return (
     <div className="add-ducks-body">
       <p className="field-hint">
-        {workspace
-          ? "Reads this pond's docs and code and proposes up to five ducks that would help here."
-          : hasContext
-            ? "Reads the whole conversation, including stopped requests, and its notes, then proposes up to five perspectives it's missing."
-            : "Suggestions read the conversation, so there's nothing to go on yet. Send a message or add notes first, or use Describe."}
+        {hasContext
+          ? "Reads the whole conversation, including stopped requests, and its notes, then proposes up to five perspectives it's missing."
+          : "Suggestions read the conversation, so there's nothing to go on yet. Send a message or add notes first, or use Describe."}
       </p>
       <div className="row">
         <button
@@ -216,13 +200,11 @@ function Suggest({
           <Lightbulb size={15} />
           {suggestion.running ? (
             <>
-              {workspace ? "Reading the workspace…" : "Thinking of ducks…"}{" "}
+              Thinking of ducks…
               <Elapsed since={suggestion.startedAt} />
             </>
           ) : result ? (
             "Suggest more"
-          ) : workspace ? (
-            "Suggest from the pond's files"
           ) : (
             "Suggest from this conversation"
           )}
@@ -282,13 +264,11 @@ function Suggest({
 function Describe({
   ducks,
   roomId,
-  pondId,
   notes,
   onAdd,
 }: {
   ducks: Duck[];
   roomId?: string;
-  pondId?: string;
   notes: string;
   onAdd: (persona: Persona) => void;
 }) {
@@ -296,7 +276,7 @@ function Describe({
   const [idea, setIdea] = useState("");
   const [persona, setPersona] = useState<Persona>();
   async function write() {
-    const value = await suggestion.run({ roomId, pondId, ducks, notes, idea: idea.trim() });
+    const value = await suggestion.run({ roomId, ducks, notes, idea: idea.trim() });
     if (value?.suggestions[0]) setPersona(value.suggestions[0]);
   }
   return (
