@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { z } from "zod";
+import { codexGatewayArgs } from "./gateway.server";
 
 const packetSchema = z.object({
   id: z.union([z.string(), z.number()]).optional(),
@@ -16,8 +17,10 @@ export function connectCodex(
   cwd: string,
   signal: AbortSignal,
   onPacket: (packet: CodexPacket) => void | Promise<void> = () => {},
+  /** Conversation ID for the gateway's archive. */
+  session?: string,
 ) {
-  const child = spawn("codex", ["app-server"], {
+  const child = spawn("codex", ["app-server", ...codexGatewayArgs(session)], {
     cwd,
     env: { ...process.env, OPENAI_API_KEY: undefined, CODEX_API_KEY: undefined },
     stdio: ["pipe", "pipe", "pipe"],

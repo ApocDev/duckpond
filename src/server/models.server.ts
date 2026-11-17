@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Duck } from "../lib/room";
 import type { ModelCatalog, ProviderModel } from "../lib/models";
 import { connectCodex } from "./codex-client.server";
+import { claudeEnv } from "./gateway.server";
 import { getAgentDirectory, claudeExecutable } from "./providers.server";
 
 const codexPage = z.object({
@@ -64,7 +65,7 @@ async function claudeModels(): Promise<ProviderModel[]> {
         pathToClaudeCodeExecutable: await claudeExecutable(),
         settingSources: ["user", "project", "local"],
         abortController: controller,
-        env: { ...process.env, ANTHROPIC_API_KEY: undefined, ANTHROPIC_AUTH_TOKEN: undefined },
+        env: claudeEnv(),
       },
     });
     return (await session.supportedModels()).map((model) => ({

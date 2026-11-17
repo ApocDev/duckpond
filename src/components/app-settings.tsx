@@ -27,8 +27,9 @@ export function AppSettings({ status, onClose }: { status: Connection[]; onClose
       <section className="settings-section">
         <h3>Providers</h3>
         <p className="field-hint">
-          Ducks run on your Claude and Codex subscriptions through their command-line tools on this
-          machine. Sign in with each tool directly; Duckpond stores no API keys.
+          {status.some((item) => item.gateway)
+            ? "Ducks run on your Claude and Codex subscriptions through the AI gateway."
+            : "Ducks run on your Claude and Codex subscriptions through their command-line tools on this machine. Sign in with each tool directly; Duckpond stores no API keys."}
         </p>
         {(["claude", "codex"] as const).map((provider) => {
           const connection = status.find((item) => item.provider === provider);
@@ -39,9 +40,11 @@ export function AppSettings({ status, onClose }: { status: Connection[]; onClose
               <span className="muted">
                 {!connection
                   ? "Checking…"
-                  : connection.connected
-                    ? "Signed in"
-                    : `Sign-in needed: run ${provider} in a terminal`}
+                  : connection.gateway
+                    ? "Through the AI gateway"
+                    : connection.connected
+                      ? "Signed in"
+                      : `Sign-in needed: run ${provider} in a terminal`}
               </span>
             </div>
           );

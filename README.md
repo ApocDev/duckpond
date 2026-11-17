@@ -37,7 +37,13 @@ vp run start
 - **Ask one duck** from the To menu and you get a plain reply with no rounds.
 - **Decisions** you save stay in the rail, and every duck reads them in later turns. A question with a saved decision folds to one line. Ducks see earlier questions as briefs, decisions, research, and their own replies, not every past reply, so prompts stay short in long conversations.
 
-Set `DUCKPOND_AI_GATEWAY_URL` and `DUCKPOND_AI_GATEWAY_KEY` in `.env`. The dev server and the production start script both read them. Every call sends `x-ai-app: duckpond` and `x-ai-session: <conversation ID>`, so the gateway's archive groups usage by conversation.
+The panel needs `DUCKPOND_AI_GATEWAY_URL` and `DUCKPOND_AI_GATEWAY_KEY`. See [AI gateway](#ai-gateway).
+
+## Container
+
+The `Dockerfile` builds the app with the `claude` and `codex` commands installed. Pushes to `main` publish `ghcr.io/apocdev/duckpond:latest`. The container listens on port 3998 and keeps everything under `/data`: the database and outfits in `/data/duckpond`, and Claude and Codex session files in `/data/home`. It has no local logins, so set the [AI gateway](#ai-gateway) variables and `DUCKPOND_ALLOWED_HOSTS`.
+
+Codex runs commands in a `bwrap` sandbox, which needs user namespaces. Default container seccomp and AppArmor profiles block them, so run the container with both unconfined (`--security-opt seccomp=unconfined --security-opt apparmor=unconfined` in Docker). Ponds need folders inside the container.
 
 ## Remote access
 
@@ -150,6 +156,10 @@ Claude uses `ai-sdk-provider-claude-code` with the Vercel AI SDK. Codex uses its
 
 Ducks retain native tools, skills, and MCP configuration. In a pond, each duck is told that the pond folder is its working folder and the project being discussed. Claude loads user, project, and local settings. Codex loads its normal configuration. Tool approval requests show the reason, the command or the file a file tool wants (paths that may be outside the project folder are pointed out, including ones built from variables like `$TMPDIR`), the text a write would put there or the lines an edit removes and adds, and the project directory, with raw provider data under Technical details. Allow once approves one request. For a file edit inside the project folder, **Allow edits this turn** lets that duck change files there without asking again until it replies; nothing is saved. A declined duck is told not to ask for the same thing again that turn. Always allow here saves the exact command, directory, provider, and requested access for future requests from any duck. Different commands, projects, providers, or requested privileges require another approval. Saved command permissions persist across restarts and can be revoked in Settings. Revoking affects future requests, not already-running commands. Standard question and MCP form requests render input controls; more complex provider dialogs are not fully supported yet.
 
+### AI gateway
+
+Set `DUCKPOND_AI_GATEWAY_URL` (no trailing slash or `/v1`) and `DUCKPOND_AI_GATEWAY_KEY` in `.env` to send every model call through an AI gateway with LiteLLM at `/v1` and CLIProxyAPI at `/subscriptions/v1`. Claude and Codex ducks then run on the subscriptions behind CLIProxyAPI instead of this machine's logins, and Settings shows them as "Through the AI gateway". Every call sends `x-ai-app: duckpond`. Duck replies, Mediator, and the panel also send `x-ai-session: <conversation ID>`, so the gateway's archive groups usage by conversation. Without these settings, Claude and Codex use the local logins.
+
 `DUCKPOND_AGENT_CWD` selects the working directory for both providers and their project-specific tools/settings. The default is `.data/agent`. Set it to a project directory when you want that project's configuration. `DUCKPOND_CLAUDE_BIN` can specify an absolute Claude executable path for a bundled build.
 
 Each conversation keeps one native provider session per duck, plus one for Mediator's discussions and one for its summaries. Claude resumes its saved session ID; Codex resumes its saved thread across App Server connections. SQLite stores the IDs and delivered-message hashes. Native conversation files stay in the providers' local storage, so back those up alongside Duckpond's database.
@@ -190,7 +200,7 @@ The UI uses the base duck and four outfits in `public/brand/`. Their source artw
 
 ## Draw an outfit
 
-Open Ducks, expand a duck, and choose Draw outfit. Enter a hat and clothing description, or leave it blank for Codex to choose from the duck's perspective. The generator uses Sol 5.6 Medium with the native imagegen skill and `design/duck-avatars/v1/base.png`. It does not use an API-key fallback. Native image generation must be available in the signed-in Codex account.
+Open Ducks, expand a duck, and choose Draw outfit. Enter a hat and clothing description, or leave it blank for Codex to choose from the duck's perspective. The generator uses Sol 5.6 Medium with the native imagegen skill and `design/duck-avatars/v1/base.png`. It does not use an API-key fallback. Native image generation must be available in the signed-in Codex account. Codex only offers it with its own ChatGPT login, so drawing fails when Codex runs through the AI gateway.
 
 Generation continues when settings or the browser tab closes. Reopening the duck shows a drawing that is still running or finished but not yet used. Choose Use outfit, then Save. Existing replies keep their original outfit. Only one outfit generates at a time. If the generated PNG is opaque, the same session attempts one background correction using the supplied cleanup prompt. Both turns count toward usage. An outfit must contain actual transparent pixels before it is offered for use. A server restart interrupts an unfinished generation and shows an error so you can try again.
 

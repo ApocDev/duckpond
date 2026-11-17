@@ -13,6 +13,7 @@ import { dataDirectory } from "./store.server";
 import { questionFields, mcpFields } from "../lib/approval";
 import { askApproval } from "./approvals.server";
 import { codexReply } from "./codex.server";
+import { claudeEnv, hasGateway } from "./gateway.server";
 import { prepareReply, claudeUsage, type ReplyContext, type TokenUsage } from "./sessions.server";
 import { callRoomTool, type RoomTools } from "./room-tools.server";
 
@@ -50,6 +51,13 @@ export async function claudeExecutable() {
 }
 
 export async function providerStatus() {
+  // With the gateway configured, both providers run through it instead of this machine's logins.
+  if (hasGateway())
+    return (["claude", "codex"] as const).map((provider) => ({
+      provider,
+      connected: true,
+      gateway: true,
+    }));
   const statuses = await Promise.all(
     (["claude", "codex"] as const).map(async (provider) => {
       try {
@@ -64,9 +72,9 @@ export async function providerStatus() {
                 .object({ loggedIn: z.boolean(), authMethod: z.string().optional() })
                 .parse(JSON.parse(result.stdout)).authMethod === "claude.ai"
             : /logged in using chatgpt/i.test(result.stdout + result.stderr);
-        return { provider, connected };
+        return { provider, connected, gateway: false };
       } catch {
-        return { provider, connected: false };
+        return { provider, connected: false, gateway: false };
       }
     }),
   );
@@ -105,6 +113,7 @@ export async function reply(
         onText,
         roomTools,
         session.native,
+        context?.roomId,
       );
       status = "complete";
       return;
@@ -214,7 +223,7 @@ export async function reply(
               }
             : { action: "decline" };
         },
-        env: { ...process.env, ANTHROPIC_API_KEY: undefined, ANTHROPIC_AUTH_TOKEN: undefined },
+        env: claudeEnv(context?.roomId),
         canUseTool: async (name, input) => {
           if (roomTools?.definitions.some((definition) => name === `mcp__room__${definition.name}`))
             return { behavior: "allow", updatedInput: input };

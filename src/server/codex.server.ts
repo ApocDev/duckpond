@@ -25,11 +25,12 @@ export async function codexReply(
   onText: (text: string) => void,
   roomTools?: RoomTools,
   session?: NativeSession,
+  roomId?: string,
 ) {
   const usage = codexUsageTracker((tokens) => session?.usage(tokens));
   const completion = Promise.withResolvers<void>();
   void completion.promise.catch(() => {});
-  const client = connectCodex(cwd, signal, handle);
+  const client = connectCodex(cwd, signal, handle, roomId);
   const { request, send } = client;
   const receivedText = new Set<string>();
   let lastTextItem: string | undefined;

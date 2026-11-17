@@ -18,7 +18,7 @@ import {
   type PanelDuck,
   type Reply,
 } from "../lib/panel";
-import { chat, claudeGatewayEnv } from "./gateway.server";
+import { chat, claudeEnv } from "./gateway.server";
 import { getPanel, listDucks, mutatePanel } from "./panel-store.server";
 import { getPond } from "./ponds.server";
 import { claudeExecutable } from "./providers.server";
@@ -258,7 +258,7 @@ export function startResearch(panelId: string, turnId: string, question: string)
           persistSession: false,
           cwd,
           abortController: controller,
-          env: claudeGatewayEnv(panelId),
+          env: claudeEnv(panelId),
           pathToClaudeCodeExecutable: await claudeExecutable(),
         },
       })) {
